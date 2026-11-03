@@ -52,6 +52,7 @@ Mkfile.old
 dkms.conf
 
 # Local Executables
-ac
+acUDP
+acTCP
 rsecFrmTest
 acTest

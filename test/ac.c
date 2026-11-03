@@ -280,7 +280,8 @@
  *                    position can leave (recMax, printed); declared,
  *                    the judge expects some record let go
  *     -u bytes       each seat's blob (default 200; 0 is a message)
- *     -F bytes       the datagram (default 508, IPv4 fragment-free)
+ *     -F bytes       the datagram (default 1232, IPv6's least MTU less
+ *                    its headers)
  *     -H hash        the sign role: rmd128 (default), sha256, sha3256
  *                    or sha3512
  *     -k hash        the kdf and wire-MAC role: rmd160 (default),
@@ -2095,7 +2096,7 @@ main(
   Kdf = &Suites[1];
   Abandon = 0;                          /* the harness's own declaration, after the patience */
   MlsS = 2;
-  DgramMax = 508;
+  DgramMax = 1232;
   Knobs.parity = -1;
   Knobs.shardDelayUs = -1;
   reboot = rebooted = wasDead = 0;
@@ -4182,7 +4183,7 @@ usage:
     "  -u  each seat's blob in bytes (default 200)\n"
     "  -s  2^s one-time signings a signing context, the first its rotation (1..8, default 2)\n"
     "  -P  phases an agreement may run, 1..85, in place of the byte's 85\n"
-    "  -F  datagram bytes (default 508); -H sign hash; -k kdf hash\n");
+    "  -F  datagram bytes (default 1232); -H sign hash; -k kdf hash\n");
   fprintf(stderr,
     "  -T  the directed links over time: ms=pairs phases split by '/', ab the link a to b, '*' all\n"
     "  -x  seat N-1's ingress, and its egress unless -X, is cut for this many ticks from the go\n"

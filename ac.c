@@ -7681,10 +7681,10 @@ derive(
   mlsHsh_t pl;
   mlsCtx_t v;
 
-  /* a zero takes the default: the datagram 508 bytes, 16 MiB of
-   * retention, 4 signings a context */
+  /* a zero takes the default: the datagram 1232 bytes (IPv6's least
+   * MTU less its headers), 16 MiB of retention, 4 signings a context */
   if (!DgramMax)
-    DgramMax = 508;
+    DgramMax = 1232;
   if (!Retention)
     Retention = 16UL << 20;
   if (!MlsS)

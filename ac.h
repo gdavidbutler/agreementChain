@@ -230,7 +230,8 @@ struct acPar {
   unsigned int  n;                      /* seats, 3..AC_SEATS */
   unsigned int  t;                      /* seats that may be Byzantine, n > 3t */
   unsigned int  self;                   /* this seat, 0..n-1 */
-  unsigned int  dgramMax;               /* the datagram, bytes; 0 for 508, IPv4 fragment-free */
+  unsigned int  dgramMax;               /* the datagram, bytes; 0 for 1232,
+                                         * IPv6's least MTU less its headers */
   unsigned int  mlsS;                   /* 2^mlsS one-time signings a context,
                                          * the first its rotation, 1..8; 0 for 2 */
   /* derived from here on */

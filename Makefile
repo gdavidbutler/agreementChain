@@ -19,21 +19,24 @@ EXOBJ = $(RMD128)/rmd128.o $(RMD160)/rmd160.o
 TESTINC = $(EXINC) -I$(SHA256) -I$(SHA3)
 TESTOBJ = $(EXOBJ) $(SHA256)/sha256.o $(SHA3)/sha3256.o $(SHA3)/sha3512.o
 
-all: ac.o ac
+all: ac.o acUDP acTCP
 
 clean:
 	rm -f ac.o acTest.o rsecFrm.o halfsiphash.o
 
 clobber: clean
-	rm -f ac acTest rsecFrmTest
+	rm -f acUDP acTCP acTest rsecFrmTest
 
 # the library: one seat
 ac.o: ac.c ac.h acTest.h rsecFrm.h halfsiphash.h $(ABAP)/bracha87Fig1.h $(ABAP)/bkr94acs.h
 	$(CC) $(CFLAGS) $(LIBINC) -c ac.c
 
-# the example: an operator launching N seats as processes
-ac: example/ac.c ac.h ac.o $(SEATOBJ) $(EXOBJ)
-	$(CC) $(CFLAGS) $(EXINC) -o ac example/ac.c ac.o $(SEATOBJ) $(EXOBJ)
+# the examples: an operator launching N seats as processes, over UDP and over TCP
+acUDP: example/acUDP.c ac.h ac.o $(SEATOBJ) $(EXOBJ)
+	$(CC) $(CFLAGS) $(EXINC) -o acUDP example/acUDP.c ac.o $(SEATOBJ) $(EXOBJ)
+
+acTCP: example/acTCP.c ac.h ac.o $(SEATOBJ) $(EXOBJ)
+	$(CC) $(CFLAGS) $(EXINC) -o acTCP example/acTCP.c ac.o $(SEATOBJ) $(EXOBJ)
 
 rsecFrm.o: rsecFrm.c rsecFrm.h $(RSEC)/rsec.h
 	$(CC) $(CFLAGS) -I$(RSEC) -c rsecFrm.c
@@ -80,14 +83,15 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -r 950 -y 0 -Q 5 -G 42080 -A 22 -n 16 4 1
 # the frozen seat at seven seats
 	./acTest -W 2857142 -r 3530 -y 0 -Q 6 -G 42080 -n 18 7 1
-# a retention small enough to wrap under loss
-	./acTest -W 2500000 -D 10 -n 30 -A 45 -M 250000 4 1
-# a seat recovering across the retention's wrap
-	./acTest -W 2500000 -D 10 -x 320 -n 30 -A 152 -M 250000 4 1
+# a retention small enough to wrap under loss, at -F 508 so its parts
+# span shards enough to carry parity
+	./acTest -W 2500000 -D 10 -n 30 -A 45 -M 250000 -F 508 4 1
+# a seat recovering across the retention's wrap, at -F 508 as above
+	./acTest -W 2500000 -D 10 -x 320 -n 30 -A 152 -M 250000 -F 508 4 1
 # a seat cut past the retention itself: partitioned, read from the reports
 	./acTest -W 2500000 -r 950 -x 250 -n 18 -A 22 -M 234743 -u 2000 -c 400 4 1
-# loss in bursts
-	./acTest -W 2500000 -D 5 -B 200 -n 10 4 1
+# loss in bursts, at -F 508 so a burst leaves trains part arrived
+	./acTest -W 2500000 -D 5 -B 200 -F 508 -n 10 4 1
 # the whole network dark from the go
 	./acTest -W 2500000 -Y -x 12 4 1
 # the whole network dark from the first tick after the go

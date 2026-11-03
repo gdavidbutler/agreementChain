@@ -17,7 +17,7 @@ agreementChain is the top of a stack of repositories. Each but cryptoMule is its
 - [asynchronousByzantineAgreementProtocols](https://github.com/gdavidbutler/asynchronousByzantineAgreementProtocols), the agreement library: Bracha's broadcast (`bracha87Fig1.h`) and BKR94's common subset (`bkr94acs.h`), which every link runs. Its papers assume each message comes from the seat that wrote it, and it leaves that to its caller.
 - [cryptoMule](cryptoMule/README.md), a directory of this repository: the deterministic recipes that meet that assumption, an authenticated channel for a message handed straight over and message attribution for one another seat carries, and go on to forward secrecy and censorship resistance. `ac.c` implements them natively; cryptoMule's own programs are where they were settled, every message a file you can read.
 - The primitives those recipes call: [ReedSolomonErasureCoding](https://github.com/gdavidbutler/ReedSolomonErasureCoding) for the shards, [ShamirSecretSharing](https://github.com/gdavidbutler/ShamirSecretSharing) for the shares of each message's key, both with Merkle trees, [MerkleLamportSignature](https://github.com/gdavidbutler/MerkleLamportSignature) for the signatures, and [canonicalHuffman](https://github.com/gdavidbutler/canonicalHuffman) to compress a message before it is encrypted.
-- The hash suites, which the caller plugs in (`struct acHash` in `ac.h`), each with its HMAC and HKDF: [rmd128](https://github.com/gdavidbutler/rmd128), [rmd160](https://github.com/gdavidbutler/rmd160), [sha256](https://github.com/gdavidbutler/sha256) and [sha3](https://github.com/gdavidbutler/sha3). The library calls no hash of its own. The example deals rmd128 for the sign role and rmd160 for the kdf role; the harness takes any of them for the kdf role and any but rmd160 for the sign role. The sign role's width is what every agreed value and link rests on: two inputs with one hash take about 2^64 work at the example's 16 bytes, 2^128 at 32.
+- The hash suites, which the caller plugs in (`struct acHash` in `ac.h`), each with its HMAC and HKDF: [rmd128](https://github.com/gdavidbutler/rmd128), [rmd160](https://github.com/gdavidbutler/rmd160), [sha256](https://github.com/gdavidbutler/sha256) and [sha3](https://github.com/gdavidbutler/sha3). The library calls no hash of its own. The examples deal rmd128 for the sign role and rmd160 for the kdf role; the harness takes any of them for the kdf role and any but rmd160 for the sign role. The sign role's width is what every agreed value and link rests on: two inputs with one hash take about 2^64 work at the example's 16 bytes, 2^128 at 32.
 - In this repository beside the seat: the datagram framer ([`rsecFrm.h`](rsecFrm.h)), which carries each message as Reed-Solomon shards in authenticated datagrams, and its denial-of-service gate, halfsiphash ([`halfsiphash.h`](halfsiphash.h)), the SipHash reference implementation's, adapted to C89.
 
 Read the agreement library's README first and cryptoMule's second: this file uses their words without explaining them again, and says only what a chain adds.
@@ -38,14 +38,14 @@ git clone https://github.com/gdavidbutler/rmd160.git
 git clone https://github.com/gdavidbutler/sha256.git
 git clone https://github.com/gdavidbutler/sha3.git
 cd agreementChain
-make          # ac.o, the library, and ac, the example
+make          # ac.o, the library, and acUDP and acTCP, the examples
 make check    # rsecFrmTest, the framer's test, and acTest, the harness, over its arms
 make clobber  # remove what make built here; the sibling repositories' objects stay
 ```
 
 `make` builds any object of a sibling repository it needs and does not find there, from that repository's source. What needs which:
 
-| repository | library `ac.o` | example `ac` | harness `acTest` | `cryptoMule` |
+| repository | library `ac.o` | examples `acUDP`, `acTCP` | harness `acTest` | `cryptoMule` |
 |---|---|---|---|---|
 | asynchronousByzantineAgreementProtocols | yes | yes | yes | |
 | ReedSolomonErasureCoding | yes | yes | yes | yes |
@@ -57,13 +57,13 @@ make clobber  # remove what make built here; the sibling repositories' objects s
 | sha256 | | | yes | |
 | sha3 | | | yes | |
 
-An application compiles `ac.c` beside `ac.h`, `acTest.h`, `rsecFrm.h` and `halfsiphash.h`, with the five library repositories of the table on its include path, as the Makefile's `ac.o` target does; of this tree's headers its own code includes `ac.h` alone. It links `ac.o`, `rsecFrm.o` and `halfsiphash.o` with the agreement library's and the primitives' objects, as the [`Makefile`](Makefile)'s `ac` target does, and the hash suites it deals.
+An application compiles `ac.c` beside `ac.h`, `acTest.h`, `rsecFrm.h` and `halfsiphash.h`, with the five library repositories of the table on its include path, as the Makefile's `ac.o` target does; of this tree's headers its own code includes `ac.h` alone. It links `ac.o`, `rsecFrm.o` and `halfsiphash.o` with the agreement library's and the primitives' objects, as the [`Makefile`](Makefile)'s `acUDP` target does, and the hash suites it deals.
 
 It gives the seat its callbacks (`struct acCb` in `ac.h`: send, its randomness, propose and the three reports; trace alone may be left out), its two hash suites (`struct acHash`) and its parameters (`struct acPar`), of which the bandwidth and the abandon have no default. The sign role's width must be a power of two, so rmd128, sha256, sha3-256 and sha3-512 can sign and rmd160 cannot; the kdf role takes any width.
 
-Expect `make check` to take hours: each of its arms is a whole chain run on the loopback. The example and the one arm under "Try it" are the quick look. The library is C89 with no system calls of its own; the example and the harness need POSIX sockets and poll, the example fork and the harness threads. cryptoMule builds and runs on its own, in its directory; its README says how.
+Expect `make check` to take hours: each of its arms is a whole chain run on the loopback. The examples and the one arm under "Try it" are the quick look. The library is C89 with no system calls of its own; the examples and the harness need POSIX sockets and poll, the examples fork and the harness threads. cryptoMule builds and runs on its own, in its directory; its README says how.
 
-The library, its example and its harness are LGPLv3 ([`COPYING.LESSER`](COPYING.LESSER), the additional permissions on the GPLv3 in [`COPYING`](COPYING)); `halfsiphash` is the SipHash reference implementation's public-domain dedication; cryptoMule, a program, is GPLv3. See the head of each file. To report a security issue, see [`SECURITY.md`](SECURITY.md).
+The library, its examples and its harness are LGPLv3 ([`COPYING.LESSER`](COPYING.LESSER), the additional permissions on the GPLv3 in [`COPYING`](COPYING)); `halfsiphash` is the SipHash reference implementation's public-domain dedication; cryptoMule, a program, is GPLv3. See the head of each file. To report a security issue, see [`SECURITY.md`](SECURITY.md).
 
 ## Words
 
@@ -84,22 +84,23 @@ The [agreement library's README](https://github.com/gdavidbutler/asynchronousByz
 - **DISCOVER**: a seat taking a position's subset from T descriptions alike, from the recover legs of distinct seats, instead of from its own agreement.
 - **partitioned**: a seat no other seat carries: alone, as every seat is from the deal until it hears the others, and for good behind the oldest record the others keep, where only its operator can carry it.
 - **sign role, kdf role**: the two hash suites a seat is dealt. The sign role hashes what is agreed, signed and committed: the values, the signatures and keys, both Merkle trees and a payload's message hash. The kdf role makes the keystream, the masks, the key walk and the datagram authentication, through its HMAC, the keyed hash, and its HKDF, the key derivation built on it.
-- **operator**: in the example and the harness, the stand-in for an application: it deals the secrets and starts the seats.
+- **operator**: in the examples and the harness, the stand-in for an application: it deals the secrets and starts the seats.
 
 ## Try it
 
 ```
 make
-./ac -A 100 4 1
+./acUDP -A 100 4 1
+./acTCP -A 100 4 1
 make check
 ./acTest -W 2500000 -x 40 -n 2 -A 1200 4 1
 ```
 
-The first is the example: four seats, one of them allowed to be Byzantine, each a process, each proposing two messages, and each prints its two reports as they come, sixteen chain reports and twenty-four message reports in all when every subset is full. Position 1 is every seat's rotation, so its chain report shows the reports' shape and the book moving: every member reads "rotation", and its link is the name every row of position 2 carries. Positions 2 and 3 are each seat's hello, the message the example proposes, one message report per member at every other seat, each carrying the text. Its last hello agreed, each seat calls the end, and position 4 is every seat's noop carrying it, the chain's last link: its chain report says "the end", and each seat stops on its own. Every seat prints the same chain. `-A` is the abandon, required, below: at least twice the longest agreement a rehearsal at the deployment's physics shows with one seat stopped, 100 sweeps here.
+The first is the UDP example: four seats, one of them allowed to be Byzantine, each a process, each proposing two messages, and each prints its two reports as they come, sixteen chain reports and twenty-four message reports in all when every subset is full. Position 1 is every seat's rotation, so its chain report shows the reports' shape and the book moving: every member reads "rotation", and its link is the name every row of position 2 carries. Positions 2 and 3 are each seat's hello, the message the example proposes, one message report per member at every other seat, each carrying the text. Its last hello agreed, each seat calls the end, and position 4 is every seat's noop carrying it, the chain's last link: its chain report says "the end", and each seat stops on its own. Every seat prints the same chain. `-A` is the abandon, required, below: at least twice the longest agreement a rehearsal at the deployment's physics shows with one seat stopped, 100 sweeps here. The second is the same over TCP, with the same reports.
 
-The second is the harness: the framer's own test, then thirty-five arms, each a run of the harness with its own faults and judge. The third is one arm by hand: two positions and the end, with seat 3 cut off both ways for forty ticks: it falls behind, and on its return the readies and units the others' seats keep re-sending carry it through all three, to the same reports and the same final hash they have.
+The third is the harness: the framer's own test, then thirty-five arms, each a run of the harness with its own faults and judge. The fourth is one arm by hand: two positions and the end, with seat 3 cut off both ways for forty ticks: it falls behind, and on its return the readies and units the others' seats keep re-sending carry it through all three, to the same reports and the same final hash they have.
 
-`-W` is the bandwidth a seat sends, here 2.5 Mbit/s, so that four seats share 10 on the loopback; the example takes the same and defaults to it.
+`-W` is the bandwidth a seat sends, here 2.5 Mbit/s, so that four seats share 10 on the loopback; the examples take the same and default to it.
 
 A seat's two reports are both in message hashes, given as the messages flow. The chain's, once an instance, at the fold:
 
@@ -107,7 +108,7 @@ A seat's two reports are both in message hashes, given as the messages flow. The
 previousChainHash:member1Hash:...:memberXHash:nextChainHash
 ```
 
-with n - t <= X <= n members, which the example prints as each member's number and its hash. The messages', once a member, at that member's end at this seat:
+with n - t <= X <= n members, which the examples print as each member's number and its hash. The messages', once a member, at that member's end at this seat:
 
 ```
 previousChainHash:memberHash:message
@@ -115,22 +116,24 @@ previousChainHash:memberHash:message
 
 or why there is no message. Beside them, the seat says when its retention lets a position's record go (`released`): a seat still behind that position is partitioned. Everything else in `ac.c` is recovery and physics, and what the seat counts of them is the application's instrument (`acCounters` in `ac.h`); a section below says what to read the reports and the counters for.
 
-Two callers come with the library. [`example/ac.c`](example/ac.c) is the demonstration, an operator and its seats: it deals the pairwise secrets, the addresses and the genesis, launches each seat as a process over UDP sockets on the loopback, and each seat prints its reports as they come and, every thirty seconds and at its end, the counters an application reads to see whether its declaration fits. Each seat calls the end once its own messages are agreed, at whatever link that is there, and every correct seat that ends the chain ends it at the same link, below; each seat then runs its end, carrying a seat behind, and stops on its own, the operator saying nothing after the go. It takes the seats' count, the Byzantine bound and the abandon, which a deployment declares, below: a seat needs no other knob to run.
+Three callers come with the library. [`example/acUDP.c`](example/acUDP.c) is the demonstration, an operator and its seats: it deals the pairwise secrets, the addresses and the genesis, launches each seat as a process over UDP sockets on the loopback, and each seat prints its reports as they come and, every thirty seconds and at its end, the counters an application reads to see whether its declaration fits. Each seat calls the end once its own messages are agreed, at whatever link that is there, and every correct seat that ends the chain ends it at the same link, below; each seat then runs its end, carrying a seat behind, and stops on its own, the operator saying nothing after the go. It takes the seats' count, the Byzantine bound and the abandon, which a deployment declares, below: a seat needs no other knob to run.
+
+[`example/acTCP.c`](example/acTCP.c) is the same demonstration for a network that carries no datagrams, as Tor's does not. The library is unchanged, and so is what it sends but for the datagram's length, 4096 bytes where acUDP deals 1232, since a stream fragments nothing: each seat keeps one connection with each other seat, whichever of the two dialed it, and carries the library's datagrams on it as they are. A connection is bound to a seat only by a handshake under a key derived from the pair's dealt secret, since neither an address nor a replayed datagram proves who is at its other end. A datagram with no connection bound to go on, or behind a full one, is the network's loss, never a refusal, since the library holds every seat's datagrams behind one its send refuses; the seat's sweeps re-send it, as they re-send what a broken connection's buffers held. TCP is lossless only while a connection lasts, so the library needs of it what it needs of UDP, that it eventually delivers.
 
 [`test/ac.c`](test/ac.c) is the harness: the same operator and seats, as threads of one process, with a declared network at each seat's send, a dealer that commits faults, cuts and partitions, and a judge over every seat's reports and counters. It binds a build of the library with its test interface on (`acTest.h`: the hooks, and knobs that stand where a seat derives), which a deployment never has.
 
 Across a network the operator starts every seat itself, by a command its configuration names, whose standard input and output are the seat's link. The command is to be a secure channel, as ssh to the seat's host is. The deal, every pairwise secret among it, then crosses the network only inside that channel, and the seat at the other end is the one the operator started. The operator reads the link as bytes and cannot check either for itself.
 
-The network is the operator's configuration, never something a seat reports: with address translation everywhere, the address a seat listens on is seldom the one another seat reaches it at, and two seats may reach a third at different addresses from where each sits, so the configuration says what each seat binds and, for every pair, where the one sends to reach the other. The deal carries those addresses as text, and each seat resolves them where it runs, since a name may resolve differently there. A seat sends to every address dealt for another, since it cannot tell which reaches it, and from any socket, since a datagram's source is nothing to its receiver: the sender is in the tag, proven by the datagram's authentication. The deal crosses machines as bytes, never as a system's own structures, since the seats may run on different systems.
+The network is the operator's configuration, never something a seat reports: with address translation everywhere, the address a seat listens on is seldom the one another seat reaches it at, and two seats may reach a third at different addresses from where each sits, so the configuration says what each seat binds and, for every pair, where the one sends to reach the other. The deal carries those addresses as text, and each seat resolves them where it runs, since a name may resolve differently there. A seat sends to every address dealt for another, since it cannot tell which reaches it (over TCP it dials them in turn), and from any socket, since a datagram's source is nothing to its receiver: the sender is in the tag, proven by the datagram's authentication. The deal crosses machines as bytes, never as a system's own structures, since the seats may run on different systems.
 
-Across a LAN, the operator on one host and one seat on each of the others, with a configuration of three lines a seat, what it binds, where every other seat reaches it, and how the operator starts it; the head of `example/ac.c` gives the configuration's format:
+Across a LAN, the operator on one host and one seat on each of the others, with a configuration of three lines a seat, what it binds, where every other seat reaches it, and how the operator starts it; the head of `example/acUDP.c` gives the configuration's format:
 
 ```
-./ac -o lan.cfg -W 5000000 -L 2500 -A 28 9 2
+./acUDP -o lan.cfg -W 5000000 -L 2500 -A 28 9 2
 
 bind 1 :43101
 reach 1 192.168.1.36:43101
-exec 1 ssh host1 'cd agreementChain && ./ac -l 2> seat.out'
+exec 1 ssh host1 'cd agreementChain && ./acUDP -l 2> seat.out'
 ```
 
 The delay declared is not the network's: on a LAN it is under a millisecond one way. The tick is one feedback cycle at the declared physics, and a host answers at the end of its pass, so the delay that matters is the slowest honest seat's answer, which on a slow host is its pass, however long that takes. The abandon is twice the longest agreement of a rehearsal, the same deployment with one of the slowest hosts stopped long enough that agreements run with it silent from start to end; at a tick that covers the slowest answer the silence costs an agreement its patiences, and what the load adds beyond them is what the rehearsal measures. With a host silent, a tick shorter than the slowest answer costs more than it saves: every other seat re-sends it everything it owes at every tick, passes run past their tick, the agreements run longer, the chain slows, the host coming back is left out of more subsets, and its framer loses trains in reassembly that the re-sends then carry.
@@ -138,12 +141,12 @@ The delay declared is not the network's: on a LAN it is under a millisecond one 
 Across a WAN, one seat on each of two cloud hosts and the nine seats of the LAN above behind its router's address translation, each with a forwarded UDP port, the seats behind the translation reaching each other at their LAN addresses and every other seat reaching them through the router, the operator on the LAN, where ssh reaches every seat's host:
 
 ```
-./ac -o wan.cfg -W 5000000 -L 2500 -A 28 -e 20 11 2
+./acUDP -o wan.cfg -W 5000000 -L 2500 -A 28 -e 20 11 2
 
 bind 3 :43101
 reach 3 router:43101
 reach 3 192.168.1.36:43101 from 2,4,5,6,7,8,9,10
-exec 3 ssh host1 'cd agreementChain && ./ac -l 2> seat.out'
+exec 3 ssh host1 'cd agreementChain && ./acUDP -l 2> seat.out'
 ```
 
 The delay is declared for the slowest hosts here too: the paths' delay is tens of milliseconds, and the slowest seat's answer is still its pass. Declared at the paths' delay the tick is short, and with every seat running the chain goes no faster, since a step goes on as its answers arrive; with a host stopped, the short tick costs what it costs on a LAN.
