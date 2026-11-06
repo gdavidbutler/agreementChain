@@ -230,7 +230,8 @@ int cmCfgLoad(const char *path, cmCfg *c);
 
 /* override the PSK(s) this seat holds with the dispersal's ratcheted mask IKMs
  * from a per-seat keystate ("psk_<QQ>: <hex>", QQ = recipient seat id), setting
- * c->pskHave for each one present; call after cmCfgLoad. */
+ * c->pskHave for each one present; call after cmCfgLoad.  -1 if a key the config
+ * deals has no row: the dealt key never stands in for a step. */
 int cmKeystateLoad(const char *path, cmCfg *c);
 
 /* as cmKeystateLoad, but read the RETENTION FLOOR base ("floor: <process>" +
@@ -375,7 +376,7 @@ int cmMlsPub(const char *privPath, unsigned char *pub);
  * file, hmac [sender][recipient] || bytes, append the "hmac" field (so it is
  * the file's LAST line); 0 on success.  check: require the last line to be a
  * well-formed "hmac" field and the hmac over [sender][recipient] || the bytes
- * before it to match; 1 ok, 0 tampered/missing.  Check FIRST: no other field
+ * before it to match as written; 1 ok, 0 tampered/missing.  Check FIRST: no other field
  * of a wire message is trusted until its hmac passes. */
 int cmHmacAppend(const char *path, const unsigned char *key, unsigned int kl
                 ,unsigned char s, unsigned char r);

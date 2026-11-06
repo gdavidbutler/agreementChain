@@ -486,8 +486,27 @@ def cmd_fwdsec(n, t):
     n_re_asm = sum(1 for r in cmd_phase("assemble") if r == 0)
     print("same shares and legs with the step restored: received %d/%d, assembled %d/%d"
           % (n_re_recv, total, n_re_asm, total))
+    # a keystate short of any row is refused, at the current step and at the
+    # floor: the dealt key in its place would read what the chain stepped past
+    ksFull = os.path.join(HERE, _kspath(1))
+    ok_short = True
+    for prefix, cmd, word in (("psk_", ["./receive", _cfgpath(1), "0", "."], "no keystate"),
+                              ("fpsk_", ["./release", _cfgpath(1), "0", "anchorlog.txt"], "no floor")):
+        if prefix == "fpsk_":                  # a step births the floor to read
+            ratchet_all(0, "00" * 16, [1])
+        cleanKs = open(ksFull).read()
+        rows = [l.split(":")[0] for l in cleanKs.splitlines() if l.startswith(prefix)]
+        if not rows:
+            sys.exit("fwdsec: keystate carries no %s rows" % prefix)
+        for row in rows:
+            open(ksFull, "w").write("".join(l for l in cleanKs.splitlines(True) if not l.startswith(row + ":")))
+            e = subprocess.run(cmd, cwd=HERE, capture_output=True).stderr.decode()
+            ok_short = ok_short and word in e
+        open(ksFull, "w").write(cleanKs)
+    print("keystate short of a row: %s" % ("refused" if ok_short else "ACCEPTED (BUG)"))
     ok = (n_recv == total and n_asm == total and n_recv_post == 0 and n_asm_post == 0
-          and n_floor == total and n_rel == 0 and n_re_recv == total and n_re_asm == total)
+          and n_floor == total and n_rel == 0 and n_re_recv == total and n_re_asm == total
+          and ok_short)
     print("FORWARD SECRECY (both phases at one step; bounded by the floor): %s"
           % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
@@ -809,7 +828,7 @@ def _distribute_runfile(anchor, slot=SLOT_PAY):
             f.write("slot: %d\n" % slot)
             f.write("anchor: %s\n" % anchor)
             f.write("mls_sig: %s\n" % sig)
-        subprocess.run(["./cmhmac", _mac0(p), "0", str(p), path], cwd=HERE)
+        subprocess.run(["./cmhmac", _mac0(p), "0", str(p), path], cwd=HERE, check=True)
 
 
 def gate_offset(apex):
@@ -1302,6 +1321,18 @@ def cmd_chain(processes, n, t):
     sys.exit(0 if ok else 1)
 
 
+def _alter_phase(path):
+    """tamper: alter the `phase` line of a wire message, a field no reader
+    consumes, so only that message's hmac can refuse it.  Returns the clean
+    text to put back."""
+    full = os.path.join(HERE, path)
+    clean = open(full).read()
+    if not clean.startswith("phase: "):
+        sys.exit("tamper: no phase in %s" % path)
+    open(full, "w").write("phase: x" + clean[len("phase: "):])
+    return clean
+
+
 def _flip_field(path, name):
     """tamper: flip one nibble inside the named hex field, keeping it valid hex
     so parsing still succeeds -- only the hmac can tell."""
@@ -1324,9 +1355,15 @@ def cmd_tamper(n, t):
       1. a tampered dist sign message: receive rejects the unit UNPARSED
          (hmac_ok: no); 1b. a tampered dist shard message: the shard part
          refused unparsed (rsecmk_ok: no, no shard kept), the share kept;
+         1c. the hmac field in capitals or changed in its first or last digit,
+         and the message hmac'd for the other direction or under the other
+         pair's key: refused unparsed;
       2. a tampered exchange fragment: assemble skips that sender and still
          reaches threshold from the untampered rest (censorship recovery);
-      3. a tampered rotation: the recipient rejects it, its book unchanged."""
+      3. a tampered rotation: the recipient rejects it, its book unchanged;
+      4. each reader's hmac on its own: every one of the nine wire messages a
+         reader checks, altered only in `phase`, a field no reader consumes,
+         so nothing but that hmac can refuse it."""
     cmd_keychain(1)
     cmd_setup(n, t)
     _reset_floor()
@@ -1342,6 +1379,29 @@ def cmd_tamper(n, t):
     ok1 = r1 != 0 and "hmac_ok: no" in open(os.path.join(HERE, "priv", "01_recv.txt")).read()
     print("tampered dist sign message: %s" % ("unit REJECTED unparsed (hmac)" if ok1 else "ACCEPTED (BUG)"))
     open(os.path.join(HERE, "wire", "dist", "00_to_01_sign.txt"), "w").write(clean)
+    # 1c: forms of the apex message only the hmac can tell from the clean one
+    apx = "wire/dist/00_to_01_apex.txt"
+    cleanApx = open(os.path.join(HERE, apx)).read()
+    bodyApx = "".join(l for l in cleanApx.splitlines(True) if not l.startswith("hmac: "))
+    hmApx = cleanApx.splitlines(True)[-1]
+    ok1c = True
+    hex0 = hmApx[6:-1]
+    for name, mac, s, r, field in (
+            ("hmac field in capitals", None, 0, 1, hex0.upper()),
+            ("hmac field's first digit changed", None, 0, 1, ("0" if hex0[0] != "0" else "1") + hex0[1:]),
+            ("hmac field's last digit changed", None, 0, 1, hex0[:-1] + ("0" if hex0[-1] != "0" else "1")),
+            ("hmac'd for the other direction", _mac0(1), 1, 0, None),
+            ("hmac'd under the other pair's key", _mac(0, 2), 0, 1, None)):
+        if mac:
+            open(os.path.join(HERE, apx), "w").write(bodyApx)
+            subprocess.run(["./cmhmac", mac, str(s), str(r), apx], cwd=HERE, check=True)
+        else:
+            open(os.path.join(HERE, apx), "w").write(bodyApx + "hmac: " + field + "\n")
+        os.remove(os.path.join(HERE, "priv", "01_recv.txt"))   # this read's verdict, no earlier one
+        good = _sys("receive", 0) != 0 and _field("priv/01_recv.txt", "hmac_ok") == "no"
+        print("%s: %s" % (name, "unit REJECTED unparsed (hmac)" if good else "ACCEPTED (BUG)"))
+        ok1c = ok1c and good
+    open(os.path.join(HERE, apx), "w").write(cleanApx)
     # 1b: the shard message tampered instead -> the shard part refused
     # unparsed and not kept, the share validated and kept (the adversary
     # blocks and reorders; every intact part is progress)
@@ -1369,16 +1429,55 @@ def cmd_tamper(n, t):
           % ("SKIPPED, threshold from the rest (shares %s; shards %s)"
              % (" ".join(_asm(1, "share_senders")), " ".join(_asm(1, "shard_senders")))
              if ok2 else "NOT contained (BUG)"))
+    # 4, the readers of the payload: each message altered only in `phase`
+    ok4 = True
+    for part in ("apex", "sign", "shard"):
+        path = "wire/dist/00_to_01_%s.txt" % part
+        clean = _alter_phase(path)
+        os.remove(os.path.join(HERE, "priv", "01_recv.txt"))   # this read's verdict, no earlier one
+        r = _sys("receive", 0)
+        if part == "shard":
+            good = _field("priv/01_recv.txt", "hmac_ok") == "yes" and _field("priv/01_recv.txt", "rsecmk_ok") == "no"
+        else:
+            good = r != 0 and _field("priv/01_recv.txt", "hmac_ok") == "no"
+        open(os.path.join(HERE, path), "w").write(clean)
+        print("receive, %s message's phase altered: %s" % (part, "refused by its hmac" if good else "ACCEPTED (BUG)"))
+        ok4 = ok4 and good
+    _sys("receive", 0)                         # seat 1's own record, clean again
+    _sys("exchange", 1)                        # sender 2's fragment, clean again
+    _sys("assemble", 0)                        # and used, so its absence below is the hmac's
+    ok4 = ok4 and "2" in _asm(1, "shard_senders") and "2" in _asm(1, "share_senders")
+    for part in ("apex", "sign", "shard"):
+        path = "wire/exch/02_to_01_%s.txt" % part
+        clean = _alter_phase(path)
+        _sys("assemble", 0)
+        good = "2" not in _asm(1, "shard_senders") and (part == "shard" or "2" not in _asm(1, "share_senders"))
+        open(os.path.join(HERE, path), "w").write(clean)
+        print("assemble, %s message's phase altered: %s" % (part, "refused by its hmac" if good else "ACCEPTED (BUG)"))
+        ok4 = ok4 and good
     ratchet_all(0, _chain(None, _msg()), range(n))   # the payload's flow is done
     # 3: a tampered rotation: recipient 1 must reject, its book unchanged
     subprocess.run(["./rotate", "priv/00_config.txt", "priv/00_ctx_00.bin",
                     "priv/00_ctx_01.bin", "0", "."], cwd=HERE)
+    rotApex = os.path.join(HERE, "wire", "rot", "00_rotate_00_to_01_apex.txt")
+    cleanRot = open(rotApex).read()
     _flip_field("wire/rot/00_rotate_00_to_01_apex.txt", "apex")
     book0 = open(os.path.join(HERE, "priv", "01_book.txt")).read()
     r3 = subprocess.run(["./rotverify", _cfgpath(1), "0", "0", "."], cwd=HERE).returncode
     ok3 = r3 != 0 and open(os.path.join(HERE, "priv", "01_book.txt")).read() == book0
     print("tampered rotation: %s" % ("REJECTED, book unchanged" if ok3 else "INSTALLED (BUG)"))
-    ok = ok1 and ok1b and ok2 and ok3
+    open(rotApex, "w").write(cleanRot)
+    # 4, the rotation's reader and the run file's: the verdict names the hmac
+    for path, cmd in (("wire/rot/00_rotate_00_to_01_apex.txt", ["./rotverify", _cfgpath(1), "0", "0", "."]),
+                      ("wire/rot/00_rotate_00_to_01_sign.txt", ["./rotverify", _cfgpath(1), "0", "0", "."]),
+                      ("wire/run_%02d_to_01.txt" % SLOT_PAY, ["./offsetgate", _cfgpath(1), str(SLOT_PAY), "0", "."])):
+        clean = _alter_phase(path)
+        e = subprocess.run(cmd, cwd=HERE, capture_output=True).stderr.decode()
+        good = "hmac (wire tamper)" in e and open(os.path.join(HERE, "priv", "01_book.txt")).read() == book0
+        open(os.path.join(HERE, path), "w").write(clean)
+        print("%s, phase altered: %s" % (os.path.basename(path), "refused by its hmac" if good else "ACCEPTED (BUG)"))
+        ok4 = ok4 and good
+    ok = ok1 and ok1b and ok1c and ok2 and ok3 and ok4
     print("WIRE TAMPER DETECTION (pairwise hmac, checked FIRST): %s"
           % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
@@ -1674,7 +1773,7 @@ def cmd_slot(n, t):
     with open(path, "w") as f:
         f.write("phase: rotate\n")
         f.write("apex: %s\n" % apex)
-    subprocess.run(["./cmhmac", _mac0(1), "0", "1", path], cwd=HERE)
+    subprocess.run(["./cmhmac", _mac0(1), "0", "1", path], cwd=HERE, check=True)
     path = os.path.join(HERE, "wire", "rot", "00_rotate_01_to_01_sign.txt")
     with open(path, "w") as f:
         f.write("phase: rotate\n")
@@ -1682,7 +1781,7 @@ def cmd_slot(n, t):
         f.write("process: 1\n")
         f.write("pub_hash: %s\n" % apex)
         f.write("mls_sig: %s\n" % _field("wire/dist/00_to_01_sign.txt", "mls_sig"))
-    subprocess.run(["./cmhmac", _mac0(1), "0", "1", path], cwd=HERE)
+    subprocess.run(["./cmhmac", _mac0(1), "0", "1", path], cwd=HERE, check=True)
     book1 = open(os.path.join(HERE, "priv", "01_book.txt")).read()
     r4 = subprocess.run(["./rotverify", _cfgpath(1), "1", "0", "."], cwd=HERE, capture_output=True)
     ok4 = (r4.returncode != 0 and "does not hash to the apex" in r4.stderr.decode()
@@ -1723,7 +1822,7 @@ def _hostile(path, a, b, field, how):
             line = field + ": " + how(line.split(": ", 1)[1])
         out.append(line)
     open(os.path.join(HERE, path), "w").write("\n".join(out) + "\n")
-    subprocess.run(["./cmhmac", _mac(a, b), str(a), str(b), path], cwd=HERE, capture_output=True)
+    subprocess.run(["./cmhmac", _mac(a, b), str(a), str(b), path], cwd=HERE, capture_output=True, check=True)
     return clean
 
 
@@ -2004,7 +2103,7 @@ def cmd_twoslot(n, t):
             f.write("slot: %d\n" % SLOT_PAY)
             f.write("anchor: %s\n" % _field("priv/%02d_recv.txt" % p, "apex"))
             f.write("mls_sig: %s\n" % _field("priv/%02d_recv.txt" % p, "mls_sig"))
-        subprocess.run(["./cmhmac", _mac0(p), "0", str(p), path], cwd=HERE)
+        subprocess.run(["./cmhmac", _mac0(p), "0", str(p), path], cwd=HERE, check=True)
         if _gate(p, SLOT_PAY) != "ACCEPT":
             sys.exit("twoslot: offset floor refused at seat %d a payload receive admitted" % p)
         floors[p] = int(_field("priv/%02d_floor.txt" % p, "highwater"))

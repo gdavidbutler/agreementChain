@@ -54,5 +54,22 @@ dkms.conf
 # Local Executables
 acUDP
 acTCP
-rsecFrmTest
 acTest
+rsecFrmTest
+cryptoMule/assemble
+cryptoMule/catchup
+cryptoMule/chainverify
+cryptoMule/cmapex
+cryptoMule/cmchain
+cryptoMule/cmhmac
+cryptoMule/cmprsz
+cryptoMule/distribute
+cryptoMule/exchange
+cryptoMule/mlspub
+cryptoMule/offsetgate
+cryptoMule/offsetrun
+cryptoMule/ratchet
+cryptoMule/receive
+cryptoMule/release
+cryptoMule/rotate
+cryptoMule/rotverify

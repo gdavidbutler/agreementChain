@@ -135,7 +135,6 @@ main(
 
   memset(nxt, 0, sizeof (nxt));
   memset(cfg->psk, 0, sizeof (cfg->psk));
-  memset(flo->psk, 0, sizeof (flo->psk));
   fprintf(stderr, "%s: dispersal %u -> %u, keyed on h_k = public anchor"
                   " (old keys wiped; floor %s dispersal %lu)\n"
          ,argv[0], process, process + 1, born ? "born at" : "stays at", floorProc);
@@ -143,6 +142,7 @@ main(
  done:
   if (cfg) memset(cfg, 0, sizeof (*cfg));  /* the dealt key mesh */
   free(cfg);
+  if (flo) memset(flo, 0, sizeof (*flo));  /* the floor base */
   free(flo);
   return (rc);
 }

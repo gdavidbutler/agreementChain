@@ -143,6 +143,8 @@ cmKeystateLoad(
     sprintf(name, "psk_%02u", q);            /* recipient seat id q (self-relative) */
     if (cmGetField(path, name, c->psk[q], CM_PSK_LEN) == CM_PSK_LEN)
       c->pskHave[q] = 1;
+    else if (c->pskHave[q])                  /* never the dealt row in its place */
+      return (-1);
   }
   return (0);
 }
@@ -164,7 +166,8 @@ cmFloorLoad(
     if (cmGetField(path, name, c->psk[q], CM_PSK_LEN) == CM_PSK_LEN) {
       c->pskHave[q] = 1;
       ++got;
-    }
+    } else if (c->pskHave[q])                /* never the dealt row in its place */
+      return (-1);
   }
   return (got ? 0 : -1);
 }
@@ -435,8 +438,9 @@ cmHmacAppend(
     return (-1);
   b = 0;
   rc = -1;
-  if (fseek(f, 0, SEEK_END) || (lt = ftell(f)) < 0 || (unsigned long)lt > UINT_MAX - 2)
-    goto done;                                /* not a file, or past what one hmac covers */
+  if (fseek(f, 0, SEEK_END) || (lt = ftell(f)) < 0
+   || (unsigned long)lt > UINT_MAX - 2 - (6 + 2 * CM_HMAC_SZ + 1))
+    goto done;                                /* not a file, or past what its reader takes, sealed */
   len = (unsigned long)lt;
   rewind(f);
   if (!len || !(b = malloc(len + 2)) || fread(b + 2, 1, len, f) != len)
@@ -466,11 +470,12 @@ cmHmacCheck(
   FILE *f;
   unsigned char *b;
   unsigned char h[CM_HMAC_SZ];
-  unsigned char x[CM_HMAC_SZ];
-  char hx[2 * CM_HMAC_SZ + 1];
+  char hx[2 * CM_HMAC_SZ];
   unsigned long len;
   unsigned long tag;    /* offset of the trailing "hmac: ..." line */
   unsigned long tl;
+  unsigned int i;
+  unsigned int d;
   long lt;
   int ok;
 
@@ -492,14 +497,15 @@ cmHmacCheck(
   if (b[2 + tag - 1] != '\n' || memcmp(b + 2 + tag, "hmac: ", 6)
    || b[2 + len - 1] != '\n')
     goto done;
-  memcpy(hx, b + 2 + tag + 6, 2 * CM_HMAC_SZ);
-  hx[2 * CM_HMAC_SZ] = 0;
-  if (cmHexDec(hx, x, CM_HMAC_SZ) != CM_HMAC_SZ)
-    goto done;
   b[0] = s;                                   /* fold the edge: no cross-edge replay */
   b[1] = r;
   CM_HMAC(key, kl, b, (unsigned int)(tag + 2), h);
-  ok = !memcmp(h, x, CM_HMAC_SZ);
+  /* the field as written, whole: it has one form, so an altered copy of a
+   * message cannot pass, and no early exit says how much of it matched */
+  cmHexEnc(h, CM_HMAC_SZ, hx);
+  for (d = 0, i = 0; i < sizeof (hx); ++i)
+    d |= hx[i] ^ b[2 + tag + 6 + i];
+  ok = !d;
  done:
   fclose(f);
   free(b);
