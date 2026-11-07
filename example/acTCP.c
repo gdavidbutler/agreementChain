@@ -25,7 +25,7 @@
  * seat's loop are acUDP.c's, and its head comment says them; this one
  * says the transport and the datagram's length, the two things that
  * differ.  The library is the same: it hands its send callback datagrams
- * of the same form, authenticated as there, only longer, and takes the
+ * of the same form, gated as there, only longer, and takes the
  * same at acInput.  TCP adds nothing it relies on.
  *
  * A seat keeps at most one connection with each other seat, whichever
@@ -38,64 +38,97 @@
  *
  * Nothing about a connection names the seat at its other end but what
  * that seat proves: an address proves nothing, and a datagram replayed
- * proves nothing either, since the network may replay any.  So each end
- * sends a hello, its seat number and a fresh nonce, and on the other's
- * hello a proof: the HMAC, under a key derived from the pair's dealt
- * secret, of the prover, the verifier, whether the prover dialed, and
- * the two nonces, the prover's first.  The other's proof checked, the
- * connection is bound to that seat; a dialer also refuses a hello from
- * any seat but the one it dialed.  A replayed proof answers a nonce of
- * another connection, so a replay binds nothing.  Nor does a stranger
- * that opens a connection to each of two seats and passes each one's
- * hello and proof to the other: both of its connections were dialed by
- * it, so each seat proves as the one dialed, and each expects a proof
- * from a dialer.  To be bound it must be where a seat dials, at the
- * address dealt for the other: on the network between them, which may
- * carry or drop what each sends, as any network may.  The prover leads,
- * so no proof verifies back at the seat that made it.  On each stream
- * the hello goes first and the proof before any datagram, and a seat
- * sends datagrams only once bound, which is after its own proof went:
- * so a seat never reads a datagram on a connection it has not bound.
- * The key is the hash's HKDF of the whole secret under a label of its
- * own, so it shares nothing with the slices the library keys its
- * datagrams by.
+ * proves nothing either, since the network may replay any.  So the seat
+ * that accepted a connection sends a fresh nonce; the dialer answers
+ * with a hello, its seat number, its own fresh nonce and a gate; the
+ * other sends a gate and its proof, and the dialer its proof.  A proof
+ * is the HMAC, under a key derived from the pair's dealt secret, of the
+ * prover, the verifier, whether the prover dialed, and the two nonces,
+ * the prover's first.  The other's proof checked, the connection is
+ * bound to that seat.  A proof answers its own connection's nonces, so a
+ * proof replayed binds nothing.  Nor does a stranger that opens a
+ * connection to each of two seats and passes each one's messages to the
+ * other: both of its connections were dialed by it, so each seat speaks
+ * as the one dialed, and each waits for a dialer.  To be bound it must
+ * be where a seat dials, at the address dealt for the other: on the
+ * network between them, which may carry or drop what each sends, as any
+ * network may.  The prover leads, so no proof verifies back at the seat
+ * that made it.  On each stream the proof goes before any datagram, and
+ * a seat sends datagrams only once bound, which is after its own proof
+ * went: so a seat never reads a datagram on a connection it has not
+ * bound.
  *
- * Two seats that dial each other at once may both bind: each keeps the
- * one the lower-numbered seat dialed and closes the other, which both
- * can tell without a word.  A connection bound beside one bound more
- * than a tick before takes its place: crossing dials bind within a
- * round trip of each other, and a seat dials only when it has no
- * connection of its own dialing in hand, so a later one says the older
- * is gone at the other end, though this end has not heard.  A
- * connection not bound within HS_TICKS ticks of its making is closed,
- * whoever made it, so a dial to an address that never answers gives way
- * to the next, and a stranger holds a place only that long; and past N
- * unbound ones accepted, the oldest is closed for the newest.
+ * A gate is a halfsiphash under a second key of the pair's, over the
+ * seat that made it and both nonces, checked before anything else is
+ * done for what it gates, as the framer checks a datagram's: an HMAC
+ * costs many times as much.  The dialer's gate is over the other's
+ * nonce, fresh on this connection, and the other's over the dialer's, so
+ * only a seat holding the key could have made either here: one seen on
+ * another connection, replayed, fails, as a stranger's does.  So a seat
+ * computes an HMAC only past a gate that passed, and a stranger, or
+ * anyone replaying what it saw, costs the seat that accepted it a nonce
+ * and a gate at most.  The keys are the hash's HKDF of the whole secret,
+ * each under a label of its own, so they share nothing with each other
+ * or with the slices the library keys its datagrams by.
+ *
+ * Two seats that dial each other at once may both bind, and a seat may
+ * hold a connection the other end has lost and not hear of it until TCP
+ * gives up.  But a seat dials only when it has no connection in hand to
+ * the other, of its own dialing or one whose hello passed, so which seat
+ * dialed a connection says what the other may conclude, with no clock.
+ * Where two bind to the same seat, the lower-numbered of the two keeps
+ * the one the higher dialed: crossing dials, it is bound at both ends,
+ * the dialer binding first; and where the higher dialed again, what it
+ * held before is gone at its end, so the lower keeps the later bound of
+ * two the higher dialed.  The higher closes neither: it keeps both until
+ * the lower's close reaches it, so the two never close different ones,
+ * and sends on the one made later, which, where the lower dialed it, is
+ * the one the lower holds, and where it is a crossing dial the lower
+ * closes, goes within a round trip.  A connection in the handshake is
+ * closed when it has stayed HS_TICKS ticks in one state, about a round
+ * trip each, so a dial to an address that never answers gives way to the
+ * next; each so closed doubles the deadline of the next to or from the
+ * same seat, until one binds there, so a path slower than the declared
+ * delay, short of thousands of ticks a round trip, is slow to bind, not
+ * cut off.  An accepted connection whose hello has not come has no
+ * deadline, its seat unknown; the places below bound those.
+ *
+ * The connections a seat accepted and has not bound hold N places, and
+ * past them one is closed, at random among those whose hello has not
+ * passed, the newest among them; a seat accepts after reading those it
+ * holds, at most N a listening socket at a time.  A hello that passed is
+ * a peer's, and its place is taken only by a later from the same seat,
+ * which dials again only once it holds nothing of this one, so a party
+ * that knows no key can only thin a peer's chance of binding, by opening
+ * connections faster than the peer's hello follows the nonce, as a lossy
+ * network would, and the peer dials again a tick later.  So can the
+ * kernel's queue of connections not yet accepted, which under such a
+ * flood can drop or hold a dial past its deadline.
  *
  * The library stops its egress at the first datagram its send callback
  * refuses, for every seat at once, so a refusal says the whole seat's
  * socket is full; here no connection may stop the others.  A datagram
  * that cannot go now is the network's loss, counted by why, and the
  * seat's sweeps re-send it as they re-send any datagram lost: to a seat
- * with no connection bound, which this seat then dials if it is not
- * dialing it already, once a tick at most, each dial the next address
- * its list gives; or behind a connection that still holds the rest of an
- * earlier frame, or that the system says is not writable.  A connection
- * is writable while its unsent bytes are under LOWAT_BYTES, or under
- * half of it as Linux counts (TCP_NOTSENT_LOWAT, where the system has
- * it), so what the seat chose to send waits in the seat, not in a kernel
- * queue ahead of what it chooses next.  TCP's retransmission makes a live
- * connection lossless, but not a broken one: what either kernel held
- * when it broke is gone, and the sweeps re-send that too, so a
- * connection lossless while it lasts is still a network that only
- * eventually delivers.  A connection that dies with no word at either end
- * is found when TCP gives up on it, and the seat counts its datagrams
- * lost until then.  Within a connection one lost segment holds every
- * datagram behind it, every position's alike, which datagrams never do
- * to each other: the delay is the declared delay's to cover.  At its end
- * a seat closes its side for writing, reads what still comes for a tick,
- * and closes, so the frames it handed the kernel last are not discarded
- * by a close with unread bytes.
+ * with no connection bound, which this seat then dials if it has no
+ * connection to it in hand, once a tick at most, each dial the next
+ * address its list gives; or behind a connection that still holds the
+ * rest of an earlier frame, or that the system says is not writable.  A
+ * connection is writable while its unsent bytes are under LOWAT_BYTES,
+ * or under half of it as Linux counts (TCP_NOTSENT_LOWAT, where the
+ * system has it), so what the seat chose to send waits in the seat, not
+ * in a kernel queue ahead of what it chooses next.  TCP's retransmission
+ * makes a live connection lossless, but not a broken one: what either
+ * kernel held when it broke is gone, and the sweeps re-send that too, so
+ * a connection lossless while it lasts is still a network that only
+ * eventually delivers.  A connection that dies with no word at either
+ * end is found when TCP gives up on it, and the seat counts its
+ * datagrams lost until then.  Within a connection one lost segment holds
+ * every datagram behind it, every position's alike, which datagrams
+ * never do to each other: the delay is the declared delay's to cover.
+ * At its end a seat closes its side for writing, reads what still comes
+ * for a tick, and closes, so the frames it handed the kernel last are
+ * not discarded by a close with unread bytes.
  *
  * The configuration is acUDP.c's: bind is what seat S listens on, reach
  * where the other seats dial it, each address in its turn, exec the
@@ -126,6 +159,7 @@
 #include <netdb.h>
 #include "rmd128.h"
 #include "rmd160.h"
+#include "halfsiphash.h"
 #include "ac.h"
 
 static void *rmd128Alloc(void) { return (malloc(rmd128tsize())); }
@@ -147,8 +181,8 @@ static const struct acHash Kdf = {
 #define LOOK_MS 30000
 /* the datagram every seat is dealt.  A stream fragments none, so a
  * frame need not fit a path's packet, and the framer caps a shard at
- * 16384 bytes: at 4096 the 51 bytes of tag, HMAC, gate and framing every
- * datagram carries are about 1% of it, under a third of their share of
+ * 16384 bytes: at 4096 the 31 bytes of tag, gate and framing every
+ * fragment carries are under 1% of it, under a third of their share of
  * acUDP's 1232, and a frame is about three full Ethernet segments */
 #define DGRAM_MAX 4096
 
@@ -172,22 +206,36 @@ static char OutBuf[1 << 16];
 #define PUT16(p, v) ((p)[0] = ((v) >> 8) & 0xff, (p)[1] = (v) & 0xff)
 #define GET16(p)    (((unsigned int)(p)[0] << 8) | (p)[1])
 
-/* the handshake: a hello is [seat][nonce], a proof the HMAC of
- * [prover][verifier][prover's nonce][verifier's nonce], under the pair's
- * key, the HKDF of its dealt secret under HK_LABEL */
+/* the handshake: the seat that accepted sends its nonce, the dialer a
+ * hello, [seat][nonce][gate], the other [gate][proof], the dialer its
+ * [proof].  A gate is the halfsiphash, under the pair's gate key, the
+ * HKDF of its dealt secret under GK_LABEL, of [G_DIAL][dialer][dialer's
+ * nonce][acceptor's nonce] in the hello, of [G_ACCEPT][acceptor]
+ * [acceptor's nonce][dialer's nonce] before the other's proof.  A proof
+ * is the HMAC of [prover][verifier][prover dialed][prover's nonce]
+ * [verifier's nonce], under the pair's key, the HKDF of its dealt secret
+ * under HK_LABEL */
 #define NONCE      16
-#define HELLO_LEN  (1 + NONCE)
+#define GATE       HALFSIPHASH_HSH_SZ
+#define G_DIAL     0
+#define G_ACCEPT   1
+#define GATE_TEXT  (2 + 2 * NONCE)
+#define HELLO_LEN  (1 + NONCE + GATE)
 #define PROOF_TEXT (3 + 2 * NONCE)
+#define GK_LABEL   "acTCP gate"
+#define GK_LEN     HALFSIPHASH_KEY_SZ
 #define HK_LABEL   "acTCP handshake"
 #define HK_LEN     RMD160_SZ          /* Kdf's */
 /* the unsent bytes past which a connection is not writable: about two
  * frames, or one where Linux counts half */
 #define LOWAT_BYTES 8192
-/* the ticks a connection has to bind: a dial's connect, the hellos and
- * the proofs are three round trips, and a tick is at least one */
-#define HS_TICKS     4
+/* the ticks a connection has in each state of its handshake, each
+ * about a round trip: the connect, the nonce, the hello and gate and
+ * proof; a tick is at least one round trip of the declared delay */
+#define HS_TICKS     5UL
 
-/* a connection: dialing, hello sent, proof sent, bound */
+/* a connection: dialing; the other's nonce awaited, or, accepted, the
+ * dialer's hello; the other's proof awaited; bound */
 #define C_DIAL  0
 #define C_HELLO 1
 #define C_PROOF 2
@@ -195,9 +243,10 @@ static char OutBuf[1 << 16];
 struct conn {
   unsigned char      *in;             /* a frame as it arrives, 2 + dgramMax */
   unsigned char      *out;            /* the frame the socket took part of, 2 + dgramMax */
-  unsigned long       born;           /* when it was made: its deadline to bind,
-                                       * and the oldest unbound */
-  unsigned long       bound;          /* when it was bound */
+  unsigned long       since;          /* when it came to its state */
+  unsigned long       ticks;          /* its deadline in that state, in ticks, 0 for
+                                       * none: HS_TICKS, doubled for its seat's late
+                                       * ones, once that seat is known */
   int                 fd;             /* -1 once closed */
   unsigned int        peer;           /* the seat at its other end: the one dialed,
                                        * or a hello's; N until then */
@@ -225,9 +274,13 @@ struct seat {
   struct conn        *c;              /* the connections, nc of them */
   int                *lfd;            /* the listening sockets, nl of them */
   struct pollfd      *pf;             /* the listening sockets, then each connection */
+  unsigned char      *gk;             /* [seat] x GK_LEN: the hellos' gate keys */
   unsigned char      *hk;             /* [seat] x HK_LEN: the handshake keys */
   unsigned long      *dialUs;         /* [seat]: when this seat last dialed it */
   unsigned int       *dialNext;       /* [seat]: the address its next dial tries */
+  unsigned int       *hsLate;         /* [seat]: its connections closed at their deadline
+                                       * since one bound, each doubling the deadline
+                                       * of the next made */
   unsigned long       us;             /* the loop's clock, for the send callback */
   unsigned int        nc;
   unsigned int        nl;
@@ -247,9 +300,12 @@ struct seat {
   unsigned int        dialFails;      /* dials that never connected */
   unsigned int        accepts;        /* connections it accepted */
   unsigned int        binds;          /* connections bound */
-  unsigned int        refused;        /* closed at the handshake: a hello or proof refused */
+  unsigned int        hellos;         /* closed at a nonce or hello refused:
+                                       * malformed, or the hello's gate failed */
+  unsigned int        refused;        /* closed at a proof refused, or the gate
+                                       * before it */
   unsigned int        late;           /* closed not bound by its deadline */
-  unsigned int        dups;           /* bound beside another to the same seat, one closed */
+  unsigned int        dups;           /* bound beside another to the same seat */
   unsigned int        closes;         /* connections closed, every reason */
   int                 up;             /* the link up: ready, then how the seat ended */
 };
@@ -404,7 +460,7 @@ connNew(
   c->out = c->in + 2 + s->dgramMax;
   c->fd = fd;
   c->peer = s->n;
-  c->born = s->us;
+  c->since = s->us;
   arc4random_buf(c->nonce, NONCE);
   ++s->nc;
   return (c);
@@ -446,14 +502,14 @@ put(
   return (-1);
 }
 
-/* a datagram to a seat: a frame on the connection bound to it, or the
- * network's loss, counted by why.  No connection refusal is a refusal
+/* a datagram to a seat: a frame on the newest connection bound to it,
+ * or the network's loss, counted by why.  No connection refusal is a refusal
  * here, since the library would hold every seat's datagrams behind it:
  * the seat's sweeps re-send what was lost, as across any loss.  With no
  * connection bound to the seat and none this seat is dialing to it, it
  * dials, at most once a tick, each dial the next address dealt for it;
- * a connection accepted from a seat stops no dial until it binds, since
- * until then it is only a claim */
+ * a connection accepted from a seat stops a dial once its hello passed,
+ * which only that seat's can, and none before, when it is anyone's */
 static int
 send1(
   void *ctx
@@ -471,7 +527,7 @@ send1(
   s = ctx;
   for (any = 0, c = 0, i = 0; i < s->nc; ++i)
     if (s->c[i].fd >= 0 && s->c[i].peer == dest) {
-      if (s->c[i].dialed)
+      if (s->c[i].dialed || s->c[i].state == C_PROOF)
         any = 1;
       if (s->c[i].state == C_BOUND)
         c = s->c + i;
@@ -502,6 +558,7 @@ send1(
     return (1);
   }
   c->peer = dest;
+  c->ticks = HS_TICKS << (s->hsLate[dest] < 10 ? s->hsLate[dest] : 10);
   c->dialed = 1;
   c->state = C_DIAL;
   return (1);
@@ -588,6 +645,7 @@ seatMain(
   int up
  ,int down
 ){
+  static const unsigned char gkLabel[] = GK_LABEL;
   static const unsigned char hkLabel[] = HK_LABEL;
   struct seat s;
   struct acPar par;
@@ -603,8 +661,10 @@ seatMain(
   unsigned char deal[4 * DEAL_WORDS];
   unsigned char genesis[AC_HASH_MAX];
   unsigned char e[ENTRY_LEN(AC_HASH_MAX)];
-  unsigned char hs[PROOF_TEXT];       /* a proof's text, or a hello */
-  unsigned char mac[HK_LEN];
+  unsigned char hs[PROOF_TEXT];       /* a proof's text */
+  unsigned char gt[GATE_TEXT];        /* a gate's text */
+  unsigned char fr[GATE + HK_LEN];    /* a hello, or a gate and a proof */
+  unsigned char mac[HK_LEN];          /* a proof, or a gate */
   char **list;                        /* [seat]: this seat's what it binds,
                                        * every other's where it is dialed */
   void *v;
@@ -614,6 +674,7 @@ seatMain(
   unsigned int messages;
   unsigned int nTo;
   unsigned int np;
+  unsigned int na;                    /* connections accepted this pass, a socket */
   unsigned int i;
   unsigned int k;
   int moved;                          /* the pass's sockets made progress */
@@ -657,9 +718,11 @@ seatMain(
   if (!(s.ac = acInit(&par, &cb))
    || !(list = calloc(s.n, sizeof (*list)))
    || !(s.at = calloc(s.n + 1, sizeof (*s.at)))
+   || !(s.gk = calloc(s.n, GK_LEN))
    || !(s.hk = calloc(s.n, HK_LEN))
    || !(s.dialUs = calloc(s.n, sizeof (*s.dialUs)))
-   || !(s.dialNext = calloc(s.n, sizeof (*s.dialNext))))
+   || !(s.dialNext = calloc(s.n, sizeof (*s.dialNext)))
+   || !(s.hsLate = calloc(s.n, sizeof (*s.hsLate))))
     goto done;
   s.hashSz = acPar(s.ac)->hashSz;
   s.dgramMax = acPar(s.ac)->dgramMax;
@@ -671,8 +734,8 @@ seatMain(
   if (!writeAll(up, acPub(s.ac), s.hashSz))
     goto done;
   /* down: every other seat's entry and where this seat dials it, then
-   * the genesis; the pair's handshake key derived from its secret on
-   * the way to the library */
+   * the genesis; the pair's gate and handshake keys derived from its
+   * secret on the way to the library */
   for (k = 1; k < s.n; ++k) {
     unsigned int x;
     unsigned int l;
@@ -680,6 +743,7 @@ seatMain(
     if (!readAll(down, e, ENTRY_LEN(s.hashSz)) || (x = e[0]) >= s.n || x == s.self || list[x]
      || acDeal(s.ac, x, e + 1, e + 1 + AC_PSK))
       goto done;
+    Kdf.hkdf(e + 1, AC_PSK, gkLabel, sizeof (gkLabel) - 1, s.gk + x * GK_LEN, GK_LEN);
     Kdf.hkdf(e + 1, AC_PSK, hkLabel, sizeof (hkLabel) - 1, s.hk + x * HK_LEN, HK_LEN);
     l = GET16(e + 1 + AC_PSK + s.hashSz);
     if (!(list[x] = malloc(l + 1)) || !readAll(down, list[x], l))
@@ -820,15 +884,20 @@ seatMain(
     }
     if (wait < 0)
       break;                            /* the end run over, or failed, and nothing left to send */
-    /* a connection not bound by its deadline closed; the poll set: the
-     * listening sockets, then every open connection, the closed ones let
-     * go; a connection dialing or holding a frame's rest also waits to
-     * write */
-    for (i = 0; i < s.nc; ++i)
-      if (s.c[i].fd >= 0 && s.c[i].state != C_BOUND && s.us - s.c[i].born > HS_TICKS * s.tickMs * 1000UL) {
+    /* a connection not bound by its deadline closed, and counted late
+     * for its seat where that is known; the poll set: the listening
+     * sockets, then every open connection, the closed ones let go; a
+     * connection dialing or holding a frame's rest also waits to write */
+    for (i = 0; i < s.nc; ++i) {
+      if (s.c[i].fd < 0 || s.c[i].state == C_BOUND)
+        continue;
+      if (s.c[i].ticks && (s.us - s.c[i].since) / (s.tickMs * 1000UL) >= s.c[i].ticks) {
+        if (s.c[i].peer < s.n)
+          ++s.hsLate[s.c[i].peer];
         CLOSE(&s, s.c + i);
         ++s.late;
       }
+    }
     for (i = k = 0; i < s.nc; ++i)
       if (s.c[i].fd >= 0)
         s.c[k++] = s.c[i];
@@ -852,49 +921,7 @@ seatMain(
       poll(s.pf, np, wait > 1000000L ? 1000 : (wait + 999) / 1000);
       continue;
     }
-    /* a connection accepted gets this seat's hello at once; past N
-     * unbound ones accepted, the oldest is closed for it.  An accept
-     * that fails for want of descriptors leaves its socket readable, so
-     * it is let out of the wait below, or the loop would spin on it */
     moved = 0;
-    for (i = 0; i < s.nl; ++i) {
-      int fd;
-
-      if (!(s.pf[i].revents & POLLIN))
-        continue;
-      while ((fd = accept(s.lfd[i], 0, 0)) >= 0) {
-        struct conn *c;
-        struct conn *old;
-        unsigned int un;
-
-        if (!tune(fd)) {
-          close(fd);
-          continue;
-        }
-        for (old = 0, un = 0, k = 0; k < s.nc; ++k)
-          if (s.c[k].fd >= 0 && !s.c[k].dialed && s.c[k].state != C_BOUND) {
-            ++un;
-            if (!old || s.c[k].born < old->born)
-              old = s.c + k;
-          }
-        if (un >= s.n)
-          CLOSE(&s, old);
-        if (!(c = connNew(&s, fd))) {
-          close(fd);
-          continue;
-        }
-        ++s.accepts;
-        moved = 1;
-        hs[0] = s.self;
-        memcpy(hs + 1, c->nonce, NONCE);
-        if (put(&s, c, hs, HELLO_LEN) == 1)
-          c->state = C_HELLO;
-        else if (c->fd >= 0)
-          CLOSE(&s, c);
-      }
-      if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
-        s.pf[i].events = 0;
-    }
     /* each connection in the poll set: a dial done, a frame's rest
      * written, and what came read, frame by frame */
     for (i = 0; i < np - s.nl; ++i) {
@@ -917,14 +944,8 @@ seatMain(
           ++s.dialFails;
           continue;
         }
-        hs[0] = s.self;
-        memcpy(hs + 1, c->nonce, NONCE);
-        if (put(&s, c, hs, HELLO_LEN) != 1) {
-          if (c->fd >= 0)
-            CLOSE(&s, c);
-          continue;
-        }
         c->state = C_HELLO;
+        c->since = s.us;
       }
       if (c->outOff < c->outLen && re & POLLOUT) {
         moved = 1;
@@ -957,33 +978,88 @@ seatMain(
           break;
         switch (c->state) {
         case C_HELLO:
-          /* the other's hello: a seat but this one, the one dialed if
-           * this seat dialed; then this seat's proof */
-          if (fl != HELLO_LEN || c->in[2] >= s.n || c->in[2] == s.self || (c->dialed && c->in[2] != c->peer))
-            goto refuse;
-          c->peer = c->in[2];
-          memcpy(c->peerNonce, c->in + 3, NONCE);
-          hs[0] = s.self;
-          hs[1] = c->peer;
-          hs[2] = c->dialed;
-          memcpy(hs + 3, c->nonce, NONCE);
-          memcpy(hs + 3 + NONCE, c->peerNonce, NONCE);
-          Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), mac);
-          if (put(&s, c, mac, HK_LEN) != 1) {
+          if (c->dialed) {
+            /* the other's nonce: this seat's hello, its gate over both
+             * nonces */
+            if (fl != NONCE)
+              goto hello;
+            memcpy(c->peerNonce, c->in + 2, NONCE);
+            gt[0] = G_DIAL;
+            gt[1] = s.self;
+            memcpy(gt + 2, c->nonce, NONCE);
+            memcpy(gt + 2 + NONCE, c->peerNonce, NONCE);
+            fr[0] = s.self;
+            memcpy(fr + 1, c->nonce, NONCE);
+            halfsiphash(gt, GATE_TEXT, s.gk + c->peer * GK_LEN, fr + 1 + NONCE);
+            n = put(&s, c, fr, HELLO_LEN);
+          } else {
+            /* the dialer's hello: a seat but this one, its gate over this
+             * seat's nonce checked under that seat's key before anything
+             * else is done for it; then this seat's gate over the
+             * dialer's nonce and its proof */
+            if (fl != HELLO_LEN || c->in[2] >= s.n || c->in[2] == s.self)
+              goto hello;
+            gt[0] = G_DIAL;
+            gt[1] = c->in[2];
+            memcpy(gt + 2, c->in + 3, NONCE);
+            memcpy(gt + 2 + NONCE, c->nonce, NONCE);
+            halfsiphash(gt, GATE_TEXT, s.gk + c->in[2] * GK_LEN, mac);
+            for (d = 0, k = 0; k < GATE; ++k)
+              d |= mac[k] ^ c->in[3 + NONCE + k];
+            if (d)
+              goto hello;
+            c->peer = c->in[2];
+            c->ticks = HS_TICKS << (s.hsLate[c->peer] < 10 ? s.hsLate[c->peer] : 10);
+            memcpy(c->peerNonce, c->in + 3, NONCE);
+            /* that seat dials only with no connection to this one in
+             * hand, so another it dialed, its hello passed, is gone at
+             * its end, or the network reordered the two, which costs a
+             * dial */
+            for (k = 0; k < s.nc; ++k)
+              if (s.c + k != c && s.c[k].fd >= 0 && !s.c[k].dialed && s.c[k].state == C_PROOF && s.c[k].peer == c->peer)
+                CLOSE(&s, s.c + k);
+            gt[0] = G_ACCEPT;
+            gt[1] = s.self;
+            memcpy(gt + 2, c->nonce, NONCE);
+            memcpy(gt + 2 + NONCE, c->peerNonce, NONCE);
+            halfsiphash(gt, GATE_TEXT, s.gk + c->peer * GK_LEN, fr);
+            hs[0] = s.self;
+            hs[1] = c->peer;
+            hs[2] = 0;
+            memcpy(hs + 3, c->nonce, NONCE);
+            memcpy(hs + 3 + NONCE, c->peerNonce, NONCE);
+            Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), fr + GATE);
+            n = put(&s, c, fr, GATE + HK_LEN);
+          }
+          if (n != 1) {
             if (c->fd >= 0)
               CLOSE(&s, c);
             break;
           }
           c->state = C_PROOF;
+          c->since = s.us;
           break;
         case C_PROOF:
           /* the other's proof, over this connection's nonces and its
-           * role, the one this seat's is not: bound.  Beside another
-           * bound to the same seat, the newer is kept where the older
-           * was bound more than a tick before, or both were dialed
-           * alike; else the one the lower-numbered seat dialed */
-          if (fl != HK_LEN)
+           * role, the one this seat's is not, the acceptor's behind its
+           * gate, checked first; the acceptor's checked, this seat's own
+           * proof: bound.  Beside another bound to the same seat, the
+           * lower-numbered seat of the two keeps the one the higher
+           * dialed, the later bound where the higher dialed both; the
+           * higher keeps both until the lower's close reaches it */
+          if (fl != (c->dialed ? GATE + HK_LEN : HK_LEN))
             goto refuse;
+          if (c->dialed) {
+            gt[0] = G_ACCEPT;
+            gt[1] = c->peer;
+            memcpy(gt + 2, c->peerNonce, NONCE);
+            memcpy(gt + 2 + NONCE, c->nonce, NONCE);
+            halfsiphash(gt, GATE_TEXT, s.gk + c->peer * GK_LEN, mac);
+            for (d = 0, k = 0; k < GATE; ++k)
+              d |= mac[k] ^ c->in[2 + k];
+            if (d)
+              goto refuse;
+          }
           hs[0] = c->peer;
           hs[1] = s.self;
           hs[2] = !c->dialed;
@@ -991,17 +1067,31 @@ seatMain(
           memcpy(hs + 3 + NONCE, c->nonce, NONCE);
           Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), mac);
           for (d = 0, k = 0; k < HK_LEN; ++k)
-            d |= mac[k] ^ c->in[2 + k];
+            d |= mac[k] ^ c->in[2 + (c->dialed ? GATE : 0) + k];
           if (d)
             goto refuse;
+          if (c->dialed) {
+            hs[0] = s.self;
+            hs[1] = c->peer;
+            hs[2] = 1;
+            memcpy(hs + 3, c->nonce, NONCE);
+            memcpy(hs + 3 + NONCE, c->peerNonce, NONCE);
+            Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), mac);
+            if (put(&s, c, mac, HK_LEN) != 1) {
+              if (c->fd >= 0)
+                CLOSE(&s, c);
+              break;
+            }
+          }
           c->state = C_BOUND;
-          c->bound = s.us;
           ++s.binds;
+          s.hsLate[c->peer] = 0;
           for (k = 0; k < s.nc; ++k)
             if (s.c + k != c && s.c[k].fd >= 0 && s.c[k].peer == c->peer && s.c[k].state == C_BOUND) {
               ++s.dups;
-              if (s.us - s.c[k].bound <= s.tickMs * 1000UL
-               && s.c[k].dialed != c->dialed && c->dialed != (s.self < c->peer))
+              if (s.self > c->peer)
+                break;
+              if (!s.c[k].dialed && c->dialed)
                 CLOSE(&s, c);
               else
                 CLOSE(&s, s.c + k);
@@ -1031,11 +1121,64 @@ seatMain(
         memmove(c->in, c->in + 2 + fl, c->inLen - 2 - fl);
         c->inLen -= 2 + fl;
         continue;
+hello:
+        ++s.hellos;
+        CLOSE(&s, c);
+        break;
 refuse:
         ++s.refused;
         CLOSE(&s, c);
         break;
       }
+    }
+    /* connections accepted, after reading those the seat holds, at most
+     * N a listening socket, each sent this seat's nonce at once.  Past N
+     * accepted and not bound, one is closed, chosen at random among those
+     * whose hello has not passed, the newest among them, never one whose
+     * hello passed, which only a peer's can.  An
+     * accept that fails for want of descriptors leaves its socket
+     * readable, so it is let out of the wait below, or the loop would
+     * spin on it */
+    for (i = 0; i < s.nl; ++i) {
+      int fd;
+
+      if (!(s.pf[i].revents & POLLIN))
+        continue;
+      for (na = 0; na < s.n && (fd = accept(s.lfd[i], 0, 0)) >= 0; ++na) {
+        struct conn *c;
+        unsigned int un;                /* accepted, no hello passed */
+        unsigned int ug;                /* accepted, its hello passed */
+
+        moved = 1;
+        if (!tune(fd) || !(c = connNew(&s, fd))) {
+          close(fd);
+          continue;
+        }
+        ++s.accepts;
+        if (put(&s, c, c->nonce, NONCE) != 1) {
+          if (c->fd >= 0)
+            CLOSE(&s, c);
+          continue;
+        }
+        c->state = C_HELLO;
+        for (un = ug = 0, k = 0; k < s.nc; ++k)
+          if (s.c[k].fd >= 0 && !s.c[k].dialed && s.c[k].state != C_BOUND) {
+            if (s.c[k].state == C_HELLO)
+              ++un;
+            else
+              ++ug;
+          }
+        if (un + ug <= s.n)
+          continue;
+        un = arc4random_uniform(un);
+        for (k = 0; k < s.nc; ++k)
+          if (s.c[k].fd >= 0 && !s.c[k].dialed && s.c[k].state == C_HELLO && !un--) {
+            CLOSE(&s, s.c + k);
+            break;
+          }
+      }
+      if (na < s.n && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
+        s.pf[i].events = 0;
     }
     /* ready but nothing moved: the wait, as above */
     if (!moved)
@@ -1098,24 +1241,24 @@ refuse:
     acCounters(s.ac, &c);
     fprintf(Out, "seat %u counters: ticks %u of %u ms, late by at most %lu ms, %u passes past their tick, patience %u, abandon %u,"
            " the longest agreement %u sweeps, agreements abandoned without a subset %u, at most %u positions live;"
-           " lost %u, decodes with no parity to spare %u, refused at the gate %u, at the tier %u;"
+           " lost %u, decodes with no parity to spare %u, refused at the gate %u, by a message's HMAC %u, held already and refused unread %u, HMACs run %u;"
            " held %u, not held %u, naming a record %u, recover legs started %u, retained %u, let go %u;",
            s.self, acTicks(s.ac), acPar(s.ac)->tickMs, c.overUs / 1000, c.passLong,
            acPar(s.ac)->patience, acPar(s.ac)->abandon, c.subsetMost, c.noSubset, c.liveMost,
-           c.loss, c.parityLast, c.igrGate, c.igrAuth,
+           c.loss, c.parityLast, c.igrGate, c.igrAuth, c.copy, c.authRun,
            c.future, c.aheadFull, c.recorded, c.recoverStarts, c.retained, c.released);
-    fprintf(Out, " own value broadcasts alone %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
+    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
            " %u parts placed, at most %u ticks after their position left the window;"
            " parts refused %u; refused by this seat's memory %u; its own steps waiting on its memory %u;"
            " datagrams lost here for want of a connection %u, behind a full one %u, otherwise %u\n",
-           c.repeated, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
+           c.repeated, c.descAlone, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
            c.unitBad[AC_UNIT_LEN] + c.unitBad[AC_UNIT_SIG] + c.unitBad[AC_UNIT_SSS] + c.unitBad[AC_UNIT_RSEC],
            c.aheadMem + c.rowMem + c.qDrop + c.asmAlloc + c.unitBad[AC_UNIT_MEM], c.ownMem,
            s.lostNone, s.lostFull, s.lostOther);
     /* the connections: dialed, accepted, bound, refused, closed */
     fprintf(Out, "seat %u connections: dialed %u, of them never connected %u; accepted %u; bound %u, beside another %u;"
-            " refused at the handshake %u, not bound in time %u; closed %u\n",
-            s.self, s.dials, s.dialFails, s.accepts, s.binds, s.dups, s.refused, s.late, s.closes);
+            " refused at a hello %u, at a proof %u, not bound in time %u; closed %u\n",
+            s.self, s.dials, s.dialFails, s.accepts, s.binds, s.dups, s.hellos, s.refused, s.late, s.closes);
     /* the seat's own thread: its CPU against the wall since the go */
     clock_gettime(CLOCK_MONOTONIC, &now);
     fprintf(Out, "seat %u thread: %lu ms of CPU in %lu ms since the go; the longest acWork %lu ms, acInput %lu ms; rows held ahead replayed %u, at most %u in one call\n", s.self,
@@ -1172,11 +1315,15 @@ done:
     close(s.lfd[i]);
   free(s.lfd);
   free(s.pf);
+  if (s.gk)
+    wipe(s.gk, s.n * GK_LEN);
+  free(s.gk);
   if (s.hk)
     wipe(s.hk, s.n * HK_LEN);
   free(s.hk);
   free(s.dialUs);
   free(s.dialNext);
+  free(s.hsLate);
   free(s.to);
   free(s.at);
   if (list)
@@ -1264,7 +1411,7 @@ main(
    * rest derives here for the operator and again, the same, in every
    * seat.  The abandon is -A's, measured, never derived */
   if (!par.abandon) {
-    fprintf(stderr, "-A is required: twice the longest agreement, in sweeps, of a rehearsal with one seat stopped\n");
+    fprintf(stderr, "-A is required: at least twice the longest agreement, in sweeps, of a rehearsal with one seat stopped\n");
     goto usage;
   }
   if (acDerive(&par)) {

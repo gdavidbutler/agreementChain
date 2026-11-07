@@ -29,20 +29,18 @@
 
 /*
  * A fragment's fixed overhead: [k-1][m][si][pad], a VLQ of at most 2,
- * and the tag and the three MACs.  A minimal fragment, a 1-byte VLQ and
- * no shard, is one less.
+ * and the tag and the gate.  A minimal fragment, a 1-byte VLQ and no
+ * shard, is one less.
  */
 unsigned int
 rsecFrmShard(
   unsigned int dgramMax
  ,unsigned int tagSize
- ,unsigned int frgHmacSize
- ,unsigned int dtgHmacSize
  ,unsigned int dtgHashSize
 ){
   unsigned int overhead;
 
-  overhead = tagSize + frgHmacSize + dtgHmacSize + dtgHashSize + 6;
+  overhead = tagSize + dtgHashSize + 6;
   if (dgramMax <= overhead
    || dgramMax - overhead > 16384)
     return (0);
@@ -53,22 +51,20 @@ unsigned int
 rsecFrmMax(
   unsigned int dgramMax
  ,unsigned int tagSize
- ,unsigned int frgHmacSize
- ,unsigned int dtgHmacSize
  ,unsigned int dtgHashSize
  ,unsigned char m
 ){
   unsigned int s;
 
-  if (!(s = rsecFrmShard(dgramMax, tagSize, frgHmacSize, dtgHmacSize, dtgHashSize)))
+  if (!(s = rsecFrmShard(dgramMax, tagSize, dtgHashSize)))
     return (0);
   return ((256 - m) * s);
 }
 
 /*
  * Egress.  A slot holds a message's k + m shards, each a fragment ready
- * but for the datagram trailers, stride bytes apart:
- *   [addrlen][addr][tag][k-1][m][si][pad][shard_len_vlq][shard_data][frgHmac]
+ * but for the gate, stride bytes apart:
+ *   [addrlen][addr][tag][k-1][m][si][pad][shard_len_vlq][shard_data]
  * One schedule, sorted by due time, interleaves every slot's shards.
  */
 struct egrEnt {
@@ -91,7 +87,6 @@ struct egr {
   struct egrShd *shd;
   unsigned char *pack;  /* [addrlen][addr][wire], 1 + 255 + dgramMax */
   unsigned char *seen;  /* a slot already in the pack */
-  unsigned int *frgOff; /* the pack's fragment tag offsets, one a slot at most */
   unsigned long shdCnt;
   unsigned long shdCap;
   unsigned long lastSent;
@@ -113,19 +108,15 @@ rsecFrmEgrInit(
   unsigned int i;
 
   if (!x->realloc || !x->free || !x->tableSize
-   || (x->dtgHashSize && !x->dtgHashSign)
-   || (x->dtgHmacSize && !x->dtgHmacSign)
-   || (x->frgHmacSize && !x->frgHmacSign))
+   || (x->dtgHashSize && !x->dtgHashSign))
     return (0);
   if (!(e = x->realloc(0, sizeof (*e))))
     return (0);
   memset(e, 0, sizeof (*e));
-  if (!(e->maxShard = rsecFrmShard(x->dgramMax, x->tagSize, x->frgHmacSize, x->dtgHmacSize, x->dtgHashSize))
+  if (!(e->maxShard = rsecFrmShard(x->dgramMax, x->tagSize, x->dtgHashSize))
    || !(e->tab = x->realloc(0, x->tableSize * sizeof (*e->tab)))
    || !(e->pack = x->realloc(0, 1 + 255 + x->dgramMax))
-   || !(e->seen = x->realloc(0, x->tableSize))
-   || !(e->frgOff = x->realloc(0, x->tableSize * sizeof (*e->frgOff)))) {
-    x->free(e->frgOff);
+   || !(e->seen = x->realloc(0, x->tableSize))) {
     x->free(e->seen);
     x->free(e->pack);
     x->free(e->tab);
@@ -150,7 +141,6 @@ rsecFrmEgrFini(
   for (i = 0; i < x->tableSize; ++i)
     x->free(e->tab[i].work);
   x->free(e->shd);
-  x->free(e->frgOff);
   x->free(e->seen);
   x->free(e->pack);
   x->free(e->tab);
@@ -239,7 +229,7 @@ rsecFrmEgrPut(
     vlqLen = 2;
   }
   gap = prefix + 4 + vlqLen;
-  stride = gap + sz + x->frgHmacSize;
+  stride = gap + sz;
   if (e->shdCnt + km > e->shdCap) {
     struct egrShd *t;
 
@@ -282,13 +272,6 @@ rsecFrmEgrPut(
     x->free(work);
     return (-1);
   }
-  if (x->frgHmacSize)
-    for (i = 0; i < km; ++i) {
-      unsigned char *s;
-
-      s = work + (unsigned long)i * stride;
-      x->frgHmacSign(x->frgHmacCtx, s, s + gap + sz, s + 1 + b[0], gap + sz - (1 + b[0]));
-    }
   e->tab[slot].work = work;
   e->tab[slot].delay = delay;
   e->tab[slot].stride = stride;
@@ -346,8 +329,8 @@ rsecFrmEgrDue(
 
 /*
  * The pack: the head shard, then every shard due at now to the same
- * address from a slot not yet in it, while there is room for both
- * trailers -- a slot is a tag at an address, so no two fragments of a
+ * address from a slot not yet in it, while there is room for the gate
+ * -- a slot is a tag at an address, so no two fragments of a
  * datagram share a tag.  The wait after it is the SUM of the packed
  * shards' delays: a delay is a slice of wire time, and packing lets
  * shards ride early, never for free.
@@ -376,7 +359,6 @@ rsecFrmEgrGet(
   wp = 1 + e->tab[ei].work[0];
   memcpy(e->pack, e->tab[ei].work, wp);
   memset(e->seen, 0, x->tableSize);
-  e->frgOff[0] = 0;
   memcpy(e->pack + wp, e->tab[ei].work + (unsigned long)e->shd[0].shard * e->tab[ei].stride + wp, e->tab[ei].stride - wp);
   pos = e->tab[ei].stride;
   e->seen[ei] = 1;
@@ -396,8 +378,8 @@ rsecFrmEgrGet(
     if (wj == wp
      && !memcmp(e->tab[ej].work, e->pack, wp)
      && !e->seen[ej]
-     && pos + fl + x->dtgHmacSize + x->dtgHashSize <= wp + x->dgramMax) {
-      e->frgOff[e->packFrg++] = pos - wp;
+     && pos + fl + x->dtgHashSize <= wp + x->dgramMax) {
+      ++e->packFrg;
       memcpy(e->pack + pos, e->tab[ej].work + (unsigned long)e->shd[si].shard * e->tab[ej].stride + wj, fl);
       pos += fl;
       e->seen[ej] = 1;
@@ -409,9 +391,6 @@ rsecFrmEgrGet(
     } else
       ++si;
   }
-  if (x->dtgHmacSize)
-    x->dtgHmacSign(x->dtgHmacCtx, e->pack, e->pack + pos, e->pack + wp, pos - wp, e->frgOff, e->packFrg);
-  pos += x->dtgHmacSize;
   if (x->dtgHashSize)
     x->dtgHashSign(x->dtgHashCtx, e->pack, e->pack + pos, e->pack + wp, pos - wp);
   pos += x->dtgHashSize;
@@ -476,9 +455,8 @@ struct igrDlv {
 struct igr {
   struct igrEnt **tab;     /* sorted by tag, used of them */
   struct igrDlv *dlv;      /* what the last Put left, two a fragment at most */
-  unsigned char *hdr;      /* [addrlen][addr][tag][k-1][m][si] for frgHmacVrfy */
-  unsigned int *frgOff;
   unsigned int used;
+  unsigned int maxShard;   /* a fragment's geometry is egress's for its length */
   unsigned int age;        /* fragments parsed, halved with every entry's */
   unsigned int held[256];  /* tagOwner: the entries by sender */
   unsigned int dlvCnt;
@@ -493,21 +471,16 @@ rsecFrmIgrInit(
   unsigned int maxFrg;
 
   if (!x->realloc || !x->free || !x->tableSize || x->tagOwner > x->tagSize
-   || (x->dtgHashSize && !x->dtgHashVrfy)
-   || (x->dtgHmacSize && !x->dtgHmacVrfy)
-   || (x->frgHmacSize && !x->frgHmacVrfy))
+   || (x->dtgHashSize && !x->dtgHashVrfy))
     return (0);
   if (!(g = x->realloc(0, sizeof (*g))))
     return (0);
   memset(g, 0, sizeof (*g));
-  /* a minimal fragment: [tag][k-1][m][si][pad][1-byte VLQ][frgHmac] */
-  maxFrg = x->dgramMax / (x->tagSize + 5 + x->frgHmacSize) + 1;
-  if (!(g->tab = x->realloc(0, x->tableSize * sizeof (*g->tab)))
-   || !(g->dlv = x->realloc(0, 2 * maxFrg * sizeof (*g->dlv)))
-   || !(g->hdr = x->realloc(0, 1 + 255 + x->tagSize + 3))
-   || !(g->frgOff = x->realloc(0, maxFrg * sizeof (*g->frgOff)))) {
-    x->free(g->frgOff);
-    x->free(g->hdr);
+  /* a minimal fragment: [tag][k-1][m][si][pad][1-byte VLQ] */
+  maxFrg = x->dgramMax / (x->tagSize + 5) + 1;
+  if (!(g->maxShard = rsecFrmShard(x->dgramMax, x->tagSize, x->dtgHashSize))
+   || !(g->tab = x->realloc(0, x->tableSize * sizeof (*g->tab)))
+   || !(g->dlv = x->realloc(0, 2 * maxFrg * sizeof (*g->dlv)))) {
     x->free(g->dlv);
     x->free(g->tab);
     x->free(g);
@@ -532,8 +505,6 @@ rsecFrmIgrFini(
     x->free(g->tab[i]->blob);
     x->free(g->tab[i]);
   }
-  x->free(g->frgOff);
-  x->free(g->hdr);
   x->free(g->dlv);
   x->free(g->tab);
   x->free(g);
@@ -550,7 +521,6 @@ rsecFrmIgrPut(
   struct igr *g;
   struct igrEnt *ent;
   unsigned int tagSize;
-  unsigned int frgHmacSize;
   unsigned int wp;
   unsigned int pos;
   unsigned int slot;
@@ -562,11 +532,10 @@ rsecFrmIgrPut(
     return (0);
   g->dlvCnt = g->dlvNext = 0;
   tagSize = x->tagSize;
-  frgHmacSize = x->frgHmacSize;
   wp = 1 + adr[0];
   /* past the wire's size or short of one fragment: not of this wire */
   if (n > x->dgramMax
-   || n < tagSize + 5 + frgHmacSize + x->dtgHmacSize + x->dtgHashSize)
+   || n < tagSize + 5 + x->dtgHashSize)
     return (1);
 
   /* the GATE, outermost, before any other work */
@@ -578,45 +547,7 @@ rsecFrmIgrPut(
     n -= x->dtgHashSize;
   }
 
-  /* the AUTH: the fragments' tag offsets from their framing, then the
-   * MAC; a failure, a bad MAC or a mixed-sender datagram, drops it */
-  if (x->dtgHmacSize) {
-    unsigned int fend;
-    unsigned int sp;
-    unsigned int frgCnt;
-
-    fend = n - x->dtgHmacSize;
-    for (sp = 0, frgCnt = 0; sp + tagSize + 5 + frgHmacSize <= fend;) {
-      unsigned int vo;
-      unsigned int ssz;
-      unsigned int svlq;
-      unsigned int send;
-
-      if (buf[sp + tagSize] + 1 + buf[sp + tagSize + 1] > 256)
-        break;
-      vo = sp + tagSize + 4;
-      if (buf[vo] & 0x80) {
-        if (vo + 2 > fend)
-          break;
-        ssz = (((buf[vo] & 0x7f) << 7) | (buf[vo + 1] & 0x7f)) + 1;
-        svlq = 2;
-      } else {
-        ssz = buf[vo];
-        svlq = 1;
-      }
-      if ((send = sp + tagSize + 4 + svlq + ssz + frgHmacSize) > fend)
-        break;
-      g->frgOff[frgCnt++] = sp;
-      sp = send;
-    }
-    if (!x->dtgHmacVrfy(x->dtgHmacCtx, adr, buf + fend, buf, fend, g->frgOff, frgCnt)) {
-      ++x->c.dhmac;
-      return (1);
-    }
-    n = fend;
-  }
-
-  for (pos = 0; pos + tagSize + 5 + frgHmacSize <= n;) {
+  for (pos = 0; pos + tagSize + 5 <= n;) {
     unsigned int k;
     unsigned int m;
     unsigned int si;
@@ -629,6 +560,12 @@ rsecFrmIgrPut(
     unsigned int dataPresent;
     int found;
 
+    /* the gate's key is the first fragment's sender: a fragment claiming
+     * another is a holder of that key speaking for someone else */
+    if (x->tagOwner && buf[pos + x->tagOwner - 1] != buf[x->tagOwner - 1]) {
+      ++x->c.hash;
+      break;
+    }
     ++x->c.frg;
     k = buf[pos + tagSize] + 1;
     m = buf[pos + tagSize + 1];
@@ -647,17 +584,20 @@ rsecFrmIgrPut(
       vlqLen = 1;
     }
     hl = tagSize + 4 + vlqLen;
-    if ((fragEnd = pos + hl + sz + frgHmacSize) > n)
+    if ((fragEnd = pos + hl + sz) > n)
       break;
-    if (padding > k * sz) {
-      pos = fragEnd;
-      continue;
-    }
-    if (frgHmacSize) {
-      memcpy(g->hdr, adr, wp);
-      memcpy(g->hdr + wp, buf + pos, tagSize + 3);
-      if (!x->frgHmacVrfy(x->frgHmacCtx, g->hdr, buf + pos + hl + sz, buf + pos, hl + sz)) {
-        ++x->c.hmac;
+    /* the geometry egress derives from a message's length and nothing
+     * else: what a decode and an entry cost is the message's, never a
+     * fragment's to choose */
+    {
+      unsigned long ml;
+
+      ml = (unsigned long)k * sz;
+      if (padding >= k || padding > ml
+       || ((ml -= padding) ? (ml + g->maxShard - 1) / g->maxShard : 1) != k
+       || sz != (ml + k - 1) / k
+       || (x->msgMax && ml > x->msgMax)) {
+        ++x->c.shape;
         pos = fragEnd;
         continue;
       }
@@ -691,6 +631,17 @@ rsecFrmIgrPut(
         }
       }
       slot = lo;
+    }
+
+    /* no train in flight under this tag: the caller may know already that
+     * its message would move nothing, ahead of an entry, which could evict
+     * one in flight, and a decode.  A train begun is carried to its end */
+    if (x->tagOk && (!found || !g->tab[slot]->blob) && !x->tagOk(x->tagOkCtx, buf + pos, si)) {
+      ++x->c.refused;
+      if (!si)
+        ++x->c.refusedMsg;
+      pos = fragEnd;
+      continue;
     }
 
     /* a mismatch evicts: padding counts, since it sets the delivered

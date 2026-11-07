@@ -93,7 +93,9 @@
  * live row asks: does this seat have a machine to deal with it?  A
  * recover leg's row is fed to its machine, the initiator's INITIAL
  * opening one here, at a position folded here or not.  Any other row is
- * its sender's: where no recover leg of this seat's runs toward that
+ * its sender's, nothing where its own word says it is owed nothing here (a
+ * later position named, or HOLDING on the legs run toward it): else, where
+ * no recover leg of this seat's runs toward that
  * seat at the position, this seat starts them, for every member X whose
  * unit it holds under X's agreed value, its own among them, one
  * bracha87Fig1 point to point, n = 2 and t = 0, this seat initiating
@@ -104,7 +106,7 @@
  * value.  No recover leg of X's value goes to X, which dealt it.  It is
  * BPR's like any leg: re-sent to the returner until its HOLDING, the
  * unit and the description held, or its abandon count, after which the
- * next row naming the position starts it again, the same v and the same
+ * next row naming the position, HOLDING unheard, starts it again, the same v and the same
  * bytes beside it; what an abandoned machine received goes with it, and
  * the record stays.  The seat holding the record never runs the
  * agreement again: recovery has no consensus to reach.  A part of a
@@ -116,8 +118,8 @@
  * is a row "received at previous steps" [Bracha87 Section 2.1] whenever
  * it lands.  COMPLETE: the seat's own agreement, on the others' rows;
  * or, whichever comes first, and where the others' agreements are gone
- * the only way, DISCOVER: T descriptions alike, from the recover legs
- * of distinct seats [the chain's own count, since the library agrees
+ * the only way, DISCOVER: T descriptions alike, from distinct seats,
+ * beside their recover legs or alone [the chain's own count, since the library agrees
  * values and never what rides beside one: at most t seats are faulty
  * and T > t, so one of the T is a correct seat's, and a correct seat
  * describes only what its agreement decided, the same at every correct
@@ -151,9 +153,8 @@
  *          Per seat s: the high water of its signing offset; what s's
  *          rows cost or broke here, and the tick
  *          its rows last landed in each window (acSeatCounters):
- *          identity is the in-tag sender the dealt tier verified, so a
- *          row's cost is its sender's and a verified signature's fault
- *          is its signer's.
+ *          each a count under a name, the in-tag sender or the signer,
+ *          never a finding about the seat.
  *
  *   in                      condition                        out
  *   -------------------------------------------------------------------------
@@ -178,7 +179,9 @@
  *   from s                                                   toward s running: start
  *                                                            them; a unit part of a
  *                                                            member a's record keeps:
- *                                                            placed there
+ *                                                            placed there; holding
+ *                                                            nothing for s: its
+ *                                                            description alone
  *   row under a from s      a neither live nor recorded      hold, L + 1 names of the
  *                                                            shape per s, till a is
  *                                                            minted here
@@ -414,7 +417,10 @@
  *                keeps its assembly with the record, which places a
  *                part of it still landing, a message received all the
  *                same [Bracha87 Section 3: "including those received at
- *                previous steps"]; nothing is sent for it.  A last pass
+ *                previous steps"]; nothing is sent for it.  Reaching
+ *                threshold there with no message found, it waits an
+ *                abandon past its last new part, then has that same
+ *                last pass.  A last pass
  *                this seat's memory refuses is kept the same way, the
  *                pass taken again at every tick, and only where the
  *                memory refuses it still when the retention lets the
@@ -503,7 +509,7 @@
  *                again and nothing re-runs an agreement: the returning
  *                seat's own agreement there may never complete, and it
  *                does not need to.  It DISCOVERs the subset from T
- *                recover legs' descriptions alike, one of them a
+ *                seats' descriptions alike, one of them a
  *                correct seat's, holds a sign part under every member's
  *                value and the units to assemble from, folds, mints the
  *                next name, launches the next on its caller's word, a
@@ -604,8 +610,8 @@
  *   ba             the agreement: ba / X
  *   round          k, 1..3 x phases / 0 / 0 / R
  *   initiator      q / X / S / S
- *   sender         from: the sender byte the AUTH tier verified under,
- *                  never the source address
+ *   sender         from: the sender byte the message's HMAC is verified
+ *                  under, never the source address
  *   name           the position's name: the chain hash before it, the
  *                  sign role's width
  *   payload        none on a class 0 row; v (HashSz) on INITIAL, ECHO
@@ -620,7 +626,7 @@
  * tag and the framer complements one reassembly.  A READY's two bits
  * are in the tag too, so a re-send whose bits moved is a new message to
  * the framer, delivered whole, not a late fragment of the old one.  The
- * name is under the datagram MAC because the mac mesh is static, and it
+ * name is under the message's MAC because the mac mesh is static, and it
  * is the sender's word, unsigned: a lie in it misroutes the liar's own
  * row into a machine where the figure counts that sender once.  It is
  * the chain hash and not a number because a number is a counter with a
@@ -644,13 +650,13 @@
  * and R, 1: n = 2, t = 0.
  *
  * The transport: the caller's UDP socket, one a seat, and the RSEC
- * framer (rsecFrm.h) driven by the seat's pass: its datagram AUTH tier,
- * cryptoMule's authenticated channel made per datagram [cryptoMule
- * README, An authenticated channel] (the kdf hash's HMAC under the
- * pairwise secret of the in-tag sender, every packed fragment claiming
- * that sender), and a halfsiphash DoS gate ahead of it, both keyed by
- * slices of one dealt pairwise secret whose third slice is the mask
- * key.  UDP has no back pressure: the deployment states the bandwidth a
+ * framer (rsecFrm.h) driven by the seat's pass, with its halfsiphash
+ * DoS gate on each datagram, and past it cryptoMule's authenticated
+ * channel on each message [cryptoMule README, An authenticated channel]:
+ * the kdf hash's HMAC under the pairwise secret of the in-tag sender,
+ * over the tag and the payload, run only where the machine the tag names
+ * would record what it carries.  Both are keyed by slices of one dealt
+ * pairwise secret whose third slice is the mask key.  UDP has no back pressure: the deployment states the bandwidth a
  * seat sends, the bwLimit parameter, and the framer paces every
  * message's shards to it.  The caller owns the wire, and a datagram the
  * kernel drops is loss like any other.  The operator deals the secrets
@@ -738,7 +744,7 @@ typedef char acKindsAreBracha87[AC_KIND_INITIAL == BRACHA87_INITIAL && AC_KIND_E
 
 /*
  * The dealt pairwise secret, one per unordered pair, carved into three
- * slices no third seat holds: the datagram AUTH key, the DoS gate key,
+ * slices no third seat holds: the message HMAC key, the DoS gate key,
  * and the mask IKM both phases key on.
  */
 #define PSK_HMAC_SIZE 64
@@ -746,9 +752,8 @@ typedef char acKindsAreBracha87[AC_KIND_INITIAL == BRACHA87_INITIAL && AC_KIND_E
 #define PSK_MASK_SIZE 64
 #define PSK_HMAC_OFF  0
 #define PSK_HASH_OFF  PSK_HMAC_SIZE
-#define PSK_TRN_SIZE  (PSK_HMAC_SIZE + PSK_HASH_SIZE)  /* the framer's slices */
-#define PSK_MASK_OFF  PSK_TRN_SIZE
-#define PSK_SIZE      (PSK_TRN_SIZE + PSK_MASK_SIZE)
+#define PSK_MASK_OFF  (PSK_HMAC_SIZE + PSK_HASH_SIZE)
+#define PSK_SIZE      (PSK_MASK_OFF + PSK_MASK_SIZE)
 typedef char acPskSized[PSK_SIZE == AC_PSK ? 1 : -1];  /* the header's number is this one */
 
 #define GATE_SIZE  HALFSIPHASH_HSH_SZ    /* datagram GATE: halfsiphash */
@@ -1524,6 +1529,11 @@ struct recIx {
   struct inst   *kept;
   unsigned long  off;                 /* the newest copy */
   unsigned long  anchor;              /* the first: the position's place in the ring's order */
+  unsigned char  done[1];             /* BITS(N): the seats whose own word says they are owed
+                                       * nothing here (recHeard); then BITS(N): those whose
+                                       * recover legs here were answered; then BITS(N): those
+                                       * this record holds nothing to carry to, its
+                                       * description alone owed them (DESC_OWED) */
 };
 
 /* a standalone Fig 1 instance and what this seat fed it, live until the
@@ -1628,6 +1638,7 @@ struct search {
                                        * shares: it keeps its own only by a PASS */
   unsigned int   kcap;
   unsigned int   tries;
+  unsigned int   partAt;              /* the tick the pool last grew */
   unsigned char  relaxed;             /* the pass without agreement: at T + 1 shares
                                        * over the new subsets, its candidates kept
                                        * only by a PASS; at the end over every subset */
@@ -1708,6 +1719,9 @@ struct inst {
   unsigned char   *subset;            /* BITS(N) */
   unsigned char   *rLeg;              /* [to], RLEG_ROW each: a reply owed it of a leg,
                                        * a bit at 2 ix + kind - ECHO, ix among the 3N^2 */
+  unsigned char   *rCopy;             /* copyBudget's, made on the first */
+  unsigned int     rcvMem;            /* a recover leg its memory refused: no one's word covers it */
+  unsigned int    *rCopyAt;
   unsigned long    puts;              /* messages of this instance Put */
   unsigned long    gets;              /* rows and units of it taken */
   unsigned long    nmtUs;             /* when its (n - t)th agreement decided 1 here */
@@ -1733,7 +1747,7 @@ struct inst {
   int              acsSubset;         /* its ACS seat returned SUBSET: here or after a DISCOVER */
   int              ownDue;            /* launched, its value broadcast waits
                                        * for the talk with no pass in hand */
-  int              recovered;         /* the subset from T recover legs' descriptions alike */
+  int              recovered;         /* the subset from T descriptions alike */
   int              stepped;           /* folded: the book moved, the link minted */
   int              last;              /* the chain's last link: more than t members carry the end */
   int              again;             /* this seat's proposal is presented again: a rotation,
@@ -1744,7 +1758,8 @@ struct inst {
   int              gone;              /* and the retention let the record go: the last pass */
   int              loaded;            /* this seat's units of the members taken from the record */
   int              recDue;            /* a part of this seat's distribution placed past
-                                       * the position's end: the record's copy due */
+                                       * the position's end, its member reported or not:
+                                       * the record's copy due */
   unsigned int     endTick;           /* the tick it left the live window */
   unsigned int     lagUntil;          /* -z: the tick its INITIAL is held to */
   unsigned int     rot;               /* members that are rotations */
@@ -1873,6 +1888,8 @@ instFree(
   free(in->a);
   free(in->oAcs);
   free(in->rAcs);
+  free(in->rCopy);
+  free(in->rCopyAt);
   if (in->blob && in->blobLen)
     memset(in->blob, 0, in->blobLen);
   free(in->blob);
@@ -1895,7 +1912,7 @@ instFree(
 #define EV_WORK  2
 
 struct ac {
-  struct pskTab            *egrTab;   /* the framers' keyed tiers */
+  struct pskTab            *egrTab;   /* the framers' gate */
   struct pskTab            *igrTab;
   unsigned char            *obuf;     /* the held message, for the egress framer */
   unsigned char            *ubuf;     /* one part of a unit, PartMax, or a description, DESC_MAX */
@@ -1909,6 +1926,13 @@ struct ac {
                                        * was first said to it, at instance rttNum */
   unsigned int             *rttNum;
   unsigned char            *rttOpen;  /* its echo of that one not yet in */
+  unsigned int             *rowTick;  /* by seat, 1 + the tick its row was last taken
+                                       * as word of a name past the rows held; then, by seat,
+                                       * the newest position its proven rows have named
+                                       * (NAMED): it has folded every one before that; then,
+                                       * by seat, 1 + the tick a description alone was last
+                                       * owed it (DESC_AT) */
+  struct recIx            **descTo;   /* by seat: the record whose description alone it is owed */
   unsigned long            *swUs;     /* by seat: when its sweep was last due */
   unsigned long            *tickNow;  /* by seat, two each: the message bytes sent it and
                                        * completed from it this tick so far */
@@ -2166,18 +2190,18 @@ trace(
 }
 
 /*
- * The framer's keyed tiers.  One table per direction per seat holding
- * only that seat's transport slices.  Egress keys on the destination,
- * found by its address; ingress keys on the in-tag sender byte and
- * enforces that every packed fragment claims it -- the kernel's source
- * address is never consulted.
+ * The framers' gate: each framer's context holds the gate slice of the
+ * seat's row of the mesh, one per other seat.  Egress keys on the
+ * destination, found by its address; ingress keys on the in-tag sender
+ * byte, the framer's tagOwner, and the framer refuses a fragment
+ * claiming another -- the kernel's source address is never consulted.
  */
 struct pskTab {
   const struct acPar *p;              /* the seat's parameters */
   unsigned int        self;
-  unsigned char       psk[1];         /* N x PSK_TRN_SIZE */
+  unsigned char       psk[1];         /* N x PSK_HASH_SIZE */
 };
-#define PSKTAB_SZ (sizeof (struct pskTab) + N * PSK_TRN_SIZE)
+#define PSKTAB_SZ (sizeof (struct pskTab) + N * PSK_HASH_SIZE)
 
 /* the seat a framer address names: one byte, the seat; N for none */
 static unsigned int
@@ -2191,67 +2215,6 @@ addrToIdx(
   if (adr[0] != 1 || adr[1] >= N)
     return (N);
   return (adr[1]);
-}
-
-static void
-dtgHmacSignCb(
-  void *ctx
- ,const unsigned char *adr
- ,unsigned char *dst
- ,const unsigned char *src
- ,unsigned int len
- ,const unsigned int *frgOff
- ,unsigned int frgCnt
-){
-  struct pskTab *tab;
-  const struct acPar *S;
-  unsigned int id;
-
-  (void)frgOff;
-  (void)frgCnt;
-  tab = ctx;
-  S = tab->p;
-  if ((id = addrToIdx(tab, adr)) >= N || id == tab->self) {
-    memset(dst, 0, HmacSz);
-    return;
-  }
-  Kdf->hmac((tab->psk + (id) * PSK_TRN_SIZE) + PSK_HMAC_OFF, PSK_HMAC_SIZE, src, len, dst);
-}
-
-static int
-dtgHmacVrfyCb(
-  void *ctx
- ,const unsigned char *adr
- ,const unsigned char *mac
- ,const unsigned char *src
- ,unsigned int len
- ,const unsigned int *frgOff
- ,unsigned int frgCnt
-){
-  struct pskTab *tab;
-  const struct acPar *S;
-  unsigned char computed[AC_HASH_MAX];
-  unsigned int sender;
-  unsigned int i;
-  unsigned char diff;
-
-  (void)adr;
-  tab = ctx;
-  S = tab->p;
-  if (len < TagSz)
-    return (0);
-  sender = src[AC_TAG_SENDER];
-  if (sender >= N || sender == tab->self)
-    return (0);
-  Kdf->hmac((tab->psk + (sender) * PSK_TRN_SIZE) + PSK_HMAC_OFF, PSK_HMAC_SIZE, src, len, computed);
-  for (diff = 0, i = 0; i < HmacSz; ++i)
-    diff |= mac[i] ^ computed[i];
-  if (diff)
-    return (0);
-  for (i = 1; i < frgCnt; ++i)
-    if (src[frgOff[i] + AC_TAG_SENDER] != sender)
-      return (0);
-  return (1);
 }
 
 static void
@@ -2272,7 +2235,7 @@ gateSignCb(
     memset(dst, 0, GATE_SIZE);
     return;
   }
-  halfsiphash(src, len, (tab->psk + (id) * PSK_TRN_SIZE) + PSK_HASH_OFF, dst);
+  halfsiphash(src, len, tab->psk + id * PSK_HASH_SIZE, dst);
 }
 
 static int
@@ -2298,10 +2261,151 @@ gateVrfyCb(
   sender = src[AC_TAG_SENDER];
   if (sender >= N || sender == tab->self)
     return (0);
-  halfsiphash(src, len, (tab->psk + (sender) * PSK_TRN_SIZE) + PSK_HASH_OFF, computed);
+  halfsiphash(src, len, tab->psk + sender * PSK_HASH_SIZE, computed);
   for (diff = 0, i = 0; i < GATE_SIZE; ++i)
     diff |= mac[i] ^ computed[i];
   return (!diff);
+}
+
+/*
+ * A message's HMAC, under the slice of the pair's secret: over its tag
+ * and its payload, whatever the framer's fields between them, which are
+ * the framer's and differ from one end to the other.  The hash takes one
+ * run of bytes, so the tag slides over them for the call.
+ */
+static void
+msgMac(
+  struct ac *V
+ ,unsigned int peer
+ ,unsigned char *tag
+ ,unsigned int gap
+ ,unsigned int len
+ ,unsigned char *out
+){
+  const struct acPar *S;
+  unsigned char between[5];
+
+  S = &V->p;
+  memcpy(between, tag + TagSz, gap);
+  memmove(tag + gap, tag, TagSz);
+  Kdf->hmac(PSKROW(V, peer) + PSK_HMAC_OFF, PSK_HMAC_SIZE, tag + gap, TagSz + len, out);
+  memmove(tag, tag + gap, TagSz);
+  memcpy(tag + TagSz, between, gap);
+}
+
+/* the newest position seat s has named in a proven row, this seat's count */
+#define NAMED(V, s) ((V)->rowTick[S->n + (s)])
+/* a row of seat s, no part, at a record that holds nothing to carry it,
+ * naming the position s is at, and no description alone owed it this tick */
+#define DESC_AT(V, s) ((V)->rowTick[2 * S->n + (s)])
+#define DESC_OWED(V, rx, s, kind, num) ((kind) != BRACHA87_BESIDE && (num) >= NAMED(V, s) \
+  && ((rx)->done[2 * BITS(N) + ((s) >> 3)] >> ((s) & 7) & 1) && DESC_AT(V, s) != (V)->ticks + 1)
+/* where a row landed: what the sender's word says of where it is, once it
+ * is its word */
+#define WIN_NONE    0
+#define WIN_LIVE    1
+#define WIN_RECORD  2
+#define WIN_HELD    3
+
+/*
+ * The proof, paid only where a message is about to move something: a
+ * delivered [tag][rm][um][payload][hmac], len the payload.  A failed
+ * proof is a counted discard, as a failed gate is: it says nothing of the
+ * seat named, what crossed a Byzantine network being no one's word, and it
+ * changes nothing for what comes next under that name.
+ */
+static int
+msgAuth(
+  struct ac *V
+ ,unsigned char *tag
+ ,unsigned int len
+ ,unsigned int win
+ ,unsigned int num
+){
+  const struct acPar *S;
+  const unsigned char *mac;
+  unsigned char computed[AC_HASH_MAX];
+  unsigned int from;
+  unsigned int i;
+  unsigned char diff;
+
+  S = &V->p;
+  from = tag[AC_TAG_SENDER];
+  ++V->c.authRun;
+  msgMac(V, from, tag, 2, len, computed);
+  mac = tag + TagSz + 2 + len;
+  for (diff = 0, i = 0; i < HmacSz; ++i)
+    diff |= mac[i] ^ computed[i];
+  if (diff) {
+    ++V->c.igrAuth;
+    ++SEATC(V, from).authBad;
+    return (0);
+  }
+  if (win != WIN_HELD && num > NAMED(V, from))
+    NAMED(V, from) = num;
+  switch (win) {
+  case WIN_LIVE:
+    ++SEATC(V, from).live;
+    SEATC(V, from).liveTick = V->ticks;
+    break;
+  case WIN_RECORD:
+    ++SEATC(V, from).recorded;
+    SEATC(V, from).recordTick = V->ticks;
+    break;
+  case WIN_HELD:
+    SEATC(V, from).heldTick = V->ticks;
+    break;
+  default:
+    break;
+  }
+  return (1);
+}
+
+/*
+ * A copy's one reply a tick: what the row has solicited of this seat
+ * this tick toward its sender, a bit, 2 ix + kind - ECHO among the legs
+ * and, past them, the instances.  A reply is for a sender that has not
+ * heard, and a sender's sweep says so once a tick; what is presented
+ * beyond that has no one behind it, whoever sends it.  Made when a
+ * position first sees a copy that would be answered, cleared seat by seat
+ * as a tick first uses it.  This seat's memory refusing it is a reply
+ * lost, the sender's next re-send asking again.
+ */
+static int
+copyBudget(
+  struct ac *V
+ ,struct inst *I
+ ,unsigned int to
+ ,unsigned int bit
+){
+  const struct acPar *S;
+  unsigned char *row;
+  unsigned int rowSz;
+
+  S = &V->p;
+  rowSz = RLEG_ROW + (I->rx ? 0 : RACS_ROW);  /* a record's machines are legs alone */
+  if (!I->rCopy) {
+    if (!(I->rCopy = calloc(N, rowSz)))
+      return (0);
+    if (!(I->rCopyAt = calloc(N, sizeof (*I->rCopyAt)))) {
+      free(I->rCopy);
+      I->rCopy = 0;
+      return (0);
+    }
+  }
+  row = I->rCopy + to * rowSz;
+  if (I->rCopyAt[to] != V->ticks + 1) {
+    memset(row, 0, rowSz);
+    I->rCopyAt[to] = V->ticks + 1;
+  }
+  if (row[bit >> 3] & (1 << (bit & 7)))
+    return (0);
+  row[bit >> 3] |= 1 << (bit & 7);
+#ifdef AC_TEST
+  if (V->test)
+    V->test->tagMoved = 1;
+#endif
+  return (1);
 }
 
 /*
@@ -2323,6 +2427,7 @@ pace(
 ){
   unsigned int k;
 
+  payLen += HmacSz;
   if (!(k = (payLen + Shard - 1) / Shard))
     k = 1;
   if (ParityShards >= 0)
@@ -2374,7 +2479,6 @@ emit(
 ){
   const struct acPar *S;
   unsigned char *p;
-  unsigned int total;
   unsigned int addrLen;
   unsigned int m;
   unsigned long d;
@@ -2409,7 +2513,6 @@ emit(
   ctx->putAt = (ctx->eSweep ? AC_SAID_SWEEP : ctx->eOne ? AC_SAID_REPLY : AC_SAID_FIRST) * 16 + AC_TAG_CLASS(byte) * 4 + AC_TAG_KIND(byte);
   pace(S, payLen, &m, &d);
   addrLen = 1;                        /* the framer's address: the destination seat */
-  total = 1 + addrLen + TagSz + 5 + payLen;
   p = ctx->obuf;
   *p++ = addrLen;
   *p++ = dest;
@@ -2429,17 +2532,21 @@ emit(
     memcpy(p, payload, payLen);
 #ifdef AC_TEST
   /* the harness's seat may rewrite the tag and the payload's copy, or
-   * shorten it, before the framer authenticates them as this seat's own */
+   * shorten it, before they are authenticated as this seat's own */
   if (ctx->test && ctx->test->egress) {
     int nl;
 
     if ((nl = ctx->test->egress(ctx->test->ctx, ctx->eActive && ctx->eI && ctx->eI->rx ? 0 : inst, dest, ctx->obuf + 2, p, payLen)) < 0)
       return;
     payLen = nl;
-    total = 1 + addrLen + TagSz + 5 + payLen;
   }
 #endif
-  *hold = total;
+  msgMac(ctx, dest, ctx->obuf + 2, 5, payLen, p + payLen);
+#ifdef AC_TEST
+  if (ctx->test && ctx->test->badMac)
+    p[payLen] ^= 1;
+#endif
+  *hold = 1 + addrLen + TagSz + 5 + payLen + HmacSz;
 }
 
 /*
@@ -2742,6 +2849,233 @@ unitCheck(
 /*  The seat.                                                             */
 /*------------------------------------------------------------------------*/
 
+/* a part of X's own broadcast under a record: its unit, of a member the
+ * position agreed, that this seat lacks, however late.  The record takes it, so
+ * this seat can carry it to a seat that comes to need it */
+#define LATE_UNIT(k, x) ((k)->hasVal[x] && BKR94ACS_BIT_TST((k)->subset, x) && !(k)->dist[x].held)
+
+/*
+ * Whether a fragment's message would move nothing here, from its tag alone,
+ * ahead of the framer's entry and decode: the same question as the arrival's
+ * below, about the same state, the seat's own, which only proven words move,
+ * so it can refuse and it can tell nothing to anyone.  Where the answer needs
+ * the bytes, a reply is owed, or the tag would not pass the arrival's gates,
+ * the fragment goes on and the arrival judges it: an (initial, v), which is
+ * another value's to differ; a part of a unit not whole under the agreed value,
+ * since a name is not an identity; a row its machine would reply to and has
+ * not this tick (copyBudget, spent only where it is said); a row held ahead; a
+ * row a record with nothing to carry answers with its description (DESC_OWED).
+ */
+#define TAG_PASS     0
+#define TAG_ROW      1                  /* a machine here holds it */
+#define TAG_STOPPED  2                  /* its machine is at its abandon */
+#define TAG_RECORD   3                  /* under a record, nothing owed its sender */
+#define TAG_END      4                  /* past the chain's end */
+#define TAG_UNIT     5                  /* a part of a unit whole under the agreed value */
+
+static unsigned int
+tagDecide(
+  struct ac *V
+ ,const unsigned char *tag
+){
+  const struct acPar *S;
+  struct inst *I;
+  struct gate *g;
+  const struct bracha87Fig1 *rowF;
+  const unsigned char *name;
+  struct recIx *rx;
+  struct tnod kn;
+  struct tnod *tn;
+  unsigned int from;
+  unsigned int kind;
+  unsigned int value;
+  unsigned int cls;
+  unsigned int ann;
+  unsigned int x;
+  unsigned int s;
+  unsigned int round;
+  unsigned int idx;
+  unsigned int bit;
+  unsigned int wi;
+  int uDist;
+
+  S = &V->p;
+  from = tag[AC_TAG_SENDER];
+  kind = AC_TAG_KIND(tag[0]);
+  value = AC_TAG_VALUE(tag[0]);
+  cls = AC_TAG_CLASS(tag[0]);
+  ann = AC_TAG_TO_ANN(tag[0]);
+  x = tag[AC_TAG_BA];
+  s = tag[AC_TAG_INIT];
+  round = tag[AC_TAG_ROUND];
+  name = tag + AC_TAG_NAME;
+  if (from >= N || from == V->self || x >= N || kind == BRACHA87_INITIAL
+   || (AC_TAG_ANN(tag[0]) && kind != BRACHA87_READY && kind != BRACHA87_ECHO)
+   || (kind == BRACHA87_ECHO && (AC_TAG_ANN(tag[0]) & 2))
+   || (value && kind != BRACHA87_READY && kind != BRACHA87_BESIDE && cls != AC_CLS_ACS))
+    return (TAG_PASS);
+  switch (cls) {
+  case AC_CLS_ACS:
+    if (round < 1 || round > Rounds || s >= N || kind == BRACHA87_BESIDE)
+      return (TAG_PASS);
+    break;
+  case AC_CLS_DIST:
+    if (round || s != x || (value & 2) || (kind == BRACHA87_BESIDE && from != x))
+      return (TAG_PASS);
+    break;
+  case AC_CLS_LEG:
+    if (round || s == x || s >= N
+     || (kind == BRACHA87_BESIDE ? value > AC_PART_DATA || from != s || x == V->self : (value & 2)))
+      return (TAG_PASS);
+    break;
+  case AC_CLS_RCV:
+    if (round >= N || s >= N || s == round || (from != s && from != round)
+     || (V->self != s && V->self != round) || x == round
+     || (kind == BRACHA87_BESIDE ? value > AC_PART_DESC || from != s : (value & 2)))
+      return (TAG_PASS);
+    break;
+  default:
+    return (TAG_PASS);
+  }
+  for (wi = 0; wi < V->nLive && memcmp(V->live[wi]->prev, name, HashSz); ++wi)
+    ;
+  if (wi < V->nLive)
+    I = V->live[wi];
+  else {
+    kn.k0 = name[0];
+    kn.key = name + 1;
+    kn.seq = 0;
+    rx = 0;
+    if ((tn = tLow(&V->recName, &kn)) && !tCmp(&V->recName, &kn, tn))
+      rx = tn->own;
+    if (END_SHUT(V) && (!rx || !rx->kept))
+      return (TAG_END);
+    if (!rx)
+      return (TAG_PASS);
+    I = rx->kept;
+    if (cls == AC_CLS_RCV) {
+      if (!I)
+        return (TAG_RECORD);
+    } else if ((GET32(V->rec + rx->off + REC_NUM) < NAMED(V, from)
+             || (rx->done[from >> 3] >> (from & 7) & 1))
+            && !(kind == BRACHA87_BESIDE && I
+              && ((I->srch[x].kept && !I->srch[x].reported) || (cls == AC_CLS_DIST && LATE_UNIT(I, x)))))
+      return (DESC_OWED(V, rx, from, kind, GET32(V->rec + rx->off + REC_NUM)) ? TAG_PASS : TAG_RECORD);
+    if (!I || !I->loaded || cls != AC_CLS_RCV)
+      return (TAG_PASS);
+  }
+  idx = from;
+  g = 0;
+  switch (cls) {
+  case AC_CLS_ACS:
+    if (I->acsAbandoned || !I->a)
+      return (TAG_PASS);
+    rowF = bkr94acsInstance(I->a, x, s, round);
+    bit = 8 * RLEG_ROW + 2 * (round * N * N + x * N + s);
+    break;
+  case AC_CLS_DIST:
+    if (I->acsAbandoned || !I->a)
+      return (TAG_PASS);
+    rowF = bkr94acsInstance(I->a, x, x, 0);
+    bit = 8 * RLEG_ROW + 2 * (x * N + x);
+    break;
+  default:
+    if (cls == AC_CLS_RCV) {
+      g = s == V->self ? &ROUT(I, x, round) : &RIN(I, x, s);
+      idx = FIDX(from, s);
+    } else
+      g = &LEG(I, x, s);
+    rowF = g->f;
+    bit = 2 * (g - I->leg);
+    break;
+  }
+  if (kind == BRACHA87_BESIDE) {
+    /* whole under the agreed value, anything more under this tag is the
+     * same bytes or refused: all that is left is the reply of dupPart */
+    if (value == AC_PART_DESC || !I->hasVal[x])
+      return (TAG_PASS);
+    uDist = cls == AC_CLS_DIST || (cls == AC_CLS_RCV && x == s);
+    if (uDist
+        ? !I->dist[x].held || !VALMATCH(VAL(I, x), &I->dist[x])
+        : !EXCH(I, x, LEAF(x, s)).held || !VALMATCHX(VAL(I, x), &EXCH(I, x, LEAF(x, s))))
+      return (TAG_PASS);
+    if (cls == AC_CLS_DIST
+        ? !I->dist[x].fedBeside
+        : !g->f || !(g->fed & FED_INITIAL))
+      return (TAG_UNIT);
+    if (cls != AC_CLS_DIST && !(g->fed & FED_BESIDE))
+      return (TAG_PASS);
+    goto budget;
+  }
+  if (!rowF || !bracha87Fig1Duplicate(rowF, kind, idx, ann))
+    return (TAG_PASS);
+  if (bracha87Fig1State(rowF) & BRACHA87_F1_ABANDONED)
+    return (TAG_STOPPED);
+  if (kind == BRACHA87_ECHO || (ann & BRACHA87_ANN_RECEIVED))
+    return (TAG_ROW);
+  bit += kind == BRACHA87_READY;
+budget:
+  /* what is spent is said in this tick, so nothing is owed a copy */
+  if (!I->rCopy || I->rCopyAt[from] != V->ticks + 1
+   || !(I->rCopy[from * (RLEG_ROW + (I->rx ? 0 : RACS_ROW)) + (bit >> 3)] & (1 << (bit & 7))))
+    return (TAG_PASS);
+  return (kind == BRACHA87_BESIDE ? TAG_UNIT : TAG_ROW);
+}
+
+/* the framer's question, counted as the arrival counts it, once a message */
+static int
+tagOkCb(
+  void *ctx
+ ,const unsigned char *tag
+ ,unsigned int si
+){
+  struct ac *V;
+  unsigned int from;
+  unsigned int rc;
+
+  V = ctx;
+#ifdef AC_TEST
+  if (V->test && V->test->tagAudit)
+    return (1);
+#endif
+  if (!(rc = tagDecide(V, tag)))
+    return (1);
+  if (si)
+    return (0);
+  from = tag[AC_TAG_SENDER];
+  if (AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && (rc == TAG_RECORD || rc == TAG_END))
+    ++V->c.routedUnit;
+  switch (rc) {
+  case TAG_END:
+    ++V->c.endRefused;
+    break;
+  case TAG_STOPPED:
+    ++V->c.copy;
+    break;
+  case TAG_RECORD:
+    ++V->c.recorded;
+    ++V->c.copy;
+    ++SEATC(V, from).resent;
+    break;
+  case TAG_UNIT:
+    if (AC_TAG_CLASS(tag[0]) == AC_CLS_DIST) {
+      ++V->c.inDunit;
+      ++V->c.dupDunit;
+    } else {
+      ++V->c.inXunit;
+      ++V->c.dupXunit;
+    }
+    ++V->c.copy;
+    ++SEATC(V, from).resent;
+    break;
+  default:
+    ++V->c.copy;
+    ++SEATC(V, from).resent;
+    break;
+  }
+  return (0);
+}
+
 /* where the regions return to */
 #define SITE_ARRIVAL   0
 #define SITE_HANDBACK  1
@@ -2772,6 +3106,42 @@ unitCheck(
  * the events left.  The seat's frame across calls is in V; what follows
  * is one call's.
  */
+/*
+ * Seat j's own word that nothing more is owed it from this seat at this
+ * record's position: HOLDING on a recover leg of every member this seat
+ * can carry it now, the unit and the description, and none its memory
+ * refused.  Nothing else says so: a recover leg of j's own says it folded
+ * the position, and a seat held at its launch gate, a member short, runs
+ * those too; an exchange leg's HOLDING is of a unit, with no description
+ * beside it, and a seat that missed the agreement holds those too.
+ */
+static int
+recHeard(
+  struct ac *V
+ ,struct inst *I
+ ,unsigned int j
+){
+  const struct acPar *S;
+  unsigned int run;
+  unsigned int i;
+
+  S = &V->p;
+  if (I->rcvMem)
+    return (0);
+  for (run = 0, i = 0; i < N; ++i) {
+    if (!BKR94ACS_BIT_TST(I->subset, i) || i == j || !I->dist[i].held || !I->hasVal[i]
+     || !VALMATCH(VAL(I, i), &I->dist[i]))
+      continue;
+    if (!ROUT(I, i, j).f || !bracha87Fig1Holder(ROUT(I, i, j).f, FIDX(j, V->self)))
+      return (0);
+    ++run;
+  }
+  return (run != 0);
+}
+
+/* the arrival's proof, once, at the first thing it would move */
+#define AUTHED() (evAuth || (evAuth = msgAuth(V, evTag, evLen, evWin, evNum)))
+
 static void
 seat(
   struct ac *V
@@ -2842,6 +3212,15 @@ seat(
   const struct bracha87Fig1 *inst0;   /* X's value broadcast, after a class 1 row */
   const unsigned char *cv0;
   unsigned char evValue8;             /* the BA value, as the seat takes it */
+  unsigned char *evTag;               /* the arrival's tag, its proof behind its payload */
+  const struct bracha87Fig1 *rowF;    /* the row's machine, 0 none yet */
+  unsigned int rowBit;                /* its first bit in copyBudget */
+  unsigned int rowSite;               /* where rowGate returns to */
+  unsigned int evWin;                 /* WIN_*: where the arrival landed */
+  unsigned int evNum;                 /* and the position it named there, 0 none */
+  struct inst *evKept;                /* the kept assembly a part of it would go to */
+  unsigned int rcvMade;               /* recover legs a row made, or memory refused */
+  int evAuth;                         /* the event is this seat's own or its proof is done */
   unsigned int launchStep;            /* step 0, then the hand-back of its two messages */
   unsigned int ownSite;               /* where the own broadcast returns to */
   unsigned int askSite;               /* where the ask returns to: 0 not asked, 1 the kept
@@ -3583,7 +3962,16 @@ input:
   if (!rsecFrmIgrPut(&V->igr, adr, dgram, dlen))
     ++V->c.igrBusy;
 drain:
+#ifdef AC_TEST
+  /* what the framer's question would have refused moved nothing here */
+  if (V->test && V->test->tagPredict) {
+    if (evAuth || V->test->tagMoved)
+      ++V->test->tagBad;
+    V->test->tagPredict = 0;
+  }
+#endif
   if ((blob = rsecFrmIgrGet(&V->igr, &blobLen))) {
+    evAuth = 0;
     /* the link's load: a message the framer completed, by its in-tag
      * sender, ahead of every gate */
     if (blobLen >= 1u + blob[0] + TagSz && blob[1 + blob[0] + AC_TAG_SENDER] < N
@@ -3609,11 +3997,15 @@ drain:
       byte = 0;
       evFrom = N;                       /* no sender yet: a frame refused
                                          * from its length is nobody's */
-      /* ingress: [addrlen][addr][tag][rm][um][payload] */
+      evWin = WIN_NONE;
+      evNum = 0;
+      evKept = 0;
+      /* ingress: [addrlen][addr][tag][rm][um][payload][hmac] */
       if (ml < 1 || ml < 1u + mb[0] + TagSz + 2u)
         goto malformed;
       al = mb[0];
       tg = mb + 1 + al;
+      evTag = tg;
       evPl = tg + TagSz + 2;
       evLen = ml - (1u + al + TagSz + 2u);
       byte = tg[0];
@@ -3624,7 +4016,7 @@ drain:
       evAnnot = AC_TAG_TO_ANN(byte);
 #ifdef AC_TEST
       /* the harness's adversary at the wire: the cuts and the split */
-      if (V->test && V->test->ingress && !V->test->ingress(V->test->ctx, tg, evPl, evLen)) {
+      if (V->test && V->test->ingress && !V->test->ingress(V->test->ctx, tg, evPl, evLen < HmacSz ? 0 : evLen - HmacSz)) {
         free(blob);
         goto drain;
       }
@@ -3639,6 +4031,16 @@ drain:
         free(blob);
         goto drain;
       }
+      if (evLen < HmacSz)
+        goto malformed;
+      evLen -= HmacSz;
+#ifdef AC_TEST
+      if (V->test && V->test->tagAudit && !evAuth && tagDecide(V, tg)) {
+        ++V->test->tagPred;
+        V->test->tagPredict = 1;
+        V->test->tagMoved = 0;
+      }
+#endif
       /* the decode's parity: the steady loss as this message met it */
       if (tg[TagSz + 1]) {
         V->c.parityUsed += tg[TagSz + 1];
@@ -3647,8 +4049,22 @@ drain:
         if (tg[TagSz + 1] == tg[TagSz])
           ++V->c.parityLast;
       }
-      /* identity is the in-tag sender, which the datagram AUTH proved;
-       * the source address is not trusted */
+      /*
+       * From here the message is assumed good, a sender's word as it
+       * claims, and read for what it would do, since a copy of a message
+       * and the message are the same bytes and nothing in them can say
+       * which: what the HMAC proves is who wrote it, and that says nothing
+       * of whether this seat needs it.  Only the machine it names knows
+       * that [SRC84: the argument that put BPR at the endpoint], and asking
+       * costs a lookup.  What would move nothing is refused unread, its
+       * proof never paid, and a copy costs the same from the network or
+       * from a seat that holds the key, so the two need no telling apart.
+       * Everything that would move something proves itself first (AUTHED),
+       * and nothing of where a seat is is taken on less than that.  So
+       * identity is the in-tag sender, proved there, never the source
+       * address; a count of what is refused is of the name on it, proved or
+       * not.
+       */
       evFrom = tg[AC_TAG_SENDER];
       evX = tg[AC_TAG_BA];
       evS = tg[AC_TAG_INIT];
@@ -3729,6 +4145,7 @@ drain:
         part = evKind == BRACHA87_BESIDE;
         if (part)
           ++V->c.routedUnit;
+        evWin = WIN_HELD;
         kn.k0 = evName[0];
         kn.key = evName + 1;
         kn.seq = 0;
@@ -3756,12 +4173,13 @@ drain:
           unsigned int m;
           unsigned int x;
           unsigned int shl;
+          int past;                     /* its sender's word: nothing owed it here */
 
           o = rx->off;
           r = V->rec + o;
           ++V->c.recorded;
-          ++SEATC(V, evFrom).recorded;
-          SEATC(V, evFrom).recordTick = V->ticks;
+          evWin = WIN_RECORD;
+          evNum = GET32(r + REC_NUM);
           /* a row under a position this seat retains is evidence, and
            * what deals with it is a recover leg, whose state is the
            * record's, rebuilt from it -- the subset, every member's
@@ -3770,7 +4188,57 @@ drain:
            * initiator's INITIAL opening one here.  Any other row is its
            * sender's, and where no recover leg of this seat's runs
            * toward it the set starts.  The agreement and its legs are
-           * not run again: recovery has no consensus to reach */
+           * not run again: recovery has no consensus to reach.
+           *
+           * The machines are gone, so the question a live machine answers
+           * for a copy goes to what is retained: is anything owed?  Not
+           * to a seat whose own proven word says it has gone past: a
+           * correct seat names a position only after its launch gate, so
+           * only with a verdict on every member of the one before, and it
+           * lacks nothing of any position before the one it last named.
+           * Nor to a seat that said HOLDING on a recover leg of all this
+           * seat holds (done), until it holds more; and to a seat this
+           * record holds nothing to carry to, its description alone (below),
+           * once a tick, read from the record, its machines not rebuilt
+           * again.  What
+           * it sends under the record,
+           * then, this seat's or the network's copy of its old word, moves
+           * nothing and is refused unread, whatever it costs to have
+           * retained.  So no copy, however old, buys a proof, a machine or
+           * a send from a record but toward the one position a seat is
+           * still at.  A part of a member whose assembly this seat keeps
+           * is that assembly's, whoever carries it */
+          k = rx->kept;
+          past = evNum < NAMED(V, evFrom) || (rx->done[evFrom >> 3] >> (evFrom & 7) & 1);
+          if (evCls == AC_CLS_RCV
+              ? !k && (evS == V->self || evKind != BRACHA87_INITIAL
+                    || (rx->done[BITS(N) + (evFrom >> 3)] >> (evFrom & 7) & 1))
+              : past && !(evKind == BRACHA87_BESIDE && k
+                       && ((k->srch[evX].kept && !k->srch[evX].reported)
+                        || (evCls == AC_CLS_DIST && LATE_UNIT(k, evX))))) {
+            ++V->c.copy;
+            ++SEATC(V, evFrom).resent;
+            if (evCls != AC_CLS_RCV && DESC_OWED(V, rx, evFrom, evKind, evNum) && !END_SHUT(V) && AUTHED()) {
+              DESC_AT(V, evFrom) = V->ticks + 1;
+              V->descTo[evFrom] = rx;
+            }
+            free(blob);
+            goto drain;
+          }
+          /* a recover leg's INITIAL under a value other than the one recorded
+           * is discarded on the record, before a proof or a kept instance */
+          if (evCls == AC_CLS_RCV && evKind == BRACHA87_INITIAL && !k
+           && (!(V->rec[rx->off + REC_HASVAL + (evX >> 3)] & (1 << (evX & 7)))
+            || memcmp(evPl, V->rec + rx->off + REC_VALS + evX * HashSz, HashSz))) {
+            ++V->c.initOther;
+            ++SEATC(V, evFrom).initOther;
+            free(blob);
+            goto drain;
+          }
+          if ((!k || !k->loaded) && !AUTHED()) {
+            free(blob);
+            goto drain;
+          }
           if (!(k = rx->kept)) {
             if (V->nKept == V->keptCap) {
               struct inst **grown;
@@ -3866,12 +4334,24 @@ drain:
           I = k;
           /* past the end's abandon a record's machines run on to their
            * count and none starts again, whatever a row names */
-          if (evCls != AC_CLS_RCV && !END_SHUT(V)) {
+          if (evCls != AC_CLS_RCV && !END_SHUT(V) && !past) {
             for (i = 0; i < N; ++i)
               if (ROUT(I, i, evFrom).f && !(bracha87Fig1State(ROUT(I, i, evFrom).f) & BRACHA87_F1_ABANDONED))
                 break;
-            if (i == N)
-              goto rcvLaunch;
+            if (i == N) {
+              /* the legs at their count were heard: nothing is owed it */
+              if (recHeard(V, I, evFrom)) {
+                rx->done[evFrom >> 3] |= 1 << (evFrom & 7);
+                ++V->c.copy;
+                ++SEATC(V, evFrom).resent;
+              } else {
+                if (!AUTHED()) {
+                  free(blob);
+                  goto drain;
+                }
+                goto rcvLaunch;
+              }
+            }
           }
           /* back from rcvLaunch the block's own locals are gone: I and
            * the row's ev* carry on */
@@ -3879,21 +4359,16 @@ rcvLaunched:
           /* a recover leg's row to its machine; a part of a unit of a
            * member whose assembly the record keeps, to that assembly
            * [Bracha87 Section 2.1: "including those received at
-           * previous steps"], where a part of this seat's own unit,
-           * which the record written at the position's end lacks, has a
-           * newer copy of the record at the head take it; the rest is
-           * noise here */
+           * previous steps"]; a part of the unit of an agreed member this
+           * seat lacks, however late; where it is of this seat's own unit,
+           * which the record written at the position's end lacks, a newer
+           * copy of the record at the head takes it; the rest is noise here */
           if (evCls == AC_CLS_RCV
-           || (evKind == BRACHA87_BESIDE && evCls != AC_CLS_ACS && I->srch[evX].kept && !I->srch[evX].reported)) {
+           || (evKind == BRACHA87_BESIDE && evCls != AC_CLS_ACS && I->srch[evX].kept && !I->srch[evX].reported)
+           || (evKind == BRACHA87_BESIDE && evCls == AC_CLS_DIST && LATE_UNIT(I, evX))) {
             if (evKind == BRACHA87_BESIDE) {
               --V->c.routedUnit;
-              if (I->srch[evX].kept && !I->srch[evX].reported) {
-                if (evCls == AC_CLS_DIST || (evCls == AC_CLS_RCV && evX == evS))
-                  I->recDue = 1;
-                ++V->c.placed;
-                if (V->ticks - I->endTick > V->c.placedAfter)
-                  V->c.placedAfter = V->ticks - I->endTick;
-              }
+              evKept = I->srch[evX].kept && !I->srch[evX].reported ? I : 0;
             }
             dispatchSite = SITE_ARRIVAL;
             goto dispatch;
@@ -3922,10 +4397,13 @@ rowMem:
          * since the library records nothing of a duplicate but those
          * and they only ever set.  A sender's rows of one shape under
          * other names are its positions ahead of this seat, and it
-         * sends for its live window of them, so that many are held and
-         * the rest are its sweep's to bring again.  So what is held is
-         * bounded by the shape of a position and the live window, never
-         * by what a sender chooses to say.  A BESIDE's part is in the
+         * sends for its live window of them, which this seat's own says
+         * nothing of: a seat held at one position has a window of one
+         * while its senders' run on.  A position stays live about an
+         * abandon, so that many names are held and the rest are its
+         * sweep's to bring again.  So what is held is bounded by the
+         * shape of a position and the abandon, never by what a sender
+         * chooses to say.  A BESIDE's part is in the
          * tag's bits 2-3 and stays in the name; a READY's HOLDING
          * there, outside class 0, is an annotation; class 0's BA value
          * there is the first's */
@@ -3941,7 +4419,14 @@ rowMem:
         for (sx = 0, tn = tLow(&V->ahShape, &kn); tn && tn->k0 == kn.k0 && !memcmp(tn->key, kb, AC_TAG_NAME - 1);) {
           ah = tn->own;
           if (!memcmp(AHEAD_NAME(ah), evName, HashSz)) {
-            AHEAD_TAG(ah)[0] |= byte & an;  /* outside the naming bits: the keys stand */
+            if (byte & an & ~AHEAD_TAG(ah)[0]) {
+              if (!AUTHED()) {
+                free(blob);
+                goto drain;
+              }
+              AHEAD_TAG(ah)[0] |= byte & an;  /* outside the naming bits: the keys stand */
+            } else
+              ++V->c.copy;
             ++V->c.aheadDup;
             ++SEATC(V, evFrom).resent;
             free(blob);
@@ -3950,13 +4435,22 @@ rowMem:
           ++sx;
           tn = tNext(tn);
         }
-        if (sx > V->nLive) {
-          /* the window's count and one more: what a sender's live
+        if (sx > Abandon) {
+          /* the abandon's count and one more: what a sender's live
            * window sends, and the position past it a seat behind may
            * walk into */
           ++V->c.aheadFull;             /* the part stays counted as routed */
           ++SEATC(V, evFrom).heldFull;
-          V->aheadNew = 1;
+          /* nothing is held of it, so it can only say a sender is further
+           * on: its word on that, one a tick */
+          if (V->rowTick[evFrom] != V->ticks + 1 && AUTHED()) {
+            V->rowTick[evFrom] = V->ticks + 1;
+            V->aheadNew = 1;
+          }
+          free(blob);
+          goto drain;
+        }
+        if (!AUTHED()) {
           free(blob);
           goto drain;
         }
@@ -3982,17 +4476,32 @@ rowMem:
         ++V->nAhead;
         ++V->c.future;
         ++SEATC(V, evFrom).held;
-        SEATC(V, evFrom).heldTick = V->ticks;
         V->aheadNew = 1;
         goto drain;
       }
       I = V->live[wi];
       ++I->gets;
-      ++SEATC(V, evFrom).live;
-      SEATC(V, evFrom).liveTick = V->ticks;
+      evWin = WIN_LIVE;
+      evNum = I->num;
+      if (evAuth) {
+        ++SEATC(V, evFrom).live;
+        SEATC(V, evFrom).liveTick = V->ticks;
+        if (evNum > NAMED(V, evFrom))
+          NAMED(V, evFrom) = evNum;
+      }
       dispatchSite = SITE_ARRIVAL;
       goto dispatch;
 arrivalDone:
+      /* a part proved for a kept assembly, whatever its gates then said, and
+       * where it is of this seat's own unit, which the record may lack, the
+       * record is due anew: its copy takes only what is held */
+      if (evKept && evAuth) {
+        if (evCls == AC_CLS_DIST || (evCls == AC_CLS_RCV && evX == evS))
+          evKept->recDue = 1;
+        ++V->c.placed;
+        if (V->ticks - evKept->endTick > V->c.placedAfter)
+          V->c.placedAfter = V->ticks - evKept->endTick;
+      }
       free(blob);
       goto drain;
 
@@ -4030,6 +4539,7 @@ arrivalDone:
      * row.
      */
   rcvLaunch:
+    rcvMade = 0;
     for (i = 0; i < N; ++i) {
       if (!BKR94ACS_BIT_TST(I->subset, i) || i == evFrom || !I->dist[i].held || !I->hasVal[i]
        || !VALMATCH(VAL(I, i), &I->dist[i]))
@@ -4053,8 +4563,11 @@ arrivalDone:
         free(g->f);
         g->f = 0;
         ++V->c.rowMem;
+        ++rcvMade;
+        I->rcvMem = 1;
         continue;
       }
+      ++rcvMade;
       ++I->legCnt;
       ++V->c.recoverStarts;
       trace(V, I->num, "a row of %u names this retained position: recover leg (X=%u) toward it", evFrom, i);
@@ -4070,6 +4583,19 @@ arrivalDone:
       goto runF1;
 rcvLegDone:
       ;
+    }
+    /* this record holds nothing to carry it: so it stays, until it holds
+     * something, for what a copy of this row would ask next, and no leg
+     * runs, for a seat with no unit of X has no word on X.  It folded the
+     * position all the same, and a seat with no subset counts descriptions
+     * from distinct seats, so its description is owed alone.  No HOLDING
+     * can answer what no leg carries, so what that seat says next from
+     * the position it is at asks again */
+    if (!rcvMade && I->rx) {
+      I->rx->done[evFrom >> 3] |= 1 << (evFrom & 7);
+      I->rx->done[2 * BITS(N) + (evFrom >> 3)] |= 1 << (evFrom & 7);
+      DESC_AT(V, evFrom) = V->ticks + 1;
+      V->descTo[evFrom] = I->rx;
     }
     goto rcvLaunched;
 
@@ -4096,6 +4622,7 @@ rcvLegDone:
         evFrom = V->self;
         evPl = m->v;
         evLen = HashSz;
+        evAuth = 1;
         dispatchSite = SITE_HANDBACK;
         goto dispatch;
 handbackDone:
@@ -4129,6 +4656,7 @@ handbackDone:
           ++V->c.replayed;
           if (++rpN > V->c.replayMost)
             V->c.replayMost = rpN;
+          evAuth = 1;                   /* proved when it was held */
           goto arrival;
         }
         V->aheadDue = 0;
@@ -4405,6 +4933,8 @@ legsMem:
           added = 1;
         }
       }
+      if (added)
+        s->partAt = V->ticks;
       if (I->verdict[x] != AC_PASS) {
         if (s->cs < kk || s->cd < kk) {
           s->owed = 0;                  /* no search is owed under threshold */
@@ -5159,8 +5689,8 @@ legsMem:
       }
     }
 
-    /* a record whose kept assembly placed a part of this seat's
-     * distribution the record lacks, or a shard it lacks: a newer copy
+    /* a record whose instance placed a part of this seat's distribution
+     * the record lacks, or a shard it lacks: a newer copy
      * of the record with it, at the head, so the ring alone holds what
      * a recover sends.  The member entries are in seat order; the copy
      * takes the assembly's where it holds more, the record's elsewhere */
@@ -5227,6 +5757,8 @@ legsMem:
             break;
         }
         if (own) {
+          ++V->c.recCopyNoRoom;
+          V->c.recUnits += recMemb;
           trace(V, I->num, "a part of its distribution past its record: no copy, its room would let the record go");
           continue;
         }
@@ -5235,8 +5767,10 @@ legsMem:
       goto recRoom;
 recCopyRoomDone:
       /* its first let go making the room: the position forgotten */
-      if (!I->rx)
+      if (!I->rx) {
+        V->c.recUnits += recMemb;
         continue;
+      }
       {
         const unsigned char *o;
         const unsigned char *mp;
@@ -5301,6 +5835,8 @@ recCopyRoomDone:
         tIns(&V->recName, &I->rx->byName);
         V->recHead += recLen;
         ++V->recCount;
+        ++V->c.recCopy;
+        V->c.recUnits += recMemb;
         V->c.retained = V->recCount;
         if ((V->c.retainedBytes += recLen) > V->c.retainedMost)
           V->c.retainedMost = V->c.retainedBytes;
@@ -5313,6 +5849,19 @@ recCopyRoomDone:
      * member reported: let go, its legs wherever they are */
     for (wi = 0; wi < V->nKept;) {
       I = V->kept[wi];
+      /* a member its record's assembly holds at threshold with no verdict,
+       * and an abandon past the last part that added anything: the last
+       * pass the position leaving would have given it, for a seat whose
+       * launch waits on its report, and a part no faulty dealer dealt never
+       * comes.  A copy of a part adds nothing, so none holds this off */
+      for (i = 0; i < N; ++i)
+        if (I->srch[i].kept && !I->srch[i].final && !I->srch[i].owed && !I->verdict[i]
+         && I->srch[i].cs >= Threshold && I->srch[i].cd >= Threshold
+         && V->ticks - I->srch[i].partAt >= Abandon) {
+          I->srch[i].final = 1;
+          I->asmDue[i] = 1;
+          trace(V, I->num, "an abandon past %u's last part, at threshold: the search's last pass over what is held", i);
+        }
       for (i = 0; i < N; ++i)
         if (BKR94ACS_BIT_TST(I->subset, i) && i != V->self && !I->srch[i].reported)
           break;
@@ -5321,8 +5870,23 @@ recCopyRoomDone:
         ++wi;
         continue;
       }
-      if (I->rx)
+      if (I->rx) {
         I->rx->kept = 0;
+        /* what its machines heard goes with the record: j's word that it
+         * is owed nothing; and that j's recover legs were answered, so
+         * what comes under them again opens nothing here, where a lost
+         * answer costs j its re-sends as toward a seat gone */
+        for (j = 0; j < N; ++j) {
+          if (j == V->self)
+            continue;
+          if (recHeard(V, I, j))
+            I->rx->done[j >> 3] |= 1 << (j & 7);
+          for (i = 0; i < N && !RIN(I, i, j).f; ++i)
+            ;
+          if (i < N)
+            I->rx->done[BITS(N) + (j >> 3)] |= 1 << (j & 7);
+        }
+      }
       trace(V, I->num, "its record's machines let go: every member reported%s", I->gone ? ", the record let go" : I->legCnt ? ", every recover leg at its count" : "");
       instFree(S, I);
       V->kept[wi] = V->kept[--V->nKept];
@@ -5437,7 +6001,7 @@ recCopyRoomDone:
             V->kept = grown;
             V->keptCap = V->keptCap ? 2 * V->keptCap : 8;
           }
-          if (!(rx = malloc(sizeof (*rx)))
+          if (!(rx = calloc(1, sizeof (*rx) + 3 * BITS(N)))
            || (i < N && (!(keptI = malloc(sizeof (*keptI))) || !(keptTab = calloc(1, INST_TAB_SZ))))) {
             free(rx);
             free(keptI);
@@ -5568,6 +6132,8 @@ recRoomDone:
             k->a = 0;
             k->oAcs = 0;
             k->rAcs = 0;
+            k->rCopy = 0;
+            k->rCopyAt = 0;
             k->blob = 0;
             in->own = 0;                   /* its own proposal goes with it: its
                                             * value broadcast alone at a launch held */
@@ -5642,25 +6208,27 @@ leaveMem:
         trace(V, I->num, "ACS seat let go at its count, the subset %s", I->acsSubset ? "its own" : "DISCOVERed");
       }
     }
-    /* an agreement let go after its subset, or stopped at the round
-     * ceiling, subset or none, with its position unfolded here -- the
-     * fold still lacks a member's sign part, or the subset -- is
-     * silence to every other seat, as the ABAP README says of an
-     * abandon, and this seat still has the position to fold and its
-     * own value to say there, the row that starts the others' recover
-     * legs toward it where their machines are gone: it starts a
-     * bracha87Fig1 alone for its own value broadcast, the same
-     * (initial, v) under the same tag with the same unit beside it, an
-     * initiator's every message being of its one v, at the abandon
-     * count; at that count, the link still unfolded, it starts one
-     * again.  The agreement is not tried again,
-     * subset or none, since one started again could say something else
-     * under the same tag: what the fold lacks comes by recovery, a
-     * member's sign part, or a subset DISCOVERed from seats that
-     * folded the position */
+    /* a position unfolded here an abandon on -- the fold still lacks a
+     * member's sign part, or the subset -- may be silence to every other
+     * seat: an agreement let go or stopped at the round ceiling says
+     * nothing, as the ABAP README says of an abandon, and one still running
+     * has no re-send left once every seat has heard its words.  This seat
+     * still has the position to fold and its own value to say there, the
+     * row that starts the others' recover legs toward it where their
+     * machines are gone: it starts a bracha87Fig1 alone for its own value
+     * broadcast, the same (initial, v) under the same tag with the same
+     * unit beside it, an initiator's every message being of its one v, at
+     * that count; at that count, the link still unfolded, it starts one
+     * again.  A subset had before its own broadcast went leaves that value
+     * for no member, and it is still this seat's to say.  The agreement is
+     * not tried again, subset or none, since one started again could say
+     * something else under the same tag: what the fold lacks comes by
+     * recovery, a member's sign part, or a subset DISCOVERed from seats
+     * that folded the position */
     for (wi = 0; wi < V->nLive; ++wi) {
       I = V->live[wi];
-      if (I->acsAbandoned && !I->stepped && I->launched
+      if (!I->stepped && !I->ownDue && (I->launched || I->haveSubset)
+       && (I->acsAbandoned || bkr94acsSweeps(I->a) >= Abandon)
        && (!LEG(I, V->self, V->self).f
         || (bracha87Fig1State(LEG(I, V->self, V->self).f) & BRACHA87_F1_ABANDONED)))
         break;
@@ -5697,7 +6265,7 @@ ownAlone:
         trace(V, I->num, "a launch held, a member short here and the position's machines gone: its own value broadcast alone, a bracha87Fig1");
       } else {
         ++V->c.repeated;
-        trace(V, I->num, "its agreement abandoned, the position unfolded: its own value broadcast alone, a bracha87Fig1");
+        trace(V, I->num, "an abandon on, the position unfolded: its own value broadcast alone, a bracha87Fig1");
       }
       fX = fS = V->self;
       bracha87Fig1Input(g->f, BRACHA87_INITIAL, V->self, I->own->apex, 0, f1out);
@@ -5754,8 +6322,8 @@ ownAloneDone:
            * under its name, and only a row of this seat's naming a
            * position another seat retains starts that seat's recover
            * legs toward it, which carry the parts the member lacks
-           * here: its own value broadcast alone, as at an agreement
-           * abandoned unfolded, and again at its abandon count */
+           * here: its own value broadcast alone, as at a position
+           * unfolded an abandon on, and again at its abandon count */
           if (!lMem && !lI->srch[lj].owed && lw >= V->nLive && lI->rx && lI->own
            && (!LEG(lI, V->self, V->self).f
             || (bracha87Fig1State(LEG(lI, V->self, V->self).f) & BRACHA87_F1_ABANDONED))) {
@@ -6049,7 +6617,8 @@ keyWalkTalkDone:
        * and moves on; a stop with none it passes, so a talk with one
        * stop busy serves that stop alone, and the talk is done when
        * every stop is passed.  A reply is one message for one arrival,
-       * at its sender's rate (bracha87Fig1.h): a seat that sends faster
+       * at its sender's rate (bracha87Fig1.h), a copy's at most one a tick
+       * a row (copyBudget): a seat that sends faster
        * than this one can answer fills its own stop and no other, and
        * this seat's own word, its pass and so its clock among it, waits
        * at most one turn at each other stop.  No count and no clock: a
@@ -6064,6 +6633,36 @@ keyWalkTalkDone:
         V->flGo = V->flIdle = 0;
         if (++V->fl == N)
           V->fl = 0;
+      }
+      /* the description alone a record owes this stop, read from the
+       * record: under the first member that is not this stop, no leg of
+       * that member behind it, and at most one a tick (DESC_OWED) */
+      if (V->descTo[V->fl]) {
+        const unsigned char *rp;
+        unsigned int dl;
+        unsigned int m;
+
+        rp = V->rec + V->descTo[V->fl]->off;
+        V->descTo[V->fl] = 0;
+        V->eX = N;
+        memcpy(V->ubuf, rp + REC_SUBSET, BITS(N));
+        for (dl = BITS(N), m = 0; m < N; ++m)
+          if (BKR94ACS_BIT_TST(rp + REC_SUBSET, m)) {
+            memcpy(V->ubuf + dl, rp + REC_VALS + m * HashSz, HashSz);
+            dl += HashSz;
+            if (V->eX == N && m != V->fl)
+              V->eX = m;
+          }
+        V->eOne = 1;
+        ++V->c.descAlone;
+        trace(V, GET32(rp + REC_NUM), "a row of %u names this record, which holds nothing to carry it: its description alone", V->fl);
+        emit(V, 0, rp + REC_NAME, V->fl, AC_TAG_BYTE(AC_CLS_RCV, BRACHA87_BESIDE, AC_PART_DESC),
+             V->eX, V->fl, V->self, V->ubuf, dl, &V->held);
+        if (V->held) {
+          V->heldI = 0;
+          V->flGo = 1;
+        }
+        continue;
       }
       for (wi = 0; wi < V->nLive + V->nKept; ++wi) {
         unsigned char *rr;
@@ -6449,6 +7048,13 @@ dispatch:
         ++SEATC(V, evFrom).stopped;
       goto dispatchReturn;
     }
+    /* of this seat's own broadcast not begun, the library makes nothing */
+    if (!(rowF = bkr94acsInstance(I->a, evX, evS, evRound)) && !evAuth && evS == V->self)
+      goto dispatchReturn;
+    rowBit = 8 * RLEG_ROW + 2 * (evRound * N * N + evX * N + evS);
+    rowSite = 0;
+    goto rowGate;
+rowGateAcs:
     ++V->c.inAcs;
     nacts = bkr94acsInput(I->a, evKind, evX, evS, evRound, evFrom, &evValue8, evAnnot, V->acts);
     aList = V->acts;
@@ -6465,6 +7071,11 @@ runAcsDispatchDone:
      * its agreement gone: to the bracha87Fig1 alone it runs for it */
     if (evX == V->self && I->acsAbandoned && I->a && LEG(I, V->self, V->self).f && evKind != BRACHA87_BESIDE) {
       g = &LEG(I, V->self, V->self);
+      rowF = g->f;
+      rowBit = 2 * (g - I->leg);
+      rowSite = 1;
+      goto rowGate;
+rowGateAlone:
       ++V->c.inDist;
       nout = bracha87Fig1Input(g->f, evKind, evIdx, evPl, evAnnot, f1out);
       f1site = SITE_DISPATCH;
@@ -6480,8 +7091,14 @@ runAcsDispatchDone:
       }
       goto dispatchReturn;
     }
+    if (!(rowF = bkr94acsInstance(I->a, evX, evX, 0)) && !evAuth && evX == V->self)
+      goto dispatchReturn;
+    rowBit = 8 * RLEG_ROW + 2 * (evX * N + evX);
+    rowSite = 2;
+    goto rowGate;
+rowGateDist:
     ++V->c.inDist;
-    if (evKind == BRACHA87_INITIAL && I->dist[evX].sign && !VALMATCH(evPl, &I->dist[evX])) {
+    if (evAuth && evKind == BRACHA87_INITIAL && I->dist[evX].sign && !VALMATCH(evPl, &I->dist[evX])) {
       ++V->c.initOther;
       if (evFrom != V->self)
         ++SEATC(V, evFrom).initOther;
@@ -6501,7 +7118,7 @@ runAcsDispatchDone:
     nacts = bkr94acsInput(I->a, evKind, evX, evX, 0, evFrom, evPl, evAnnot, V->acts);
     /* evX's value accepted here: how late, in this seat's sweeps past
      * the (n - t)th 1, whether patience still waited on it or not */
-    if (!(I->acc[evX] & 1) && bkr94acsValue(I->a, evX)) {
+    if (evAuth && !(I->acc[evX] & 1) && bkr94acsValue(I->a, evX)) {
       I->acc[evX] |= 1;
       if (evX != V->self && I->ones >= N - MaxByz) {
         ++SEATC(V, evX).lates;
@@ -6540,10 +7157,18 @@ runAcsDispatchDone:
     if (evKind == BRACHA87_BESIDE)
       goto unitIn;
     /* a recover leg of S's at its abandon count, and S's INITIAL again:
-     * a leg running here for it is started as at the first.  An
+     * a leg running here for it is started as at the first, where this
+     * seat still waits on its position or lacks what the leg carries: at
+     * a live position until it has folded and its agreement is let go,
+     * for then every leg's count is what lets it leave, and a copy of an
+     * INITIAL, which no seat can tell from a re-send, would hold it live
+     * for good; then for a member whose assembly its record keeps.  An
      * exchange leg's abandon is final, as every instance's is */
     if (evCls == AC_CLS_RCV && evS != V->self && g->f && evKind == BRACHA87_INITIAL && evFrom == evS
-     && (bracha87Fig1State(g->f) & BRACHA87_F1_ABANDONED)) {
+     && (bracha87Fig1State(g->f) & BRACHA87_F1_ABANDONED)
+     && (I->rx ? I->srch[evX].kept && !I->srch[evX].reported : !I->stepped || !I->acsAbandoned)) {
+      if (!AUTHED())
+        goto dispatchReturn;
       if (V->eActive && V->eGate && V->eI == I && V->eG == g)
         V->eActive = 0;
       if (g->owed)
@@ -6565,6 +7190,8 @@ runAcsDispatchDone:
           ++SEATC(V, evFrom).noInstance;
         goto dispatchReturn;
       }
+      if (!AUTHED())
+        goto dispatchReturn;
       if (evCls == AC_CLS_RCV
           ? !(g->f = calloc(1, bracha87Fig1Sz(1, HashSz - 1, 1)))
             || bracha87Fig1Init(g->f, 1, 0, HashSz - 1, 1, 0, 1, Abandon, 1)
@@ -6591,6 +7218,11 @@ runAcsDispatchDone:
       ++SEATC(V, evFrom).noInstance;
     goto dispatchReturn;
   }
+  rowF = g->f;
+  rowBit = 2 * (g - I->leg);
+  rowSite = 3;
+  goto rowGate;
+rowGateLeg:
   ++V->c.inLeg;
   switch (evKind) {
   case BRACHA87_INITIAL:
@@ -6623,10 +7255,9 @@ runAcsDispatchDone:
          * records nothing of it and replies its echo to S; and what
          * rode beside it, whole here since the first was fed alone -- a
          * recover leg's description held off another of S's legs -- is
-         * fed now */
-        ++V->c.dupInitial;
-        if (evFrom != V->self)
-          ++SEATC(V, evFrom).resent;
+         * fed now, the one thing here a re-send moves */
+        if (whole && !(g->fed & FED_BESIDE) && hv && !memcmp(hv, g->v, HashSz) && !AUTHED())
+          goto dispatchReturn;
         nout = bracha87Fig1Input(g->f, BRACHA87_INITIAL, evIdx, evPl, 0, f1out);
         if (whole && !(g->fed & FED_BESIDE) && hv && !memcmp(hv, g->v, HashSz)) {
           g->fed |= FED_BESIDE;
@@ -6664,12 +7295,56 @@ runAcsDispatchDone:
   }
 
   /*
+   * A row at the machine it names, rowF, and what that machine would do
+   * with it.  Nothing, if it holds the row, and it says so from the tag
+   * alone: the first (initial, v) stands, and a sender of echo or ready
+   * is counted once, so that a copy differs from anything else its
+   * sender could say under this tag only where it would record nothing
+   * anyway.  Refused unread, then, but for one thing: it may be its
+   * sender's word that it has not heard, whose reply is owed.  So a copy
+   * that would be replied to passes on to the machine, unproved, which
+   * records nothing and returns the reply, once a tick a row (copyBudget):
+   * the reply is this seat's own word, already its sender's to hear, so
+   * there is nothing to prove and a copy can only make it say that again.
+   * An (initial, v) under another value is no copy of what is held: a
+   * counted discard.  Anything else moves the machine and proves itself first.
+   */
+rowGate:
+  if (!evAuth && rowF && bracha87Fig1Duplicate(rowF, evKind, evIdx, evAnnot)) {
+    /* a machine at its abandon runs nothing, and has no reply to give */
+    if (bracha87Fig1State(rowF) & BRACHA87_F1_ABANDONED) {
+      ++V->c.copy;
+      goto dispatchReturn;
+    }
+    cv0 = evKind == BRACHA87_INITIAL ? bracha87Fig1Value(rowF, BRACHA87_INITIAL_ALL) : 0;
+    if (cv0 && memcmp(cv0, evCls == AC_CLS_ACS ? &evValue8 : evPl, evCls == AC_CLS_ACS ? 1 : HashSz)) {
+      ++V->c.initOther;
+      ++SEATC(V, evFrom).initOther;
+      goto dispatchReturn;
+    }
+    ++V->c.copy;
+    ++SEATC(V, evFrom).resent;
+    if (evKind == BRACHA87_INITIAL)
+      ++V->c.dupInitial;
+    if (evKind == BRACHA87_ECHO || (evKind == BRACHA87_READY && (evAnnot & BRACHA87_ANN_RECEIVED))
+     || !copyBudget(V, I, evFrom, rowBit + (evKind == BRACHA87_READY)))
+      goto dispatchReturn;
+  } else if (!AUTHED())
+    goto dispatchReturn;
+  switch (rowSite) {
+  case 0:  goto rowGateAcs;
+  case 1:  goto rowGateAlone;
+  case 2:  goto rowGateDist;
+  default: goto rowGateLeg;
+  }
+
+  /*
    * After the ACS seat took a class 1 row, or a unit of X was held: the
    * unit is fed beside X's (initial, v) once both are here under one
    * value, and X's accept, Q(X) = 1 inside the library, is noted.
    */
 distAfter:
-  if (!I->dist[evX].fedBeside && I->dist[evX].held && !I->acsAbandoned
+  if (!I->dist[evX].fedBeside && I->dist[evX].held && !I->acsAbandoned && I->a
    && (inst0 = bkr94acsInstance(I->a, evX, evX, 0))
    && (cv0 = bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL))
    && VALMATCH(cv0, &I->dist[evX])) {
@@ -6697,12 +7372,13 @@ runAcsBesideDone:
    * A part of a unit lands: of X's own to this seat (class 1) or of S's
    * exchange unit of X (class 2).  The sign part: the value from what
    * it carries -- the signed header, the successor key, nothing --
-   * first, ahead of the gates: a part of the held apex is a duplicate
-   * (its sender has not yet recorded this seat's echo or ready), not
-   * re-verified; a second apex not under the value it must have -- the
-   * agreed one, else the (initial, v) held -- under either of X's
-   * roots, or any with a part held and no (initial, v), is refused
-   * before the gates; the rest runs every gate and is then held against
+   * first, ahead of the proof and the gates: a part of the held apex is
+   * a duplicate (its sender has not yet recorded this seat's echo or
+   * ready), neither proved nor re-verified; a second apex not under the
+   * value it must have -- the agreed one, else the (initial, v) held --
+   * under either of X's roots, or any with a part held and no (initial,
+   * v), is a counted discard, before the proof and the gates; the rest
+   * proves itself, runs every gate and is then held against
    * the (initial, v) the instance holds: not under it, refused, a part
    * held or not; under it, it replaces a part held under another apex;
    * with no v held yet, refused and the first held sign part kept.  The
@@ -6722,6 +7398,7 @@ unitIn:
     unsigned int og;
     int stray;
     unsigned int po;                  /* the part's signing offset, from its signature */
+    unsigned int whichRoot;           /* the root its value matched, 2 where none was tried */
     int replay;                       /* a slot below the signer's high water, or at it under
                                        * another value, at or past the position that set it */
     int book;                         /* a second rotation of a context
@@ -6786,6 +7463,7 @@ unitIn:
               ++V->c.dupDunit;
             else
               ++V->c.dupXunit;
+            ++V->c.copy;
             ++SEATC(V, evFrom).resent;
           } else {
             ++V->c.shardOther;
@@ -6793,6 +7471,8 @@ unitIn:
           }
           goto dispatchReturn;
         }
+        if (!AUTHED())
+          goto dispatchReturn;
         if (!(*stash = malloc(evLen))) {
           ++V->c.unitBad[AC_UNIT_MEM];
           goto dispatchReturn;
@@ -6806,6 +7486,8 @@ unitIn:
       if (uDist ? d->held && d->shardLen == evLen && !memcmp(d->shard, pl, evLen)
                            : e->held && e->shardLen == evLen && !memcmp(EX_SHARD(e), pl, evLen))
         goto dupPart;
+      if (!AUTHED())
+        goto dispatchReturn;
       sh = pl;
       shl = evLen;
       goto shardGate;
@@ -6831,13 +7513,13 @@ unitIn:
         else if (!memcmp(heldApex, apex, HashSz))
           goto dupPart;
       }
+      whichRoot = 2;
       /* a part the gates below would refuse for its value alone is
        * refused before its signature is checked: its value, under
        * either of X's roots, not the one it must be -- the value
        * accepted for X here, else the (initial, v) held -- or any part
        * at all with one held and no (initial, v) to judge them by.
-       * Unchecked, it is its sender's word, not X's, and it costs this
-       * seat a hash, not a signature */
+       * It costs this seat a hash, not a signature */
       if (!rc) {
         const unsigned char *want;
         const unsigned char *tgt;
@@ -6845,7 +7527,7 @@ unitIn:
         unsigned int ri;
 
         if (fCls == AC_CLS_DIST)
-          want = (inst0 = bkr94acsInstance(I->a, evX, evX, 0)) ? bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL) : 0;
+          want = I->a && (inst0 = bkr94acsInstance(I->a, evX, evX, 0)) ? bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL) : 0;
         else
           want = g->f && (g->fed & FED_INITIAL) ? g->v : 0;
         tgt = I->hasVal[evX] ? VAL(I, evX) : want;
@@ -6853,8 +7535,10 @@ unitIn:
           if (SHAPE_APEX(hk, po, pl, evLen, apex)) {
             rc = AC_UNIT_MEM;
             break;
-          } else if (!memcmp(apex, tgt, HashSz))
+          } else if (!memcmp(apex, tgt, HashSz)) {
             tgt = 0;
+            whichRoot = ri;
+          }
         if (!rc && (tgt || (heldApex && !want))) {
           ++V->c.partOther;
           ++SEATC(V, evFrom).partOther;
@@ -6863,7 +7547,51 @@ unitIn:
           goto dispatchReturn;
         }
       }
+      /* the signer's high water (below) refuses from the offset, which the
+       * signature's structure gives unverified, and at the slot it stands at
+       * from the value, a hash, so where it refuses under each root the part
+       * could be under -- the one its value matched just above, where this
+       * seat holds a value to match -- its signature, code points and proofs
+       * are not paid to come to the same refusal, however often it comes */
+      if (!rc && V->hwSet[evX] && I->num >= V->hwPos[evX]) {
+        const unsigned char *hk;
+        unsigned int gen;
+        unsigned int ri;
+        int other;
+
+        other = 0;
+        for (ri = whichRoot == 2 ? 0 : whichRoot;
+             ri < (whichRoot == 2 ? 2 : whichRoot + 1)
+             && (hk = !ri ? ROOT(I, evX) : I->hasNext[evX] ? ROOTNEXT(I, evX) : 0); ++ri) {
+          gen = I->gen[evX] + ri;
+          if (gen > V->hwGen[evX] || (gen == V->hwGen[evX] && po > V->hwOff[evX]))
+            break;
+          if (gen == V->hwGen[evX] && po == V->hwOff[evX]) {
+            if (SHAPE_APEX(hk, po, pl, evLen, apex)) {
+              rc = AC_UNIT_MEM;
+              break;
+            }
+            if (!memcmp(HWAPEX(V, evX), apex, HashSz))
+              break;
+            other = 1;
+          }
+        }
+        if (!rc && (ri == (whichRoot == 2 ? 2 : whichRoot + 1) || !hk)) {
+          if (other) {
+            ++V->c.slotReused;
+            ++SEATC(V, evX).slotReused;
+          } else {
+            ++V->c.offsetReplay;
+            ++SEATC(V, evX).offsetReplay;
+          }
+          trace(V, I->num, "%s of %u%s refused unchecked: at or below the signer's high water",
+                fCls == AC_CLS_DIST ? "unit" : "exchange unit", evX, fromS);
+          goto dispatchReturn;
+        }
+      }
       if (!rc) {
+        if (!AUTHED())
+          goto dispatchReturn;
         kI = I;
         kJ = evFrom;
         kSite = 1;
@@ -6881,9 +7609,10 @@ keyWalkUnitDone:
      * water read here is the same function of the chain at every
      * correct seat.  A verified part above it, or with none set, is not
      * judged by it; the same value at it is the same signing again;
-     * another value at it, a leaked slot, or anything below it, is
-     * refused at or past the position that last confirmed it, where at
-     * an older position it is that position's part arriving late */
+     * another value at it, or anything below it, is refused at or past
+     * the position that last confirmed it, where at an older position it
+     * is that position's part arriving late.  Most of that was refused
+     * above, unverified; here is what hung on which root signed it */
     replay = 0;
     if (!rc && V->hwSet[evX]) {
       unsigned int gen;
@@ -6893,7 +7622,7 @@ keyWalkUnitDone:
         if (memcmp(HWAPEX(V, evX), tmp.apex, HashSz)) {
           ++V->c.slotReused;
           ++SEATC(V, evX).slotReused;
-          trace(V, I->num, "%u's slot %u of context %u signed another value: the slot is leaked", evX, tmp.off, gen);
+          trace(V, I->num, "%u's slot %u of context %u signed another value", evX, tmp.off, gen);
           replay = I->num >= V->hwPos[evX];
         }
       } else if ((gen < V->hwGen[evX] || (gen == V->hwGen[evX] && tmp.off < V->hwOff[evX]))
@@ -6926,7 +7655,7 @@ keyWalkUnitDone:
       const unsigned char *want;
 
       if (fCls == AC_CLS_DIST)
-        want = (inst0 = bkr94acsInstance(I->a, evX, evX, 0)) ? bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL) : 0;
+        want = I->a && (inst0 = bkr94acsInstance(I->a, evX, evX, 0)) ? bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL) : 0;
       else
         want = g->f && (g->fed & FED_INITIAL) ? g->v : 0;
       if (want && memcmp(want, tmp.apex, HashSz))
@@ -6955,16 +7684,17 @@ keyWalkUnitDone:
       }
     }
     if (rc || replay || og || book || stray || heldApex) {
+      if (replay)
+        ++V->c.hwLate;
       if (rc) {
         ++V->c.unitBad[rc];
-        if (rc != AC_UNIT_MEM)          /* this seat's memory is nobody else's fault */
+        if (rc != AC_UNIT_MEM)          /* this seat's memory: no name's count */
           ++SEATC(V, evFrom).unitBad[rc];
       } else if (!replay) {
         ++V->c.secondApex;
-        /* a verified part of X not under the (initial, v) held: on X's
-         * own broadcast X's word against X's signature, the signer's;
-         * on a leg, exchange or recover, S's INITIAL against the part S
-         * carried, the carrier's */
+        /* a verified part of X not under the (initial, v) held: on a leg,
+         * exchange or recover, counted under the carrier, whose INITIAL it
+         * disagrees with; else under the signer */
         if (stray && (fCls == AC_CLS_LEG || fCls == AC_CLS_RCV))
           ++SEATC(V, evFrom).initOther;
         else
@@ -7111,6 +7841,22 @@ keyWalkUnitDone:
     /* the unit is whole here */
   unitHeld:
     I->asmDue[evX] = 1;
+    /* under a record, its member reported or not: the record takes it, however
+     * late, since no one can say which seat's later failures make it the one a
+     * returner needs; a recover leg will carry it, and each seat's word that it
+     * was owed nothing is of less than this seat now holds */
+    if (uDist && I->rx) {
+      I->recDue = 1;
+      ++V->c.lateUnit;
+      if (fCls == AC_CLS_DIST)
+        ++V->c.lateDist;
+      for (i = 0; i < BITS(N) && !I->rx->done[i]; ++i)
+        ;
+      if (i < BITS(N))
+        ++V->c.lateWord;
+      memset(I->rx->done, 0, BITS(N));
+      memset(I->rx->done + 2 * BITS(N), 0, BITS(N));
+    }
     /* X's unit landing after SUBSET is the leg (X, self)'s condition
      * met then: the exchange's launch runs again, for what it now holds
      * [Bracha87 Section 3: "including those received at previous
@@ -7137,12 +7883,14 @@ keyWalkUnitDone:
     /* a re-send of a part held: its sender has not heard this seat's
      * HOLDING.  With the unit whole and fed, fed as BESIDE again where
      * it was fed before: the library records nothing of it and replies
-     * its echo */
+     * its echo, a copy's reply as a row's (copyBudget) */
   dupPart:
+    ++V->c.copy;
     ++SEATC(V, evFrom).resent;
     if (fCls == AC_CLS_DIST) {
       ++V->c.dupDunit;
-      if (d->held && I->dist[evX].fedBeside && !I->acsAbandoned) {
+      if (I->a && d->held && I->dist[evX].fedBeside && !I->acsAbandoned
+       && copyBudget(V, I, evFrom, 8 * RLEG_ROW + 2 * (evX * N + evX))) {
         nacts = bkr94acsInput(I->a, BRACHA87_BESIDE, evX, evX, 0, evFrom, 0, 0, V->acts);
         aList = V->acts;
         aCnt = nacts;
@@ -7156,6 +7904,8 @@ keyWalkUnitDone:
       if ((uDist ? d->held : e->held) && g->f && (g->fed & FED_INITIAL)
        && ((g->fed & FED_BESIDE)
         || ((fCls != AC_CLS_RCV || I->dHeld[evS]) && !memcmp(g->v, uDist ? d->apex : EX_APEX(e), HashSz)))) {
+        if ((g->fed & FED_BESIDE) ? !copyBudget(V, I, evFrom, 2 * (g - I->leg)) : !AUTHED())
+          goto dispatchReturn;
         g->fed |= FED_BESIDE;
         nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
         f1site = SITE_DISPATCH;
@@ -7176,7 +7926,8 @@ keyWalkUnitDone:
    * correct seat's value is accepted alike or not at all], from its
    * agreement, whose value broadcasts answer whether or not it reached
    * its subset (bkr94acs.h).  One description per S is held, by its
-   * hash; a second one from S is refused.  At a position this seat has
+   * hash, so whatever comes after it from S moves nothing and is taken
+   * for a re-send unread.  At a position this seat has
    * no subset of, T of them held alike from distinct seats are
    * DISCOVER: the description is the subset its agreement would reach,
    * and the subset and the values are taken as SUBSET gives them.
@@ -7185,10 +7936,11 @@ keyWalkUnitDone:
    * describes only what its agreement decided, the same at every
    * correct seat; the description rides beside a recover leg and is no
    * Figure 1 value, so the count is of distinct senders, the in-tag
-   * sender the dealt pairwise tier verified (the ABAP README on trust).
+   * sender its proof verified (the ABAP README on trust).
    * HOLDING on a recover leg is its unit and this description held, so
    * a returner says it only once it has both, and S re-sends both until
-   * it does.
+   * it does.  S holding no unit to carry says it alone, with no leg here
+   * (g->f 0), and it counts the same: S folded the position.
    */
 descIn:
   {
@@ -7197,6 +7949,21 @@ descIn:
     unsigned int m;
     unsigned int c;
 
+    /* a re-send: S has not heard this seat's HOLDING, and where the leg
+     * is fed the library replies its echo to S, a copy's reply as a row's
+     * (copyBudget); where it is not, it may be whole now */
+    if (I->dHeld[evS]) {
+      ++V->c.copy;
+      ++SEATC(V, evFrom).resent;
+      if (g->f && (g->fed & FED_BESIDE)) {
+        if (!copyBudget(V, I, evFrom, 2 * (g - I->leg)))
+          goto dispatchReturn;
+        nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
+        f1site = SITE_DISPATCH;
+        goto runF1;
+      }
+      goto descBeside;
+    }
     if ((N & 7) && evPl[BITS(N) - 1] >> (N & 7))
       goto descRefused;
     for (m = c = 0; m < N; ++m)
@@ -7214,22 +7981,10 @@ descIn:
         goto descRefused;
       pl += HashSz;
     }
+    if (!AUTHED())
+      goto dispatchReturn;
     if (hashBuf(S, evPl, evLen, 0, 0, 0, 0, 0, 0, dh))
       goto dispatchReturn;              /* this seat's memory: not judged, S re-sends it */
-    if (I->dHeld[evS]) {
-      if (memcmp(dh, I->dHash + evS * HashSz, HashSz))
-        goto descRefused;               /* a second description from S */
-      /* a re-send: S has not heard this seat's HOLDING, and where the
-       * leg is fed the library replies its echo to S; where it is not,
-       * it may be whole now */
-      ++SEATC(V, evFrom).resent;
-      if (g->f && (g->fed & FED_BESIDE)) {
-        nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
-        f1site = SITE_DISPATCH;
-        goto runF1;
-      }
-      goto descBeside;
-    }
     memcpy(I->dHash + evS * HashSz, dh, HashSz);
     I->dHeld[evS] = 1;
     trace(V, I->num, "description of %u held, %u members, %02x%02x..", evS, c, dh[0], dh[1]);
@@ -7253,7 +8008,7 @@ descIn:
         I->subsetTick = V->ticks;
         I->recovered = 1;
         ++V->c.recovered;
-        trace(V, I->num, "DISCOVER: SUBSET (%u/%u) from %u recover legs' descriptions alike", I->subsetCnt, N, c);
+        trace(V, I->num, "DISCOVER: SUBSET (%u/%u) from %u seats' descriptions alike", I->subsetCnt, N, c);
       }
     }
     /* this leg's BESIDE, its unit whole under its v and the description
@@ -7262,6 +8017,8 @@ descIn:
     if (g->f && (g->fed & FED_INITIAL) && !(g->fed & FED_BESIDE)
      && (evX == evS ? I->dist[evX].held && VALMATCH(g->v, &I->dist[evX])
                     : EXCH(I, evX, LEAF(evX, evS)).held && VALMATCHX(g->v, &EXCH(I, evX, LEAF(evX, evS))))) {
+      if (!AUTHED())
+        goto dispatchReturn;
       g->fed |= FED_BESIDE;
       nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
       f1site = SITE_DISPATCH;
@@ -7541,7 +8298,11 @@ recRoom:
         kn.seq = 0;
         if ((tn = tLow(&V->recName, &kn)) && !tCmp(&V->recName, &kn, tn)) {
           struct inst *k;
+          unsigned int dt;
 
+          for (dt = 0; dt < N; ++dt)
+            if (V->descTo[dt] == tn->own)
+              V->descTo[dt] = 0;
           tDel(&V->recName, tn);    /* by its node: rx may be another record's */
           /* its kept assembly: nothing more lands, the last pass over
            * what is held and the reports */
@@ -7754,8 +8515,8 @@ derive(
          + RM_HDR + SigLen + RM_LEAVES + (N - 1) * ShardMax;
   if (Retention < RecMax)
     return (-1);
-  if (!(Shard = rsecFrmShard(DgramMax, TagSz, 0, HmacSz, GATE_SIZE))
-   || rsecFrmMax(DgramMax, TagSz, 0, HmacSz, GATE_SIZE, 0) < MSG_MAX)
+  if (!(Shard = rsecFrmShard(DgramMax, TagSz, GATE_SIZE))
+   || rsecFrmMax(DgramMax, TagSz, GATE_SIZE, 0) < MSG_MAX + HmacSz)
     return (-1);
   if (!TickMs) {
     unsigned int m;
@@ -7783,7 +8544,7 @@ derive(
      * abandon, counted in sweeps, stretch with it.  A tick past what
      * TickMs holds is the longest it holds. */
     pace(S, UnitFixed, &m, &d);
-    unit = ((UnitFixed + Shard - 1) / Shard + m) * d;
+    unit = ((UnitFixed + HmacSz + Shard - 1) / Shard + m) * d;
     pace(S, HashSz, &mVal, &dVal);
     burst = (unsigned long)(N - 1) * (unit + (1 + mVal) * dVal) / 1000;
     reply = (unsigned long)(N - 1) * (1 + mVal) * dVal / 1000;
@@ -7920,7 +8681,9 @@ make(
    || !(V->swUs = calloc(N, sizeof (*V->swUs)))
    || !(V->swDue = calloc(N, 1))
    || !(V->rtab = malloc(RT_SZ(V)))
-   || !(V->obuf = malloc(1 + 1 + TagSz + 5 + MSG_MAX))
+   || !(V->rowTick = calloc(3 * N, sizeof (*V->rowTick)))
+   || !(V->descTo = calloc(N, sizeof (*V->descTo)))
+   || !(V->obuf = malloc(1 + 1 + TagSz + 5 + MSG_MAX + HmacSz))
    || !(V->egrTab = calloc(1, PSKTAB_SZ))
    || !(V->igrTab = calloc(1, PSKTAB_SZ)))
     goto fail;
@@ -8049,8 +8812,8 @@ acPub(
 
 /*
  * One other seat's row entry, the operator's deal through the caller:
- * the pairwise secret, PSK_SIZE bytes, whose slices key the datagram
- * tiers and the mask, and that seat's public key; both copied, so the
+ * the pairwise secret, PSK_SIZE bytes, whose slices key the message HMAC,
+ * the datagram gate and the mask, and that seat's public key; both copied, so the
  * caller may wipe its own.  0, or -1 for a seat outside 0..n-1, self,
  * one already dealt, or any after the go.
  */
@@ -8109,14 +8872,14 @@ acGo(
   /* the ingress table shared among the senders the gate proved, so a
    * seat that opens messages it never finishes evicts its own */
   V->igr.tagOwner = 1 + AC_TAG_SENDER;
-  V->egr.dtgHmacSize = V->igr.dtgHmacSize = HmacSz;
   V->egr.dtgHashSize = V->igr.dtgHashSize = GATE_SIZE;
-  V->egr.dtgHmacCtx = V->egr.dtgHashCtx = V->egrTab;
-  V->egr.dtgHmacSign = dtgHmacSignCb;
+  V->egr.dtgHashCtx = V->egrTab;
   V->egr.dtgHashSign = gateSignCb;
-  V->igr.dtgHmacCtx = V->igr.dtgHashCtx = V->igrTab;
-  V->igr.dtgHmacVrfy = dtgHmacVrfyCb;
+  V->igr.dtgHashCtx = V->igrTab;
+  V->igr.tagOkCtx = V;
+  V->igr.tagOk = tagOkCb;
   V->igr.dtgHashVrfy = gateVrfyCb;
+  V->igr.msgMax = PartMax + HmacSz;
   /* the framers first: a refusal, memory alone, leaves the seat as the
    * call found it, to go again */
   if (!rsecFrmEgrInit(&V->egr))
@@ -8127,8 +8890,8 @@ acGo(
   }
   for (e = 0; e < N; ++e) {
     V->hasNext[e] = 0;
-    memcpy(V->egrTab->psk + e * PSK_TRN_SIZE, PSKROW(V, e), PSK_TRN_SIZE);
-    memcpy(V->igrTab->psk + e * PSK_TRN_SIZE, PSKROW(V, e), PSK_TRN_SIZE);
+    memcpy(V->egrTab->psk + e * PSK_HASH_SIZE, PSKROW(V, e) + PSK_HASH_OFF, PSK_HASH_SIZE);
+    memcpy(V->igrTab->psk + e * PSK_HASH_SIZE, PSKROW(V, e) + PSK_HASH_OFF, PSK_HASH_SIZE);
   }
   memcpy(V->chain, genesis, HashSz);
   V->lastTickUs = nowUs;
@@ -8139,8 +8902,8 @@ acGo(
 
 /*
  * A datagram from the wire, the bytes the transport delivered, and the
- * clock: identity is the in-tag sender the datagram tier verifies,
- * never where it came from.  What it completes is read, and the work
+ * clock: identity is the in-tag sender a message's HMAC verifies, never
+ * where it came from.  What it completes is read, and the work
  * that leaves is done.  0, or -1 for a null seat or datagram, one not
  * started, or one that failed before the call.
  */
@@ -8268,8 +9031,8 @@ acAvailable(
   return (0);
 }
 
-/* the seat's counters, copied, the ingress framer's two refusals among
- * them: the application's view of the datagram tiers */
+/* the seat's counters, copied, the refusals of the ingress framer's gate
+ * and of a message's HMAC among them */
 void
 acCounters(
   const struct ac *V
@@ -8292,7 +9055,8 @@ acCounters(
   c->igrEvict = V->igr.c.evict;
   c->igrEvictFull = V->igr.c.evictFull;
   c->igrGate = V->igr.c.hash;
-  c->igrAuth = V->igr.c.dhmac;
+  c->igrShape = V->igr.c.shape;
+  c->ticks = V->ticks;
 }
 
 /* what this seat counts of one other seat, by the in-tag sender or the
@@ -8452,6 +9216,8 @@ acFree(
     memset(V->igrTab, 0, PSKTAB_SZ);
   free(V->egrTab);
   free(V->igrTab);
+  free(V->rowTick);
+  free(V->descTo);
   free(V->obuf);
   free(V->tab);
   free(V->sc);

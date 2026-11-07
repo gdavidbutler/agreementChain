@@ -45,9 +45,8 @@
  * caller's microseconds, an unsigned long that may wrap, the same clock
  * to acGo, acInput and acWork; the caller calls acWork at least every
  * tick, and at least every quarter of the clock's range.  Identity on
- * the wire is the in-tag sender the datagram's authentication tier
- * verified under the dealt pairwise secret, never where a datagram came
- * from: a datagram carries a destination seat, the caller maps seats to
+ * the wire is the in-tag sender a message's HMAC verified under the
+ * dealt pairwise secret, never where a datagram came from: a datagram carries a destination seat, the caller maps seats to
  * addresses, and no datagram is handed to the caller for the seat
  * itself, which feeds its own messages back locally.
  *
@@ -97,8 +96,10 @@
  * every member's agreed value, the book at the launch, this seat's unit
  * of each member, its own distribution -- in the retention, a ring of
  * the declared bytes, the newest record overwriting the oldest, the
- * only forgetting.  A row naming a recorded position is evidence, and
- * what deals with it is RECOVER: where no recover leg of this seat's
+ * only forgetting.  A row naming a recorded position is evidence, unless
+ * its sender's own word says it is owed nothing there, a row of its naming
+ * a later position or HOLDING on the legs run toward it, and what deals with
+ * it is RECOVER: where no recover leg of this seat's
  * runs toward the row's sender there, this seat starts one, a
  * bracha87Fig1 point to point (n = 2, t = 0), for every member whose
  * unit it holds, its own among them, carrying beside the member's
@@ -123,8 +124,8 @@
  * The deal is the operator's and arrives through the caller.  A seat
  * mints its signing identity at acInit and publishes the public key
  * alone (acPub); the caller deals every other seat's row entry (acDeal)
- * -- the pairwise secret, which the datagram tiers and the mask key are
- * sliced from, and that seat's public key -- then the go (acGo) with
+ * -- the pairwise secret, which the message HMAC, the datagram gate and
+ * the mask key are sliced from, and that seat's public key -- then the go (acGo) with
  * the chain's genesis, the dealt base every seat folds from.  Every
  * seat of a deployment is dealt the same physics and configuration but
  * self; a secret is one per unordered pair; the genesis is one for all.
@@ -154,7 +155,7 @@ struct ac;                              /* one seat */
 #define AC_SEATS    256                 /* seats are bytes on the wire: a table by seat is this
                                          * wide, and what grows as n^2 is allocated by n */
 #define AC_HASH_MAX 64                  /* the widest hash a suite may make */
-#define AC_PSK      136                 /* a dealt pairwise secret: the datagram authentication
+#define AC_PSK      136                 /* a dealt pairwise secret: the message authentication
                                          * key (64), the datagram gate key (8), the mask key (64) */
 
 /*
@@ -167,7 +168,7 @@ struct ac;                              /* one seat */
  * signatures and keys, both Merkle trees, and a payload's message hash,
  * the hash of its bytes alone, which the reports carry) needs a
  * power-of-two width, h its exponent, h at least 1; the kdf role (the
- * keystream, the masks, the key walk, the datagram authentication) any
+ * keystream, the masks, the key walk, the message authentication) any
  * width.  Neither may exceed AC_HASH_MAX.  The seat calls the sign
  * role's alloc, tsize, init, update and final and the kdf role's hmac
  * and hkdf; the rest are the caller's.
@@ -201,7 +202,7 @@ struct acPar {
   const struct acHash *sign;         /* the sign role: the value, the
                                       * signatures and keys, both Merkle trees */
   const struct acHash *kdf;          /* the kdf role: keystream, masks,
-                                      * the key walk, the datagram MAC */
+                                      * the key walk, the message MAC */
   unsigned long retention;              /* the records kept for the seats that return,
                                          * bytes, at least recMax, which the widest
                                          * memberships exceed at the default; 0 for 16 MiB */
@@ -224,8 +225,10 @@ struct acPar {
                                          * safety; required, past the patience, and at
                                          * t > 0 at least one agreement with a member
                                          * gone, 1 + 7 patiences at the least and under
-                                         * load more: twice the longest one a rehearsal
-                                         * with a seat stopped counts (subsetMost) */
+                                         * load more: its floor is twice the longest one
+                                         * a rehearsal with a seat stopped counts
+                                         * (subsetMost), and above that what the host's
+                                         * memory holds is patience (README) */
   /* the configuration */
   unsigned int  n;                      /* seats, 3..AC_SEATS */
   unsigned int  t;                      /* seats that may be Byzantine, n > 3t */
@@ -249,7 +252,7 @@ struct acPar {
   unsigned int  rounds;                 /* 3 x the phases an agreement may run: the byte, 255 */
   unsigned int  kdfSz;
   unsigned int  kdfMax;                 /* one HKDF call's ceiling, 255 * kdfSz */
-  unsigned int  hmacSz;                 /* datagram AUTH: the kdf hash's HMAC */
+  unsigned int  hmacSz;                 /* a message's proof: the kdf hash's HMAC */
   unsigned int  sigLen;                 /* mlsSgSz at signH, mlsS */
   unsigned int  pfSz;                   /* a Merkle proof at R leaves */
   unsigned int  unitFixed;              /* a payload's sign part: the header, the
@@ -289,7 +292,7 @@ struct acPar {
  * message, AC_EXHAUSTED, AC_INCONSISTENT or AC_BUDGET.  Which of those
  * three is which parts reached the seat, so correct seats may report
  * different ones, and an application acts on the outcome alone.  No
- * message is the member's own fault: a commitment that is the encoding
+ * message comes of what was dealt: a commitment that is the encoding
  * of a message within msgMax, each part checked against it on arrival,
  * gives AC_PASS at every correct seat at threshold.  AC_UNDER, and
  * AC_NONE in a report, are this seat's alone: it fell outside what its
@@ -430,10 +433,10 @@ struct acCb {
 #define AC_KIND_BESIDE  3
 
 /*
- * What this seat counts of one other seat: identity on the wire is the
- * in-tag sender the datagram tier verified, so what a row costs or
- * breaks is that sender's, and what a verified signature says is the
- * signer's.  The three windows, per seat, are the tick its rows last
+ * What this seat counts under one other seat's name: the in-tag sender,
+ * or a verified signature's signer.  A count of what is refused is of the
+ * name on it and is no finding about the seat: Byzantine behavior can occur
+ * anywhere, CPU, memory, I/O or network.  The three windows, per seat, are the tick its rows last
  * landed in each: placed in a live machine, naming a record, held under
  * a name not yet minted here; the newest of the three is where that
  * seat is, as this seat last saw it, and nothing else here says.  Read
@@ -448,7 +451,7 @@ struct acSeatCounters {
   unsigned int live;                  /* its rows placed in live machines */
   unsigned int recorded;              /* its rows naming a record */
   unsigned int held;                  /* its rows held under a name not yet minted */
-  unsigned int heldFull;              /* its rows not held: the window's count of the shape held */
+  unsigned int heldFull;              /* its rows not held: the abandon's count of the shape held */
   unsigned int swept;                 /* the sweeps' rows to it: re-sends of what
                                        * it had not said it holds, and the turns a
                                        * sweep step fired, returned the same way */
@@ -457,8 +460,11 @@ struct acSeatCounters {
                                        * re-sends */
   unsigned int sweptHeld;             /* its re-sends a sweep held: its least round trip had not
                                        * passed since its sweep was last due */
-  unsigned int resent;                /* its re-sends of what is held already: an INITIAL fed, a
-                                       * part held, a row held ahead; it has not heard HOLDING */
+  unsigned int resent;                /* what is held already, under its name: a row recorded, a
+                                       * part held, a row held ahead, refused unproved, so its
+                                       * re-send or the network's copy of one */
+  unsigned int authBad;               /* messages under its name their HMAC refused: noise past
+                                       * the gate, no word of this seat, who sent them unknown */
   unsigned int replied;               /* the replies said to it: an echo or ready to it alone,
                                        * on an arrival of its that asked for one */
   unsigned int rtts;                  /* round trips timed: this seat's value broadcast's INITIAL,
@@ -477,7 +483,8 @@ struct acSeatCounters {
   unsigned int malformed;             /* its rows refused from the tag */
   unsigned int notInitiator;          /* its INITIAL or BESIDE of an
                                        * instance it does not initiate */
-  unsigned int initOther;             /* its INITIAL under another value than the sign part held */
+  unsigned int initOther;             /* its INITIAL under another value than the one held or
+                                       * recorded, or a leg's part not under the one held */
   unsigned int partOther;             /* its sign part not under the value it must have, or a second
                                        * with none held to judge by, refused unchecked */
   unsigned int rcvRefused;            /* its recover legs' descriptions refused */
@@ -489,8 +496,8 @@ struct acSeatCounters {
   unsigned int secondApex;            /* its verified sign part under another value */
   unsigned int signReplaced;          /* its sign part under the held (initial,
                                        * v) replaced one under another apex */
-  unsigned int slotReused;            /* its one-time slot signed twice: leaked, refused */
-  unsigned int offsetReplay;          /* its old signature re-dealt at a later position */
+  unsigned int slotReused;            /* a sign part of its at a slot agreed under another value */
+  unsigned int offsetReplay;          /* a sign part of its below its high water */
   /* the link, both ways, in message bytes at the framers: what this
    * seat gave its egress framer for it, what its ingress framer
    * completed from it, and the most of each in one tick of this seat's,
@@ -544,10 +551,10 @@ struct acCounters {
   unsigned int aheadDup;              /* such a row of a message held already, by its
                                        * tag: its annotations taken, the rest dropped */
   unsigned int aheadFull;             /* a row not held: its sender already has the
-                                       * live window's count and one more of rows of
+                                       * abandon's count and one more of rows of
                                        * that shape held here under other names, so what is
                                        * held is bounded by the shape of a position
-                                       * and the window, never by what a sender
+                                       * and the abandon, never by what a sender
                                        * says; its sweep brings it again */
   unsigned int recorded;              /* rows naming a position retained here: its
                                        * legs' rows fed to its machines, started
@@ -560,9 +567,9 @@ struct acCounters {
                                        * most of all behind their live windows */
   unsigned int placed;                /* unit parts under a recorded name, of a
                                        * member that left the live window under
-                                       * threshold here: taken to the position's
+                                       * threshold here: proved for the position's
                                        * assembly the record keeps, whose gates
-                                       * judge them as a live one's do */
+                                       * judge them as a live one's do, held or not */
   unsigned int placedAfter;           /* the most ticks after its position left
                                        * the live window here that such a part
                                        * landed, on this seat's clock */
@@ -575,16 +582,18 @@ struct acCounters {
                                        * go */
   unsigned int keptNow;               /* still kept, unreported, as read */
   unsigned int repeated;              /* this seat's value broadcasts started as a
-                                       * bracha87Fig1 alone, its agreement
-                                       * let go or at the ceiling with the
-                                       * position unfolded */
+                                       * bracha87Fig1 alone, an abandon on with
+                                       * the position unfolded */
   unsigned int heldRepeated;          /* and at a launch held: the last position
                                        * folded, a member short here, left the
                                        * live window with its machines gone */
+  unsigned int descAlone;             /* descriptions said with no leg, by a record holding
+                                       * nothing to carry the seat that asked */
   unsigned int recoverStarts;         /* recover legs started toward a seat: a
                                        * row of its naming a position in the
                                        * retention, no recover leg of this
-                                       * seat's running toward it there */
+                                       * seat's running toward it there, and
+                                       * no word of its that it is owed nothing */
   unsigned int endRefused;            /* rows refused past the chain's end, its
                                        * last link gone from the live window:
                                        * no recover leg starts, no row is held */
@@ -600,16 +609,32 @@ struct acCounters {
                                        * before the first had */
   unsigned int rcvRefused;            /* recover descriptions refused: malformed, a
                                        * subset or a member's value other than this
-                                       * seat's own, or a second one from a seat */
-  unsigned int slotReused;            /* a verified sign part at a signer's slot
-                                       * already agreed here under another value: the
-                                       * one-time slot leaked, the signer Byzantine;
+                                       * seat's own */
+  unsigned int slotReused;            /* a sign part at a signer's slot already
+                                       * agreed here under another value:
                                        * refused at or past the last position whose
                                        * subset took the signer */
-  unsigned int offsetReplay;          /* a verified sign part at a slot below the
-                                       * signer's high water, at or past the last
-                                       * position whose subset took the signer: an old
-                                       * signature re-dealt, refused */
+  unsigned int ticks;                 /* the ticks this seat has run */
+  unsigned int copy;                  /* messages refused unproved: a machine here holds
+                                       * them, so the network's copy of one and a
+                                       * sender's re-send cost no HMAC; most of them
+                                       * from the tag, at the framer, ahead of reassembly */
+  unsigned int authRun;               /* HMACs run on arrivals: messages that would move
+                                       * something */
+  unsigned int offsetReplay;          /* a sign part at a slot below the signer's
+                                       * high water, at or past the last position
+                                       * whose subset took the signer: refused */
+  unsigned int hwLate;                /* of those two, the refusals that paid the
+                                       * signature first, turning on which root
+                                       * signed it */
+  unsigned int lateUnit;              /* this seat's unit of a member whole under a record:
+                                       * past the position's end, the record to take it */
+  unsigned int lateDist;              /* of those, on the member's own broadcast */
+  unsigned int lateWord;              /* of those, under a seat's word that it was owed
+                                       * nothing here, which lapsed: this seat holds more */
+  unsigned int recCopy;               /* records written again at the head, holding more */
+  unsigned int recUnits;              /* members' parts those copies took, or had no room to */
+  unsigned int recCopyNoRoom;         /* not written: the room would let the position go */
   unsigned int replayed;              /* rows held ahead taken at their launch */
   unsigned int replayMost;            /* the most of them taken in one acInput or acWork */
   unsigned int launchOnRows;          /* positions launched here on another seat's
@@ -633,14 +658,13 @@ struct acCounters {
   unsigned int shardOther;            /* a second, different shard ahead of the sign
                                        * part: the first kept */
   unsigned int dupInitial;            /* an INITIAL already fed to its instance */
-  unsigned int initOther;             /* an INITIAL under another value than the
-                                       * held sign part's apex: fed, the part not
-                                       * fed beside it */
+  unsigned int initOther;             /* an INITIAL under another value than the one
+                                       * this seat holds or has recorded: discarded */
   unsigned int partOther;             /* a sign part whose value, under either of the
                                        * signer's roots, is not the agreed one, else
                                        * the (initial, v) held, or any second one with
                                        * none held: refused before its signature is
-                                       * checked, its sender's */
+                                       * checked */
   unsigned int unitSent;
   unsigned int unitBad[6];            /* units refused, by the gate (AC_UNIT_*) */
   unsigned int secondApex;            /* a verified sign part under another value:
@@ -650,8 +674,7 @@ struct acCounters {
                                        * and a second rotation of a context whose
                                        * successor the book has installed */
   unsigned int signReplaced;          /* a verified sign part under the held (initial, v)
-                                       * replaced one held under another apex: a
-                                       * two-faced dealer */
+                                       * replaced one held under another apex */
   unsigned int asmAlloc;              /* an assembly this seat could not allocate for:
                                        * owed, and taken again at every tick, past
                                        * its position's end with its record */
@@ -674,9 +697,12 @@ struct acCounters {
   unsigned int igrBusy;               /* a datagram the ingress framer refused,
                                        * its last deliveries not all taken */
   unsigned int igrGate;               /* datagrams the ingress framer's gate refused:
-                                       * not keyed by a dealt secret */
-  unsigned int igrAuth;               /* datagrams its authentication tier refused:
-                                       * not from the sender the tag names */
+                                       * not keyed by a dealt secret, or a fragment
+                                       * claiming another seat than that key's */
+  unsigned int igrShape;              /* fragments past the gate of a geometry no seat's egress
+                                       * makes, or longer than any message a seat makes */
+  unsigned int igrAuth;               /* messages their HMAC refused, counted and discarded:
+                                       * no word of the sender the tag names */
   unsigned int sendRefused;           /* sends the caller refused: the datagram
                                        * stays due, the pass ends there, and the
                                        * next pass offers it again */
@@ -688,8 +714,8 @@ struct acCounters {
                                        * next tick starts when the pass ends */
   unsigned int subsetMost;            /* the most sweeps an agreement here ran to its
                                        * SUBSET: the longest the deployment's load has
-                                       * made one, the abandon's floor as measured; the
-                                       * abandon at twice the longest with a seat stopped */
+                                       * made one, the abandon's floor as measured,
+                                       * twice the longest with a seat stopped */
   unsigned int noSubset;              /* agreements here abandoned at the round
                                        * ceiling with no subset, their SUBSET's or a
                                        * DISCOVER's: undecided past the phases; short
@@ -820,8 +846,8 @@ long acWork(struct ac *, unsigned long nowUs);
  * have holds the end as it holds a launch: slow, never stopped.  The
  * last link, the final hash, is a next chain's genesis where more than
  * t seats report it alike, a correct seat's; that chain is dealt
- * afresh, since no seat's identity outlives its process and the framer
- * authenticates a datagram by its pair secret alone: under the old
+ * afresh, since no seat's identity outlives its process and a message
+ * is authenticated by its pair secret alone: under the old
  * secrets what this chain put on the wire, replayed or from a seat
  * still in it, would be a seat's word in the next.  The caller's stop
  * (acQuiet) is local: nothing more is said -- no pass, no re-send, no

@@ -76,7 +76,7 @@
  * list names only the addresses that may reach its seat.  An address of
  * a family the host has no sockets for is passed over.  Which socket a
  * datagram arrives on, and from where, is nothing to a seat: the sender
- * is in the tag, proven by the datagram's authentication.  The
+ * is in the tag, proven by the message's authentication.  The
  * operator's parameters -- the membership, the bandwidth, the delay,
  * the messages -- go down the link first, so a seat is started with
  * nothing.
@@ -127,8 +127,8 @@
  * the deployment holds an instance's memory before it stops, past which
  * a seat behind is carried by recovery.  Nothing declared says how long
  * an agreement with a member gone runs under the deployment's load, so
- * it is measured: rehearse with one seat stopped and declare twice the
- * longest agreement the seats' counters show; at t > 0 one shorter than
+ * its floor is measured: rehearse with one seat stopped and declare at
+ * least twice the longest agreement the seats' counters show; at t > 0 one shorter than
  * the least such agreement can be, 1 + 7 patiences, makes no seat.  -L
  * is the one-way delay every seat is dealt, in milliseconds (default
  * 0): the tick is one feedback cycle only with the slowest answer
@@ -764,17 +764,17 @@ seatMain(
     acCounters(s.ac, &c);
     fprintf(Out, "seat %u counters: ticks %u of %u ms, late by at most %lu ms, %u passes past their tick, patience %u, abandon %u,"
            " the longest agreement %u sweeps, agreements abandoned without a subset %u, at most %u positions live;"
-           " lost %u, decodes with no parity to spare %u, refused at the gate %u, at the tier %u;"
+           " lost %u, decodes with no parity to spare %u, refused at the gate %u, by a message's HMAC %u, held already and refused unread %u, HMACs run %u;"
            " held %u, not held %u, naming a record %u, recover legs started %u, retained %u, let go %u;",
            s.self, acTicks(s.ac), acPar(s.ac)->tickMs, c.overUs / 1000, c.passLong,
            acPar(s.ac)->patience, acPar(s.ac)->abandon, c.subsetMost, c.noSubset, c.liveMost,
-           c.loss, c.parityLast, c.igrGate, c.igrAuth,
+           c.loss, c.parityLast, c.igrGate, c.igrAuth, c.copy, c.authRun,
            c.future, c.aheadFull, c.recorded, c.recoverStarts, c.retained, c.released);
-    fprintf(Out, " own value broadcasts alone %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
+    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
            " %u parts placed, at most %u ticks after their position left the window;"
            " parts refused %u; refused by this seat's memory %u; its own steps waiting on its memory %u;"
            " sends lost here for want of buffer %u, of carrier, route or host %u, otherwise %u\n",
-           c.repeated, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
+           c.repeated, c.descAlone, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
            c.unitBad[AC_UNIT_LEN] + c.unitBad[AC_UNIT_SIG] + c.unitBad[AC_UNIT_SSS] + c.unitBad[AC_UNIT_RSEC],
            c.aheadMem + c.rowMem + c.qDrop + c.asmAlloc + c.unitBad[AC_UNIT_MEM], c.ownMem,
            s.lostBuf, s.lostDown, s.lostOther);
@@ -917,7 +917,7 @@ main(
    * rest derives here for the operator and again, the same, in every
    * seat.  The abandon is -A's, measured, never derived */
   if (!par.abandon) {
-    fprintf(stderr, "-A is required: twice the longest agreement, in sweeps, of a rehearsal with one seat stopped\n");
+    fprintf(stderr, "-A is required: at least twice the longest agreement, in sweeps, of a rehearsal with one seat stopped\n");
     goto usage;
   }
   if (acDerive(&par)) {

@@ -39,26 +39,27 @@
  * least that often while something is scheduled keeps every comparison
  * within half.
  *
- * The wire-format sizes (dgramMax, tagSize, frgHmacSize, dtgHmacSize,
- * dtgHashSize) must match between a sender's egress and the receiver's
- * ingress.  tableSize is per direction.
+ * The wire-format sizes (dgramMax, tagSize, dtgHashSize) must match
+ * between a sender's egress and the receiver's ingress.  tableSize is
+ * per direction.
  *
  * Wire format, one datagram:
- *   [frag1][frag2]...[fragN][dtgHmac(dtgHmacSize)][dtgHash(dtgHashSize)]
+ *   [frag1][frag2]...[fragN][dtgHash(dtgHashSize)]
  * One fragment:
- *   [tag][k-1][m][si][pad][shard_len_vlq(1-2)][shard_data][frgHmac(frgHmacSize)]
+ *   [tag][k-1][m][si][pad][shard_len_vlq(1-2)][shard_data]
  *   k-1  data shards less one, so k in 1..256 fits a byte
  *   m    parity shards, 0..255, k + m <= 256
  *   si   the shard's index, 0-based
  *   pad  bytes appended to the last data shard, k * ceil(L / k) - L,
  *        in [0, k - 1]
+ * k and the shard's length are the message length's alone, its first
+ * shard_len_vlq byte aside, and ingress refuses any other: k is 1 for an
+ * empty message and else ceil(L / rsecFrmShard), so what an entry and a
+ * decode cost is the length of a message, never a fragment's choice.
  *   shard_len_vlq  byte0 & 0x80 == 0: byte0 (0..127); else
  *        (((byte0 & 0x7f) << 7) | (byte1 & 0x7f)) + 1 (1..16384), the
  *        1-byte form always taken below 128
- * The trailers nest, the GATE outermost: dtgHmac covers
- * [frag1]..[fragN], dtgHash covers [frag1]..[fragN][dtgHmac] and is
- * verified first.  Each frgHmac covers its fragment from the tag
- * through shard_data.
+ * dtgHash covers [frag1]..[fragN].
  *
  * Fragments of one TAG never share a datagram: one loss would take two
  * shards of one train.  Fragments of different tags to one address do,
@@ -67,17 +68,19 @@
  * An address is [addrlen(1)][addr(addrlen)], the transport's own frame,
  * never on the wire and under no MAC.
  *
- * Three keyed tiers, each enabled by its size > 0:
- *   GATE  dtgHash, one cheap keyed MAC a datagram, verified before any
- *         other work: a flood without the key costs one verify.
- *   AUTH  dtgHmac, one keyed MAC a datagram over every fragment; the
- *         verify is handed each fragment's tag offset so it can require
- *         every fragment to claim the sender that keys the MAC, and with
- *         that it replaces the fragment tier.
- *   FRAG  frgHmac, one keyed MAC a fragment; a failure drops that
- *         fragment alone.
+ * One keyed tier, enabled by its size > 0, the GATE: dtgHash, one cheap
+ * keyed MAC a datagram, verified before any other work, so a flood
+ * without the key costs one verify.  It says only that a holder of the
+ * key framed these bytes, once, and a copy of them passes.  Whether a
+ * message is authentic, and whether a copy of it is worth anything, is
+ * for the end that knows what it holds, so a message's own proof is
+ * that caller's, inside its payload: the fragments here are carried on
+ * the gate's word alone, and a delivery may be noise.
  * On ingress adr is the kernel's source address: whoever sent the
- * datagram chose it, so a verify must not select a key by it.
+ * datagram chose it, so a verify must not select a key by it.  A verify
+ * that selects its key by the tag's sender byte names that byte in
+ * tagOwner, and a fragment claiming any other sender than the
+ * datagram's first is refused here.
  */
 
 /* Shard bytes a datagram carries (0 if dgramMax is too small or the
@@ -86,8 +89,6 @@ unsigned int
 rsecFrmShard(
   unsigned int /* dgramMax */
  ,unsigned int /* tagSize */
- ,unsigned int /* frgHmacSize */
- ,unsigned int /* dtgHmacSize */
  ,unsigned int /* dtgHashSize */
 );
 
@@ -96,8 +97,6 @@ unsigned int
 rsecFrmMax(
   unsigned int /* dgramMax */
  ,unsigned int /* tagSize */
- ,unsigned int /* frgHmacSize */
- ,unsigned int /* dtgHmacSize */
  ,unsigned int /* dtgHashSize */
  ,unsigned char /* m */
 );
@@ -118,24 +117,13 @@ struct rsecFrmEgr {
   void *(*realloc)(void *, unsigned long);
   void (*free)(void *);
   void *dtgHashCtx;
-  /* adr: the destination; src/len: every fragment's bytes and the
-   * dtgHmac */
+  /* adr: the destination; src/len: every fragment's bytes */
   void (*dtgHashSign)(void *dtgHashCtx, const unsigned char *adr, unsigned char *dst, const unsigned char *src, unsigned int len);
-  void *dtgHmacCtx;
-  /* adr: the destination; src/len: every fragment's bytes; frgOff[i]:
-   * fragment i's tag within src (frgOff[0] == 0), frgCnt of them */
-  void (*dtgHmacSign)(void *dtgHmacCtx, const unsigned char *adr, unsigned char *dst, const unsigned char *src, unsigned int len, const unsigned int *frgOff, unsigned int frgCnt);
-  void *frgHmacCtx;
-  /* hdr: [addrlen][addr][tag][k-1][m][si]; src/len: the fragment, tag
-   * through shard_data */
-  void (*frgHmacSign)(void *frgHmacCtx, const unsigned char *hdr, unsigned char *dst, const unsigned char *src, unsigned int len);
   void *opaque;       /* private: Init sets it, Fini clears it */
   unsigned int dgramMax;
   unsigned int tagSize;
   unsigned int tableSize;  /* messages in flight: a message holds its
                             * slot until its last shard is Sent */
-  unsigned int frgHmacSize;
-  unsigned int dtgHmacSize;
   unsigned int dtgHashSize;
   struct rsecFrmEgrCtrs c;
 };
@@ -215,11 +203,13 @@ rsecFrmEgrSent(
 
 struct rsecFrmIgrCtrs {
   unsigned int frg;   /* fragments parsed */
-  unsigned int hash;  /* datagram GATE failures */
-  unsigned int dhmac; /* datagram AUTH failures, sender uniformity among them */
-  unsigned int hmac;  /* fragment FRAG failures */
+  unsigned int hash;  /* datagram GATE failures, a fragment claiming another
+                       * sender among them */
+  unsigned int shape; /* fragments of a geometry no egress derives, or past msgMax */
   unsigned int dup;   /* duplicate fragments */
   unsigned int late;  /* fragments after their message was delivered */
+  unsigned int refused;    /* fragments the caller refused from their tag (tagOk) */
+  unsigned int refusedMsg; /* of those, first fragments: a message each */
   unsigned int msg;   /* messages delivered */
   unsigned int dcd;   /* of those, by Reed-Solomon decode */
   unsigned int evict; /* incomplete messages evicted: a loss each */
@@ -231,18 +221,19 @@ struct rsecFrmIgr {
   void (*free)(void *);
   void *dtgHashCtx;
   /* adr: the kernel's source; mac: the dtgHash on the wire; src/len:
-   * every fragment's bytes and the dtgHmac; non-zero accepts */
+   * every fragment's bytes; non-zero accepts */
   int (*dtgHashVrfy)(void *dtgHashCtx, const unsigned char *adr, const unsigned char *mac, const unsigned char *src, unsigned int len);
-  void *dtgHmacCtx;
-  /* as the sign, mac the dtgHmac on the wire; non-zero accepts */
-  int (*dtgHmacVrfy)(void *dtgHmacCtx, const unsigned char *adr, const unsigned char *mac, const unsigned char *src, unsigned int len, const unsigned int *frgOff, unsigned int frgCnt);
-  void *frgHmacCtx;
-  /* hdr: [addrlen][addr][tag][k-1][m][si], addr the kernel's source;
-   * non-zero accepts */
-  int (*frgHmacVrfy)(void *frgHmacCtx, const unsigned char *hdr, const unsigned char *mac, const unsigned char *src, unsigned int len);
+  void *tagOkCtx;
+  /* 0 or: a fragment past the gate and its geometry, of no train in flight
+   * here, its tag and its index in the train; 0 refuses it before any entry
+   * or decode, the caller's say that its message would move nothing */
+  int (*tagOk)(void *tagOkCtx, const unsigned char *tag, unsigned int si);
   void *opaque;       /* private: Init sets it, Fini clears it */
   unsigned int dgramMax;
   unsigned int tagSize;
+  /* 0, or the longest message a sender may frame: a fragment implying more
+   * is refused before any entry */
+  unsigned int msgMax;
   /*
    * Reassemblies in flight.  A new tag on a full table evicts the one
    * least recently fed, a delivered one first, which costs nothing,
@@ -256,16 +247,14 @@ struct rsecFrmIgr {
   unsigned int tableSize;
   /*
    * 0, or 1 + the offset of the tag byte that names the fragment's
-   * sender, where the datagram tiers have proved it: then a new tag on
-   * a full table evicts the entry least recently fed of the sender
-   * holding the most entries, its own where it ties for the most, a
-   * delivered one first as above.  A sender that opens reassemblies
-   * faster than it completes them takes the table from nobody but
-   * itself.
+   * sender, the byte the gate selects its key by: every fragment of a
+   * datagram must name the first's, and a new tag on a full table
+   * evicts the entry least recently fed of the sender holding the most
+   * entries, its own where it ties for the most, a delivered one first
+   * as above.  A sender that opens reassemblies faster than it
+   * completes them takes the table from nobody but itself.
    */
   unsigned int tagOwner;
-  unsigned int frgHmacSize;
-  unsigned int dtgHmacSize;
   unsigned int dtgHashSize;
   struct rsecFrmIgrCtrs c;
 };

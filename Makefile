@@ -35,7 +35,7 @@ ac.o: ac.c ac.h acTest.h rsecFrm.h halfsiphash.h $(ABAP)/bracha87Fig1.h $(ABAP)/
 acUDP: example/acUDP.c ac.h ac.o $(SEATOBJ) $(EXOBJ)
 	$(CC) $(CFLAGS) $(EXINC) -o acUDP example/acUDP.c ac.o $(SEATOBJ) $(EXOBJ)
 
-acTCP: example/acTCP.c ac.h ac.o $(SEATOBJ) $(EXOBJ)
+acTCP: example/acTCP.c ac.h halfsiphash.h ac.o $(SEATOBJ) $(EXOBJ)
 	$(CC) $(CFLAGS) $(EXINC) -o acTCP example/acTCP.c ac.o $(SEATOBJ) $(EXOBJ)
 
 rsecFrm.o: rsecFrm.c rsecFrm.h $(RSEC)/rsec.h
@@ -114,8 +114,14 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -r 950 -A 22 -n 10 -T '0=010210122021/90000=010210122021031323/130000=*' 4 1
 # a Byzantine row sender saying HOLDING of nothing
 	./acTest -W 2500000 -b 1 -A 74 -n 10 4 1
+# a seat's agreement rows under random names: held at the others to the abandon's count of a shape, the rest not
+	./acTest -W 2500000 -b 2 -n 10 4 1
+# a unit landing under a seat's word that it was owed nothing: the word lapses, and that unit brings the returner to threshold
+	./acTest -W 2500000 -u 60000 -n 3 -A 60 -o 480 6 1
 # a payload signed at its first payload's slot
 	./acTest -W 2500000 -f 11 -n 6 4 1
+# and a recording of it: each copy refused from its offset and a hash, no signature paid
+	./acTest -W 2500000 -f 11 -J 4 -n 6 4 1
 # a salted dealer whose accomplice forwards its part to one seat alone: one outcome at every seat
 	./acTest -W 2857142 -f 5 -a -n 4 7 2
 # a dealer whose shares are bad but the last T, at thirteen seats, where its search's try budget may be spent
@@ -128,3 +134,26 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -y 24 -x 40 -n 2 4 1
 # a seat dead for a whole chain, back in the next, dealt afresh from its final hash
 	./acTest -W 2500000 -x 999 -c 300 -n 2 -R 4 1
+# the network's copies of every datagram: refused unread, an HMAC for what was said and none for the copies
+	./acTest -W 2500000 -J 4 -n 4 4 1
+# the network's recording of older traffic played back, under names live and retained: no HMAC and no recover leg for it
+	./acTest -W 2500000 -I 2 -n 12 -A 22 4 1
+# the same on a chain idling at a folded head, where nothing names past it and only a seat's own HOLDING says it is owed nothing
+	./acTest -W 2500000 -I 2 -i -Z 40:300 -n 8 -A 22 4 1
+# a returner under a recording of recover legs' INITIALs, which no tag refuses: the copies hold no position past its fold and let-go, so it ends
+	./acTest -W 2500000 -I 64 -h -x 120 -n 8 -A 22 4 1
+# a faulty dealer's consistent wrong bytes reach a seat at threshold under its record, and the rest are never dealt: an abandon on, its last pass, and it launches
+	./acTest -W 2500000 -f 4 -N 60 -n 3 -A 22 4 1
+# a seat with every word on its own broadcasts heard and nothing to fold on owes no re-send: it says its value again at its abandon, and the others' recover legs carry it
+	./acTest -W 2500000 -3 60 -n 14 -A 22 4 1
+# a seat that folded with no unit to carry is a returner's second description: it says it alone, with no leg, whenever that seat asks
+	./acTest -W 2500000 -4 100 -n 12 -A 22 4 1
+# a seat holding the gate's key whose every proof fails: each a counted discard
+	./acTest -W 2500000 -b 128 -n 4 4 1
+# a seat that hears no agreement holds every unit and still lacks the description: it is carried
+	./acTest -W 2500000 -q 90 -n 6 -A 22 4 1
+# a member reaches two seats and misses a third, stops while they go on, and returns: its unit, late, in that seat's record
+	./acTest -W 2500000 -r 950 -A 22 -n 10 -j -T '0=0102031012132021233132/3000=010210122021/60000=*' 4 1
+# what the framer would refuse from a tag, asked and not obeyed: nothing of it moves a seat
+	./acTest -W 2500000 -l -I 2 -n 12 -A 22 4 1
+	./acTest -W 2500000 -l -q 90 -n 6 -A 22 4 1

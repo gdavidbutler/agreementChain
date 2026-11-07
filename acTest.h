@@ -121,9 +121,10 @@
  * of, by the seat's count, 0 for a record's re-send past the live
  * window, and answers the payload length to send, which may be 0, or -1
  * to drop it, and may rewrite the tag and the payload's bytes, which
- * the framer then authenticates as the seat's own word -- a Byzantine
- * seat says what it likes under its own key, while what it feeds itself
- * never crosses the hook; a dealer's fault and a laggard's hold act
+ * are then authenticated as the seat's own word -- a Byzantine seat
+ * says what it likes under its own key, while what it feeds itself never
+ * crosses the hook; badMac, every message of this seat's under a proof
+ * that fails; a dealer's fault and a laggard's hold act
  * inside the seat.  A knob set stands where the derivation would: the
  * parity (-1 derives it per message), the inter-shard pacing (-1
  * derives it), the tick, the patience and the round ceiling (0 derives
@@ -139,10 +140,17 @@ struct acTest {
   unsigned int patience;
   unsigned int rounds;
   unsigned int fault;
+  unsigned int badMac;
   unsigned int lag;
   unsigned int refuse;                  /* 1 + the member whose search this seat's memory refuses
                                          * until its position's end keeps it, or 0 */
   unsigned int refuseAt;                /* where: 0 the search's buffers, 1 the pool's */
+  int tagAudit;                         /* -l: the framer refuses nothing, and each
+                                         * arrival is held to what it would have refused */
+  int tagPredict;                       /* this arrival would have been */
+  int tagMoved;                         /* and it drew a reply here */
+  unsigned int tagPred;                 /* -l: arrivals it would have refused */
+  unsigned int tagBad;                  /* of those, ones proved or replied to here */
   unsigned int dealt;                   /* -f 7, 8, 10, 11: the fault's second
                                          * signature was made and dealt */
 };

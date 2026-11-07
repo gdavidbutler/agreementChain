@@ -24,7 +24,7 @@
  *
  *   the wire     one message at a time, every datagram against the one
  *                the header's wire format derives by hand, its parity
- *                from rsecEncode, its MACs from the callbacks; and each
+ *                from rsecEncode, its gate from the callback; and each
  *                delivers once
  *   the streams  seeded runs from two senders' egresses to three
  *                destinations, unperturbed, with a small table, and with
@@ -42,12 +42,8 @@
  *                loss, the least recently fed evicted, and under
  *                tagOwner the sender's holding the most, a padding
  *                mismatch, a duplicate, the dedup horizon, dgramMax + 1,
- *                a mixed-sender datagram, the size functions
- *
- * The keyed tiers' callbacks judge what they are handed: the fragment
- * MAC covers its header, address and k, m and si with it; the datagram
- * MAC re-derives the fragments' offsets from the bytes and refuses a
- * datagram whose offsets the framer got wrong.
+ *                a mixed-sender datagram, what the gate does not say,
+ *                the size functions
  */
 
 #include <stdio.h>
@@ -62,8 +58,6 @@ static unsigned int Checks;
 static unsigned int Fails;
 static unsigned long Rng = 1;
 static unsigned char GateKey[HALFSIPHASH_KEY_SZ];
-static unsigned char AuthKey[256][HALFSIPHASH_KEY_SZ];
-static unsigned char FrgKey[256][HALFSIPHASH_KEY_SZ];
 static const unsigned char Dsts[][5] = {
   {4, 'd', 's', 't', '0'}
  ,{4, 'd', 's', 't', '1'}
@@ -109,22 +103,17 @@ struct cfg {
   const char *name;
   unsigned int dgramMax;
   unsigned int tagSize;
-  unsigned int frgHmacSize;
-  unsigned int dtgHmacSize;
   unsigned int dtgHashSize;
 };
 
-/* ac.c's tiers first: the gate and the datagram AUTH, a 7-byte tag */
+/* ac.c's first: the gate, a 7-byte tag */
 static struct cfg Cfgs[] = {
-  {"gate+auth", 508, 7, 0, MAC, MAC}
- ,{"none", 508, 4, 0, 0, 0}
- ,{"frg", 508, 4, MAC, 0, 0}
- ,{"all", 508, 5, MAC, MAC, MAC}
- ,{"small", 48, 3, 0, MAC, MAC}
+  {"gate", 508, 7, MAC}
+ ,{"none", 508, 4, 0}
+ ,{"small", 48, 3, MAC}
 };
 
-/* the keyed tiers: the gate keys on its ctx, the others on the sender,
- * the tag's first byte, under their ctx's configuration */
+/* the keyed tier keys on its ctx */
 static void
 gateSign(
   void *k
@@ -152,138 +141,21 @@ gateVrfy(
   return (!memcmp(h, mac, MAC));
 }
 
-/* the fragments' tag offsets from the bytes alone, as the wire defines
- * them: the datagram MAC's check on the framer's frgOff */
-static unsigned int
-offsets(
-  const struct cfg *c
- ,const unsigned char *src
- ,unsigned int len
- ,unsigned int *off
- ,unsigned int cap
-){
-  unsigned int n;
-  unsigned int sp;
-
-  for (n = 0, sp = 0; n < cap && sp + c->tagSize + 5 + c->frgHmacSize <= len;) {
-    unsigned int vo;
-    unsigned int sz;
-    unsigned int end;
-
-    if (src[sp + c->tagSize] + 1 + src[sp + c->tagSize + 1] > 256)
-      break;
-    vo = sp + c->tagSize + 4;
-    if (src[vo] & 0x80) {
-      if (vo + 2 > len)
-        break;
-      sz = (((src[vo] & 0x7f) << 7) | (src[vo + 1] & 0x7f)) + 1;
-      end = vo + 2 + sz + c->frgHmacSize;
-    } else
-      end = vo + 1 + src[vo] + c->frgHmacSize;
-    if (end > len)
-      break;
-    off[n++] = sp;
-    sp = end;
-  }
-  return (n);
-}
-
-static void
-authSign(
-  void *v
- ,const unsigned char *adr
- ,unsigned char *dst
- ,const unsigned char *src
- ,unsigned int len
- ,const unsigned int *frgOff
- ,unsigned int frgCnt
-){
-  unsigned int off[128];
-  unsigned int n;
-
-  (void)adr;
-  if ((n = offsets(v, src, len, off, sizeof (off) / sizeof (off[0]))) != frgCnt
-   || memcmp(off, frgOff, n * sizeof (off[0]))) {
-    memset(dst, 0, MAC);
-    return;
-  }
-  halfsiphash(src, len, AuthKey[src[0]], dst);
-}
+/* the caller's refusal from a tag, after this many answers of yes */
+static unsigned int TagYes;
+static unsigned int TagAsked;
 
 static int
-authVrfy(
+refuseTag(
   void *v
- ,const unsigned char *adr
- ,const unsigned char *mac
- ,const unsigned char *src
- ,unsigned int len
- ,const unsigned int *frgOff
- ,unsigned int frgCnt
+ ,const unsigned char *tag
+ ,unsigned int si
 ){
-  unsigned char h[MAC];
-  unsigned int off[128];
-  unsigned int n;
-  unsigned int i;
-
-  (void)adr;
-  if (!len
-   || (n = offsets(v, src, len, off, sizeof (off) / sizeof (off[0]))) != frgCnt
-   || memcmp(off, frgOff, n * sizeof (off[0])))
-    return (0);
-  halfsiphash(src, len, AuthKey[src[0]], h);
-  if (memcmp(h, mac, MAC))
-    return (0);
-  for (i = 1; i < frgCnt; ++i)
-    if (src[frgOff[i]] != src[0])
-      return (0);
-  return (1);
-}
-
-/* over [addrlen][addr][tag][k-1][m][si] and the fragment */
-static void
-frgMac(
-  const struct cfg *c
- ,const unsigned char *hdr
- ,const unsigned char *src
- ,unsigned int len
- ,unsigned char *h
-){
-  unsigned char b[1024];
-  unsigned int hl;
-
-  hl = 1 + hdr[0] + c->tagSize + 3;
-  if (hl + len > sizeof (b)) {
-    memset(h, 0, MAC);
-    return;
-  }
-  memcpy(b, hdr, hl);
-  memcpy(b + hl, src, len);
-  halfsiphash(b, hl + len, FrgKey[hdr[1 + hdr[0]]], h);
-}
-
-static void
-frgSign(
-  void *v
- ,const unsigned char *hdr
- ,unsigned char *dst
- ,const unsigned char *src
- ,unsigned int len
-){
-  frgMac(v, hdr, src, len, dst);
-}
-
-static int
-frgVrfy(
-  void *v
- ,const unsigned char *hdr
- ,const unsigned char *mac
- ,const unsigned char *src
- ,unsigned int len
-){
-  unsigned char h[MAC];
-
-  frgMac(v, hdr, src, len, h);
-  return (!memcmp(h, mac, MAC));
+  (void)v;
+  (void)tag;
+  (void)si;
+  ++TagAsked;
+  return (TagAsked <= TagYes);
 }
 
 /* datagrams or deliveries: [addrlen][addr][...] */
@@ -358,15 +230,9 @@ setEgr(
   x->free = free;
   x->dtgHashCtx = GateKey;
   x->dtgHashSign = gateSign;
-  x->dtgHmacCtx = c;
-  x->dtgHmacSign = authSign;
-  x->frgHmacCtx = c;
-  x->frgHmacSign = frgSign;
   x->dgramMax = c->dgramMax;
   x->tagSize = c->tagSize;
   x->tableSize = tableSize;
-  x->frgHmacSize = c->frgHmacSize;
-  x->dtgHmacSize = c->dtgHmacSize;
   x->dtgHashSize = c->dtgHashSize;
 }
 
@@ -381,15 +247,9 @@ setIgr(
   x->free = free;
   x->dtgHashCtx = GateKey;
   x->dtgHashVrfy = gateVrfy;
-  x->dtgHmacCtx = c;
-  x->dtgHmacVrfy = authVrfy;
-  x->frgHmacCtx = c;
-  x->frgHmacVrfy = frgVrfy;
   x->dgramMax = c->dgramMax;
   x->tagSize = c->tagSize;
   x->tableSize = tableSize;
-  x->frgHmacSize = c->frgHmacSize;
-  x->dtgHmacSize = c->dtgHmacSize;
   x->dtgHashSize = c->dtgHashSize;
 }
 
@@ -566,8 +426,6 @@ selfCheck(
   }
   Reach.frg += bc.frg;
   Reach.hash += bc.hash;
-  Reach.dhmac += bc.dhmac;
-  Reach.hmac += bc.hmac;
   Reach.dup += bc.dup;
   Reach.late += bc.late;
   Reach.msg += bc.msg;
@@ -608,11 +466,6 @@ main(
   printf("rsecFrmTest seed %lu rounds %u\n", Rng, rounds);
   for (i = 0; i < sizeof (GateKey); ++i)
     GateKey[i] = rnd(256);
-  for (r = 0; r < 256; ++r)
-    for (i = 0; i < HALFSIPHASH_KEY_SZ; ++i) {
-      AuthKey[r][i] = rnd(256);
-      FrgKey[r][i] = rnd(256);
-    }
 
   for (ci = 0; ci < sizeof (Cfgs) / sizeof (Cfgs[0]); ++ci) {
     static const unsigned int ms[] = {0, 2, 200};
@@ -629,8 +482,8 @@ main(
     unsigned int seq;
 
     c = &Cfgs[ci];
-    shard = rsecFrmShard(c->dgramMax, c->tagSize, c->frgHmacSize, c->dtgHmacSize, c->dtgHashSize);
-    mx = rsecFrmMax(c->dgramMax, c->tagSize, c->frgHmacSize, c->dtgHmacSize, c->dtgHashSize, 0);
+    shard = rsecFrmShard(c->dgramMax, c->tagSize, c->dtgHashSize);
+    mx = rsecFrmMax(c->dgramMax, c->tagSize, c->dtgHashSize, 0);
     if (!(b = malloc(DLEN + c->tagSize + 5 + mx)) || !(w = malloc((unsigned long)256 * (1 + 255 + c->dgramMax)))) {
       fprintf(stderr, "out of memory at line %d\n", __LINE__);
       exit(2);
@@ -659,7 +512,6 @@ main(
         struct list nw;
         struct list dl;
         unsigned long now;
-        unsigned int frgOff[1];
         unsigned int stride;
         unsigned int hl;
         unsigned int ml;
@@ -682,13 +534,13 @@ main(
         while (drainOne(&x, &now, &nw));
         check(nw.n == km, "%s: len %u m %u: %u datagrams, k + m is %u", c->name, lens[li], ms[mi], nw.n, km);
         /* the wire by hand: [Dst][tag][k-1][m][si][pad][shard_len_vlq]
-         * [shard][frgHmac], then the datagram AUTH and the GATE, shard
-         * i of k data shards zero-padded and m parity shards */
+         * [shard], then the GATE, shard i of k data shards zero-padded
+         * and m parity shards */
         p = DLEN + c->tagSize;
         sz = lens[li] ? (lens[li] + k - 1) / k : 0;
         pad = k * sz - lens[li];
         hl = p + 4 + (sz < 128 ? 1 : 2);
-        stride = hl + sz + c->frgHmacSize + c->dtgHmacSize + c->dtgHashSize;
+        stride = hl + sz + c->dtgHashSize;
         memset(w, 0, (unsigned long)km * stride);
         for (i = 0; i < km; ++i) {
           unsigned char *q;
@@ -714,19 +566,12 @@ main(
         }
         if (mm && sz)
           rsecEncode(dp, pp, sz, k, mm);
-        frgOff[0] = 0;
         for (same = 1, i = 0; i < km; ++i) {
           unsigned char *q;
           unsigned int fl;
 
           q = w + (unsigned long)i * stride;
           fl = hl + sz - DLEN;
-          if (c->frgHmacSize)
-            frgMac(c, q, q + DLEN, fl, q + hl + sz);
-          fl += c->frgHmacSize;
-          if (c->dtgHmacSize)
-            authSign(c, q, q + DLEN + fl, q + DLEN, fl, frgOff, 1);
-          fl += c->dtgHmacSize;
           if (c->dtgHashSize)
             gateSign(GateKey, q, q + DLEN + fl, q + DLEN, fl);
           if (i >= nw.n || nw.i[i].l != stride || memcmp(nw.i[i].b, q, stride))
@@ -891,7 +736,7 @@ main(
           newIgr(c, 64, &sd, &dd, &dc);
           for (want = 0, i = 0; i < nMsg; ++i)
             want += cp.dst[i] == d;
-          check(dd.n == want && !dc.dcd && !dc.evict && !dc.dup && !dc.hash && !dc.dhmac && !dc.hmac
+          check(dd.n == want && !dc.dcd && !dc.evict && !dc.dup && !dc.hash
              , "%s round %u: destination %u: %u of %u messages, clean", c->name, r, d, dd.n, want);
           for (at = 0; at < dd.n; ++at) {
             const unsigned char *t;
@@ -923,7 +768,7 @@ main(
             continue;
           add(&p, s.i[i].b, s.i[i].l);
           /* a flip with no keyed tier is a message the test never sent */
-          if (rnd(100) < pt->bad && (c->frgHmacSize || c->dtgHmacSize || c->dtgHashSize)) {
+          if (rnd(100) < pt->bad && c->dtgHashSize) {
             unsigned int w;
 
             w = 1 + p.i[p.n - 1].b[0];
@@ -934,9 +779,6 @@ main(
               q = p.i[p.n - 1].b + w;
               ql = p.i[p.n - 1].l - w - c->dtgHashSize;
               q[rnd(ql)] ^= 1 + rnd(255);
-              /* half re-gated: the gate passes, the tiers inside judge */
-              if (c->dtgHashSize && rnd(2))
-                halfsiphash(q, ql, GateKey, q + ql);
             }
           }
           if (rnd(100) < pt->dup)
@@ -986,7 +828,7 @@ main(
     unsigned int ti;
 
     c = &Cfgs[1];
-    shard = rsecFrmShard(c->dgramMax, c->tagSize, c->frgHmacSize, c->dtgHmacSize, c->dtgHashSize);
+    shard = rsecFrmShard(c->dgramMax, c->tagSize, c->dtgHashSize);
     if (!(b = malloc(DLEN + c->tagSize + 5 + 256 * shard + 1))) {
       fprintf(stderr, "out of memory at line %d\n", __LINE__);
       exit(2);
@@ -1181,6 +1023,25 @@ main(
     check(d.n == 1 && d.i[0].l == p + 2 + 4 * shard - 3 && d.i[0].b[p] == 2 && d.i[0].b[p + 1] == 2
        && !memcmp(d.i[0].b + p + 2, b + p + 5, 4 * shard - 3) && y.c.dcd == 1
        , "decode: two data shards lost, delivered, rm 2 um 2");
+    rsecFrmIgrFini(&y);
+    drop(&d);
+
+    /* the caller is asked of a train not begun and of one delivered, never of
+     * one in flight, which it carries to its end whatever it would say now */
+    setIgr(&y, c, 4);
+    TagYes = 1;
+    TagAsked = 0;
+    y.tagOk = refuseTag;
+    rsecFrmIgrInit(&y);
+    for (i = 0; i < s.n; ++i) {
+      rsecFrmIgrPut(&y, s.i[i].b, s.i[i].b + DLEN, s.i[i].l - DLEN);
+      while ((m = rsecFrmIgrGet(&y, &l)))
+        take(&d, m, l);
+    }
+    check(d.n == 1 && TagAsked == 1 && !y.c.refused, "tagOk: asked once, of the first, the train carried to its end");
+    rsecFrmIgrPut(&y, s.i[0].b, s.i[0].b + DLEN, s.i[0].l - DLEN);
+    check(TagAsked == 2 && y.c.refused == 1 && y.c.refusedMsg == 1 && !y.c.late
+       , "tagOk: a copy of the delivered train asked and refused");
     rsecFrmIgrFini(&y);
     drop(&d);
 
@@ -1494,7 +1355,7 @@ main(
       {
         struct cfg *cg;
 
-        cg = &Cfgs[4];
+        cg = &Cfgs[2];
         setIgr(&y, cg, 4);
         rsecFrmIgrInit(&y);
         if (!(h = malloc(3))) {
@@ -1503,18 +1364,18 @@ main(
         }
         memset(h, 0, 3);
         rsecFrmIgrPut(&y, Dsts[0], h, 3);
-        check(!rsecFrmIgrGet(&y, &l1) && !y.c.frg && !y.c.hash && !y.c.dhmac, "hostile: a datagram short of a fragment, dropped uncounted");
+        check(!rsecFrmIgrGet(&y, &l1) && !y.c.frg && !y.c.hash, "hostile: a datagram short of a fragment, dropped uncounted");
         free(h);
         rsecFrmIgrFini(&y);
       }
     }
 
     /* the size functions, against their own arithmetic by hand: the
-     * overhead is the tag, the three MACs and 6 */
-    check(rsecFrmShard(508, 7, 0, 20, 4) == 471 && rsecFrmShard(508, 4, 0, 0, 0) == 498
-       && rsecFrmMax(508, 4, 0, 0, 0, 6) == 124500 && !rsecFrmShard(10, 4, 0, 0, 0)
-       && rsecFrmShard(16394, 4, 0, 0, 0) == 16384 && !rsecFrmShard(16395, 4, 0, 0, 0)
-       && !rsecFrmMax(10, 4, 0, 0, 0, 0)
+     * overhead is the tag, the gate and 6 */
+    check(rsecFrmShard(508, 7, 4) == 491 && rsecFrmShard(508, 4, 0) == 498
+       && rsecFrmMax(508, 4, 0, 6) == 124500 && !rsecFrmShard(10, 4, 0)
+       && rsecFrmShard(16394, 4, 0) == 16384 && !rsecFrmShard(16395, 4, 0)
+       && !rsecFrmMax(10, 4, 0, 0)
        , "size: shard and max by hand");
 
     /* the dedup horizon: k 1 m 2, each shard twice: s0 delivers, s0 s1
@@ -1577,7 +1438,9 @@ main(
       free(big);
     }
 
-    /* a mixed-sender datagram: refused at the AUTH, in both */
+    /* a mixed-sender datagram under tagOwner: the first sender keyed the
+     * gate, so its fragment is its word, and the fragment claiming another
+     * goes no further */
     c = &Cfgs[0];
     setEgr(&x, c, 4);
     rsecFrmEgrInit(&x);
@@ -1588,19 +1451,88 @@ main(
     now = 0;
     drainOne(&x, &now, &s);
     rsecFrmEgrFini(&x);
-    check(s.n == 1 && s.i[0].l == DLEN + 2 * (c->tagSize + 5 + 10) + 2 * MAC, "mixed: two senders packed in one datagram");
+    check(s.n == 1 && s.i[0].l == DLEN + 2 * (c->tagSize + 5 + 10) + MAC, "mixed: two senders packed in one datagram");
     newIgr(c, 4, &s, &d, &yc);
-    check(!d.n && yc.dhmac == 1, "mixed: refused at the AUTH, dhmac %u", yc.dhmac);
+    check(d.n == 2 && !yc.hash, "mixed: without tagOwner the gate alone says nothing of the sender");
     drop(&d);
+    setIgr(&y, c, 4);
+    y.tagOwner = 1;
+    rsecFrmIgrInit(&y);
+    rsecFrmIgrPut(&y, Dsts[0], s.i[0].b + DLEN, s.i[0].l - DLEN);
+    for (i = 0; (m = rsecFrmIgrGet(&y, &l2)); ++i) {
+      check(m[DLEN] == 0, "mixed: under tagOwner only the first sender's fragment delivered");
+      free(m);
+    }
+    check(i == 1 && y.c.hash == 1, "mixed: under tagOwner, %u delivered, gate refusals %u", i, y.c.hash);
+    rsecFrmIgrFini(&y);
+    /* a fragment's geometry is egress's for its length: a holder of the
+     * key cannot choose what an entry and a decode cost.  Regated by hand:
+     * k-1 raised, a shard that would hide a longer message, past msgMax;
+     * and the caller's refusal goes before any entry */
+    {
+      unsigned char h[64];
+      unsigned int hl;
+      unsigned int hp;
+
+      memset(h, 0, sizeof (h));
+      h[c->tagSize + 3] = 0;                    /* pad */
+      h[c->tagSize + 4] = 10;                   /* shard 10 */
+      hl = c->tagSize + 5 + 10;
+      hp = hl + MAC;
+      /* k 3 of a 30-byte message, which egress sends as k 1 */
+      h[c->tagSize] = 2;
+      gateSign(GateKey, Dsts[0], h + hl, h, hl);
+      setIgr(&y, c, 4);
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, Dsts[0], h, hp);
+      check(y.c.shape == 1 && !y.c.msg && !y.c.evict, "geometry: k that egress would not derive refused, shape %u", y.c.shape);
+      /* the same as k 1, m 2: taken */
+      h[c->tagSize] = 0;
+      h[c->tagSize + 1] = 2;
+      gateSign(GateKey, Dsts[0], h + hl, h, hl);
+      rsecFrmIgrPut(&y, Dsts[0], h, hp);
+      check(y.c.shape == 1 && y.c.msg == 1, "geometry: k 1 m 2 taken, shape %u msg %u", y.c.shape, y.c.msg);
+      if ((m = rsecFrmIgrGet(&y, &l2)))
+        free(m);
+      rsecFrmIgrFini(&y);
+      /* past msgMax */
+      setIgr(&y, c, 4);
+      y.msgMax = 9;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, Dsts[0], h, hp);
+      check(y.c.shape == 1 && !y.c.msg, "geometry: past msgMax refused, shape %u", y.c.shape);
+      rsecFrmIgrFini(&y);
+      /* the caller's refusal, a first fragment: no entry, a message's count */
+      setIgr(&y, c, 4);
+      TagYes = TagAsked = 0;
+      y.tagOk = refuseTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, Dsts[0], h, hp);
+      check(!y.c.msg && !y.c.shape && y.c.refused == 1 && y.c.refusedMsg == 1 && !rsecFrmIgrGet(&y, &l2)
+         , "tagOk: the caller's refusal, no entry, nothing delivered");
+      rsecFrmIgrFini(&y);
+    }
+    /* what the gate does not say: a flip re-gated by a holder of its key
+     * is carried and delivered, the end's to judge */
+    {
+      unsigned int gl;
+
+      gl = s.i[0].l - DLEN - MAC;
+      s.i[0].b[DLEN + c->tagSize + 7] ^= 1;
+      halfsiphash(s.i[0].b + DLEN, gl, GateKey, s.i[0].b + DLEN + gl);
+      newIgr(c, 4, &s, &d, &yc);
+      check(d.n == 2 && !yc.hash, "a flip re-gated: the gate passes it, the framer judges nothing inside");
+      drop(&d);
+    }
     drop(&s);
     free(b);
   }
 
   /* what the streams reached: every counter, or they judged nothing
    * there */
-  printf("reach: frg %u hash %u dhmac %u hmac %u dup %u late %u msg %u dcd %u evict %u\n"
-    , Reach.frg, Reach.hash, Reach.dhmac, Reach.hmac, Reach.dup, Reach.late, Reach.msg, Reach.dcd, Reach.evict);
-  check(Reach.frg && Reach.hash && Reach.dhmac && Reach.hmac && Reach.dup
+  printf("reach: frg %u hash %u dup %u late %u msg %u dcd %u evict %u\n"
+    , Reach.frg, Reach.hash, Reach.dup, Reach.late, Reach.msg, Reach.dcd, Reach.evict);
+  check(Reach.frg && Reach.hash && Reach.dup
      && Reach.late && Reach.msg && Reach.dcd && Reach.evict, "the streams reached every counter");
   printf("%u checks, %u failed\n", Checks, Fails);
   return (Fails ? 1 : 0);

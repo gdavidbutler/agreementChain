@@ -184,6 +184,48 @@
  *                    payload member's own shard lands past the cut,
  *                    after its position has left the live window, a
  *                    newer copy of its record due
+ *     -j             with -T: a member's own re-send must land past its
+ *                    position's end at some seat, and that seat's record
+ *                    must take the unit
+ *     -3 ticks       seat N-1 hears only the rows of its own broadcasts
+ *                    until this tick, every word it needs to owe nothing
+ *                    and nothing to fold on.  With no re-send owed it says
+ *                    nothing unless it speaks at its abandon, and with
+ *                    nothing from it no seat past that position starts
+ *                    the recover legs that carry it
+ *     -4 ticks       a seat with no unit to carry still owes its word on
+ *                    what it folded.  Under the first position seat 1 is
+ *                    dealt no unit and is no member, so it folds with
+ *                    nothing to carry; seat 2 hears no agreement before
+ *                    this tick and nothing of seat 3's recover legs, so
+ *                    only seat 0's recover legs reach it with a description,
+ *                    and T > 1 asks a second, which only seat 1 can say
+ *     -N ticks       with -f 4, parts a faulty dealer never deals: under
+ *                    the first position carrying one, seat 0 gets seat
+ *                    N-1's data part from it never and from the others
+ *                    only from this tick, past that position's leaving.
+ *                    It reaches threshold under its record, no subset
+ *                    reproduces the hash and the rest of the parts never
+ *                    come; its launch waits on its report
+ *     -o ticks       a late unit the one a returner needs.  Under the
+ *                    first position seat N-1's value carries a data part,
+ *                    seats 0 and 1 are given a data part of that value
+ *                    only from seat 2, and seat 1 from seat 0 too, and
+ *                    seat 0 from seat N-1 past this tick.  Both stay a
+ *                    member short at the launch gate.  Seat 1's HOLDING
+ *                    on seat 0's recover legs says it is owed nothing
+ *                    there, until seat N-1's unit lands at seat 0: the
+ *                    judge expects that word to lapse, and only that
+ *                    unit, carried on, brings seat 1 to T = 2.  The
+ *                    member needs its echoes without the two: 6 1
+ *     -q agrticks    seat N-1's ingress of the agreement alone is cut
+ *                    for this many ticks from the go: every class 0 row
+ *                    dropped unread, the dealt units and the others'
+ *                    legs delivered, its egress open.  It says HOLDING
+ *                    on every exchange leg and decides nothing, so what
+ *                    it lacks is the description, which the exchange
+ *                    never carried: the others' recover legs must still
+ *                    run toward it, and the judge expects it to DISCOVER
  *     -O at:m        seat N-1's memory refuses its search of member m's
  *                    message, at = s at the search's buffers or p at
  *                    the pool's, until the position's end keeps m with
@@ -284,7 +326,7 @@
  *                    its headers)
  *     -H hash        the sign role: rmd128 (default), sha256, sha3256
  *                    or sha3512
- *     -k hash        the kdf and wire-MAC role: rmd160 (default),
+ *     -k hash        the kdf and message-MAC role: rmd160 (default),
  *                    rmd128, sha256, sha3256 or sha3512
  *     -f fault       seat N-1 commits a fault in every payload it deals
  *                    and otherwise runs as a correct seat: 1 a shard
@@ -350,8 +392,8 @@
  *                    instance 1, 8 at instance 3
  *     -b mask        seat N-1 (N-2 under -2) is a Byzantine row sender,
  *                    its tags, and under bits 8..32 its exchange parts,
- *                    rewritten at its egress before the framer
- *                    authenticates them as its own word, and it runs
+ *                    rewritten at its egress before they are
+ *                    authenticated as its own word, and it runs
  *                    as a correct seat otherwise; its own view stays
  *                    honest, since what it feeds itself never crosses
  *                    the hook.  Bit 1: it says HOLDING of nothing, its
@@ -366,7 +408,7 @@
  *                    fresh one at every re-send, so each is a new
  *                    message to its own egress framer too, held at
  *                    every other seat under names never minted, the
- *                    live window of each shape and one more and the
+ *                    abandon's count of each shape and one more and the
  *                    rest not held;
  *                    the judge expects both counts in its row once the
  *                    chain is longer than two (-n
@@ -376,10 +418,10 @@
  *                    INITIAL under another value, once it is a record
  *                    a row naming a record it has folded past, since
  *                    its agreement rows show it at live positions, so
- *                    it costs each seat one start of position 1's
- *                    machines from its record; the judge expects both
- *                    counts in its row once the chain has run past the
- *                    live window, and its value
+ *                    it costs each seat a lookup, refused unread; the
+ *                    judge expects the first count, and the second in
+ *                    its re-sends, once the chain has run past the live
+ *                    window, and its value
  *                    in no subset after the first, since nobody holds
  *                    its INITIAL.  Whatever
  *                    it sends, every seat reports the same chain, and
@@ -397,7 +439,34 @@
  *                    beside every recover leg it initiates flipped, a lie about
  *                    the subset or a member's value; the judge expects
  *                    some refused, every refusal counted to it, and
- *                    every seat the same chain
+ *                    every seat the same chain.  Bit 128: every message
+ *                    it sends under a proof that fails, past the gate:
+ *                    each is a counted discard,
+ *                    and the judge expects its value in no subset
+ *     -J copies      the network's copies: every datagram a seat sends
+ *                    goes this many times more, outside the bandwidth,
+ *                    as a recording played back.  A copy costs a seat
+ *                    the gate, the framer and a lookup, and no HMAC:
+ *                    the judge expects copies refused, and HMACs run
+ *                    no more than the messages said
+ *     -l             the framer refuses nothing from a tag, and every
+ *                    arrival it would have refused is held to it: proved
+ *                    or replied to here, the judge fails.  The judge also
+ *                    expects it to have found some
+ *     -I copies      the network's recording of older traffic: every
+ *                    datagram a seat sends brings this many others of its
+ *                    past ones, drawn at random, outside the bandwidth,
+ *                    and so does every tick, so an idle chain hears it.
+ *                    The live machines are gone for most of them: a copy
+ *                    under a retained position costs a lookup, no HMAC and
+ *                    no recover leg, a seat's own later word having said
+ *                    it needs nothing there: the judge expects copies
+ *                    refused, HMACs run no more than the messages said,
+ *                    and recover legs started no more than sets a pair
+ *                    at the few positions a seat stopped at
+ *     -h             -I's recording holds only the datagrams carrying a
+ *                    recover leg's INITIAL: what no tag can refuse, played
+ *                    back until a returner holds no position for it
  *     -2             the Byzantine seat of -b is N-2, not N-1, so that
  *                    seat N-1's cut (-x) and it make two faulty seats:
  *                    needs t >= 2
@@ -474,6 +543,11 @@ static unsigned int        SplitM;
 static int                 Censor;              /* -C: seat 0 sends seat N-1 no (initial, v)
                                                  * of its own and no unit */
 static int                 Idle;                /* -i: seat N-1 proposes nothing */
+static unsigned int        Copies;              /* -J: datagrams sent this many times more */
+static int                 TagAudit;            /* -l: the framer's question asked, not obeyed */
+static unsigned int        Older;               /* -I: older datagrams played back per send */
+static int                 OlderRcv;            /* -h: and only those carrying a recover leg's INITIAL */
+#define OLDER_KEPT 1024                         /* a seat's recording, a random sample */
 static unsigned int        Byz;                 /* -b: seat BzSeat rewrites its tags at its
                                                  * egress: bit 1 no annotations, 2 random names
                                                  * on its agreement rows, 4 its own INITIAL
@@ -493,6 +567,19 @@ static unsigned int        Cut;                 /* -x: seat N-1's ingress is cut
                                                  * unless -X says otherwise */
 static unsigned int        CutEgr = ~0u;        /* -X: seat N-1's egress is cut for this
                                                  * many ticks from the go */
+static int                 LateDist;            /* -j: the judge expects a member's own re-send
+                                                 * past its position's end at some seat */
+static unsigned int        OwnOnly;             /* -3: seat N-1 hears only its own broadcasts' rows
+                                                 * before this tick */
+static unsigned int        NoDesc;              /* -4: under one position seat 1 holds no unit, and
+                                                 * seat 2 hears no agreement before this tick */
+static unsigned int        StrandAt;            /* -N: seat N-1's data part comes to seat 0
+                                                 * from no seat before this tick, from
+                                                 * seat N-1 never, under one position */
+static unsigned int        LapseAt;             /* -o: seat N-1's data part comes to seat 0
+                                                 * past this tick, and never to seat 1 */
+static unsigned int        CutAgr;              /* -q: seat N-1's ingress of the agreement is
+                                                 * cut for this many ticks: every class 0 row */
 static unsigned int        CutUnit;             /* -U: seat N-1's ingress of the exchange is
                                                  * cut for this many ticks: every class 2
                                                  * row; the agreement's rows and the dealt
@@ -751,6 +838,8 @@ struct wire {
   unsigned int cut;                   /* -x, -X, -U, -S: messages dropped at the cut */
   unsigned int cutUnit;               /* of those, unit parts */
   unsigned int censored;              /* -C: INITIALs with their units the dealer withheld */
+  unsigned int tagPred;               /* -l: arrivals the framer's question would have refused */
+  unsigned int tagBad;                /* -l: of those, ones proved or replied to */
   unsigned int faultDealt;            /* -f 7, -f 8, -f 10, -f 11: the
                                        * second signature was made and dealt */
   unsigned int byz;                   /* -b: tags rewritten at the egress */
@@ -919,6 +1008,9 @@ struct hseat {
   struct ac  *seat;
   struct dq          *dq;             /* -L: datagrams held to their delay, by deadline */
   unsigned char      *ibuf;           /* a datagram received: DgramMax + 1, so a longer one shows */
+  unsigned char      *old;            /* -I: its recording, [dest][length, 2][datagram] */
+  unsigned int        oldN;
+  unsigned long       oldUs;
   struct sockaddr_in *addr;           /* [seat], from the roster */
   unsigned long      *geEnd;          /* -B: a destination's burst ends */
   unsigned long      *geLast;         /* and when its good state was last read */
@@ -956,6 +1048,8 @@ struct hseat {
   unsigned long       goUs;           /* -T: the go */
   struct sockaddr_in  listen;         /* this seat's address, from the operator */
   unsigned char       genesis[AC_HASH_MAX]; /* position 1's name: -b names a record by it */
+  unsigned char       lapseName[AC_HASH_MAX]; /* -o: the position of the part cut */
+  unsigned char       lapseSet;
 };
 
 /* -T: the phase in force at this seat, by its own clock from its go,
@@ -1433,6 +1527,23 @@ hEgress(
   return (len);
 }
 
+/* -I: the seat's recording played back, whatever it is doing */
+static void
+olderPlay(
+  struct hseat *h
+){
+  const struct acPar *S;
+  unsigned char *o;
+  unsigned int cp;
+
+  S = &P;
+  for (cp = 0; h->oldN && cp < Older; ++cp) {
+    o = h->old + arc4random_uniform(h->oldN) * (3UL + DgramMax);
+    if (sendto(h->fd, o + 3, (o[1] << 8) | o[2], 0, (struct sockaddr *)&h->addr[o[0]], sizeof (h->addr[o[0]])) >= 0)
+      ++h->w.sent;
+  }
+}
+
 /* the harness's adversary at the seat's ingress: the cuts (-x, -U, -Y,
  * -y) and the scheduler's split (-S), on the message, after the framer */
 static int
@@ -1490,6 +1601,67 @@ hIngress(
     ++h->w.cut;
     if (kind == BRACHA87_BESIDE)
       ++h->w.cutUnit;
+    return (0);
+  }
+  /* -o: a data part of seat N-1's value, under the first position that
+   * carries one: seat 2's reaches both seats; seat 0's reaches seat 1;
+   * seat N-1's own reaches seat 0 past the tick; no other reaches either */
+  if (LapseAt && h->self < 2 && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DATA
+   && tag[AC_TAG_BA] == N - 1) {
+    if (!h->lapseSet) {
+      h->lapseSet = 1;
+      memcpy(h->lapseName, tag + AC_TAG_NAME, HashSz);
+    }
+    if (!memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz) && tag[AC_TAG_SENDER] != 2
+     && !(h->self && !tag[AC_TAG_SENDER])
+     && !(!h->self && tag[AC_TAG_SENDER] == N - 1 && ticks >= LapseAt)) {
+      ++h->w.cut;
+      ++h->w.cutUnit;
+      return (0);
+    }
+  }
+  /* -3: every word on seat N-1's own broadcasts heard, so it owes no
+   * re-send, and nothing of another's broadcast, so it has nothing to fold */
+  if (OwnOnly && h->self == N - 1 && ticks < OwnOnly && tag[AC_TAG_INIT] != N - 1) {
+    ++h->w.cut;
+    if (kind == BRACHA87_BESIDE)
+      ++h->w.cutUnit;
+    return (0);
+  }
+  /* -4: under the first position seat 1 is dealt no unit and is no
+   * member, so it folds with nothing to carry; seat 2 hears no agreement
+   * before the tick and nothing of seat 3's recover legs, so its second
+   * description can only be seat 1's */
+  if (NoDesc && !h->lapseSet) {
+    h->lapseSet = 1;
+    memcpy(h->lapseName, tag + AC_TAG_NAME, HashSz);
+  }
+  if (NoDesc && !memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz)
+   && (h->self == 1 ? cls == AC_CLS_DIST && kind == BRACHA87_BESIDE
+                    : (cls == AC_CLS_DIST && tag[AC_TAG_BA] == 1)
+                   || (h->self == 2 && ((ticks < NoDesc && cls == AC_CLS_ACS) || (cls == AC_CLS_RCV && tag[AC_TAG_SENDER] == 3))))) {
+    ++h->w.cut;
+    if (h->self == 1)
+      ++h->w.cutUnit;
+    return (0);
+  }
+  /* -N: a data part of seat N-1's value at seat 0, under the first position
+   * that carries one: the dealer's never, another seat's from the tick */
+  if (StrandAt && !h->self && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DATA
+   && tag[AC_TAG_BA] == N - 1) {
+    if (!h->lapseSet) {
+      h->lapseSet = 1;
+      memcpy(h->lapseName, tag + AC_TAG_NAME, HashSz);
+    }
+    if (!memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz) && (tag[AC_TAG_SENDER] == N - 1 || ticks < StrandAt)) {
+      ++h->w.cut;
+      ++h->w.cutUnit;
+      return (0);
+    }
+  }
+  /* -q: the agreement alone is dropped unread */
+  if (CutAgr && h->self == N - 1 && ticks < CutAgr && cls == AC_CLS_ACS) {
+    ++h->w.cut;
     return (0);
   }
   /* -S: the scheduler withholds the readies of seat N-1's value from
@@ -1609,8 +1781,42 @@ hSend(
       return (0);
     }
     ++h->w.refused;
-  } else
+  } else {
+    unsigned int cp;
+
     ++h->w.sent;
+    for (cp = 0; cp < Copies; ++cp)
+      if (sendto(h->fd, dg, dgl, 0, (struct sockaddr *)&h->addr[dest], sizeof (h->addr[dest])) >= 0)
+        ++h->w.sent;
+    if (Older && (h->old || (h->old = malloc(OLDER_KEPT * (3UL + DgramMax))))) {
+      unsigned char *o;
+      unsigned int slot;
+      int take;
+
+      olderPlay(h);
+      /* -h: a fragment at a time, for a recover leg's INITIAL among them */
+      take = !OlderRcv;
+      for (cp = 0; !take && cp + AC_TAG_SIZE(HashSz) + 5 <= dgl - HALFSIPHASH_HSH_SZ;) {
+        unsigned int fl;
+
+        take = AC_TAG_CLASS(dg[cp]) == AC_CLS_RCV && AC_TAG_KIND(dg[cp]) == BRACHA87_INITIAL;
+        fl = dg[cp + AC_TAG_SIZE(HashSz) + 4];
+        cp += AC_TAG_SIZE(HashSz) + 5;
+        if (fl & 0x80)
+          fl = (((fl & 0x7f) << 7) | (dg[cp++] & 0x7f)) + 1;
+        cp += fl;
+      }
+      if (take) {
+        /* the recording: every one kept, then each one in a random place */
+        slot = h->oldN < OLDER_KEPT ? h->oldN++ : arc4random_uniform(OLDER_KEPT);
+        o = h->old + slot * (3UL + DgramMax);
+        o[0] = dest;
+        o[1] = dgl >> 8;
+        o[2] = dgl;
+        memcpy(o + 3, dg, dgl);
+      }
+    }
+  }
   return (1);
 }
 
@@ -1667,6 +1873,8 @@ processT(
   h->test.egress = hEgress;
   h->test.ingress = hIngress;
   h->test.fault = h->self == N - 1 ? Fault : 0;
+  h->test.badMac = (Byz & 128) && h->self == BzSeat;
+  h->test.tagAudit = TagAudit;
   h->test.lag = h->self == N - 1 ? Lag : 0;
   h->test.refuse = h->self == N - 1 ? Refuse : 0;
   h->test.refuseAt = RefuseAt;
@@ -1787,8 +1995,14 @@ flush:
         break;
       }
       ++h->w.refused;
-    } else
+    } else {
+      unsigned int cp;
+
       ++h->w.sent;
+      for (cp = 0; cp < Copies; ++cp)
+        if (sendto(h->fd, q->b + 1 + q->b[0], q->len - 1 - q->b[0], 0, (struct sockaddr *)&to, sizeof (to)) >= 0)
+          ++h->w.sent;
+    }
     h->dq = q->next;
     free(q);
   }
@@ -1816,6 +2030,12 @@ loop:
     h->noBufs = 0;
     goto flush;
 flushDone:
+    /* -I: and on the tick, by the wall, so an idle chain hears it too and
+     * a seat gone quiet, which ticks no more, plays on */
+    if (Older && us - h->oldUs >= (unsigned long)TickMs * 1000) {
+      h->oldUs = us;
+      olderPlay(h);
+    }
     /* -Q: frozen, as a stopped process, from its -y tick on: nothing of
      * the seat runs and the socket's queue fills, the others going on
      * without it */
@@ -1934,6 +2154,8 @@ capCheck:
     }
     if (h->noBufs && waitMs > 1)
       waitMs = 1;
+    if (Older && waitMs > TickMs)
+      waitMs = TickMs;
     pf[0].fd = h->fd;
     pf[0].events = h->sendBlocked ? POLLIN | POLLOUT : POLLIN;
     pf[1].fd = h->op;
@@ -1991,6 +2213,8 @@ flushDone2:
     acTestCounters(h->seat, &rp->ec, &rp->ic);
     rp->w = h->w;
     rp->w.faultDealt = h->test.dealt;
+    rp->w.tagPred = h->test.tagPred;
+    rp->w.tagBad = h->test.tagBad;
     if (!opSend(h->op, &rp, sizeof (rp)))
       free(rp);
   }
@@ -2006,6 +2230,7 @@ exit:
     free(q);
   }
   free(h->ibuf);
+  free(h->old);
   free(h->res);
   free(h->hwPrev);
   free(h->addr);
@@ -2101,7 +2326,7 @@ main(
   Knobs.shardDelayUs = -1;
   reboot = rebooted = wasDead = 0;
   memset(next, 0, sizeof (next));
-  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:2aCRYitV")) != -1) {
+  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:J:I:q:o:N:3:4:2aCRYitVljh")) != -1) {
     switch (opt) {
     case 'D':
       DropPct = atoi(optarg);
@@ -2198,6 +2423,18 @@ main(
     case 'U':
       CutUnit = atoi(optarg);
       break;
+    case 'q':
+      CutAgr = atoi(optarg);
+      break;
+    case 'j':
+      LateDist = 1;
+      break;
+    case 'o':
+      LapseAt = atoi(optarg);
+      break;
+    case 'l':
+      TagAudit = 1;
+      break;
     case 'V':
       CutData = 1;
       break;
@@ -2277,10 +2514,28 @@ main(
       break;
     case 'b':
       Byz = atoi(optarg);
-      if (!Byz || Byz > 127) {
-        fprintf(stderr, "-b needs a mask 1..127: 1 no annotations, 2 random names on the agreement rows, 4 the own INITIAL under the genesis, 8 a sign part byte, 16 a data part byte, 32 a unit's part a byte short, 64 a description byte\n");
+      if (!Byz || Byz > 255) {
+        fprintf(stderr, "-b needs a mask 1..255: 1 no annotations, 2 random names on the agreement rows, 4 the own INITIAL under the genesis, 8 a sign part byte, 16 a data part byte, 32 a unit's part a byte short, 64 a description byte, 128 a proof that fails\n");
         return (1);
       }
+      break;
+    case 'J':
+      Copies = atoi(optarg);
+      break;
+    case 'I':
+      Older = atoi(optarg);
+      break;
+    case 'h':
+      OlderRcv = 1;
+      break;
+    case 'N':
+      StrandAt = atoi(optarg);
+      break;
+    case '3':
+      OwnOnly = atoi(optarg);
+      break;
+    case '4':
+      NoDesc = atoi(optarg);
       break;
     case '2':
       BzSeat = 2;                       /* N - 2, once N is known */
@@ -2385,6 +2640,10 @@ main(
     fprintf(stderr, "-b with -i, -z, -x, -X, -U or -S acts on seat N-1 twice: one arm at a time, or -2\n");
     return (1);
   }
+  if (LapseAt && 2 * (N - 2) <= N + MaxByz) {
+    fprintf(stderr, "-o: the member needs its echoes without seats 0 and 1: 6 1\n");
+    return (1);
+  }
   if (CutData && !CutUnit) {
     fprintf(stderr, "-V cuts the dealt data parts beside -U's exchange: it needs -U\n");
     return (1);
@@ -2486,7 +2745,7 @@ main(
   arc4random_buf(genesis, HashSz);
 
   /* The operator's deal: one secret per unordered pair, sliced for the
-   * framer's two tiers and the mask, and each seat's address.  The
+   * message HMAC, the framer's gate and the mask, and each seat's address.  The
    * identities are the seats' own -- the operator sees public keys only
    * -- so the deal is scattered as rosters once every seat has
    * published one.  Nothing touches disk; the operator's copy of the
@@ -2638,6 +2897,7 @@ deal:
     unsigned int faultyCapped;          /* faulty seats capped: no end owed */
     unsigned int egrMsg;
     unsigned int igrMsg;
+    unsigned int igrRefused;
     unsigned int egrFrg;
     unsigned int igrFrg;
     unsigned int wSent;
@@ -2664,6 +2924,7 @@ deal:
                                                  * whose search spent its budget */
     unsigned int triesMost;                     /* the most tries an honest dealer's message took */
     int lossless;
+    unsigned long totSaid;
 
     memset(got, 0, sizeof (got));
     memset(ctr, 0, sizeof (ctr));
@@ -2794,8 +3055,9 @@ deal:
              : Fault == AC_FAULT_TWOFACE ? "two-faced" : Fault == AC_FAULT_SPLIT ? "split"
              : Fault == AC_FAULT_TWOSLOT ? "two-slot" : Fault == AC_FAULT_REUSE ? "reused-slot" : "shard-and-share-fault");
     printf(") ---\n");
-    lossless = !DropPct && !BurstLen && !Freeze
-            && ParityShards <= 0 && !Cut && !CutEgr && !CutUnit && !SplitM && !NLinks;
+    totSaid = 0;
+    lossless = !Copies && !Older && !DropPct && !BurstLen && !Freeze
+            && ParityShards <= 0 && !Cut && !CutEgr && !CutUnit && !CutAgr && !SplitM && !NLinks && !LapseAt && !StrandAt && !OwnOnly && !NoDesc;
     printf("instances %u, %u signings a context\n", Count, 1u << MlsS);
     allAgree = allLinked = allFolded = allMessages = allUniform = 1;
     accompliceHit = 0;
@@ -3437,6 +3699,19 @@ deal:
       tot.shardAhead += c->shardAhead;
       tot.shardOther += c->shardOther;
       tot.dupInitial += c->dupInitial;
+      tot.copy += c->copy;
+      tot.authRun += c->authRun;
+      tot.igrAuth += c->igrAuth;
+      {
+        unsigned int w0;
+        unsigned int w1;
+        unsigned int w2;
+
+        for (w0 = 0; w0 < 3; ++w0)
+          for (w1 = 0; w1 < 4; ++w1)
+            for (w2 = 0; w2 < 4; ++w2)
+              totSaid += c->said[w0][w1][w2];
+      }
       tot.initOther += c->initOther;
       tot.unitSent += c->unitSent;
       for (j = 0; j < sizeof (tot.unitBad) / sizeof (tot.unitBad[0]); ++j)
@@ -3458,6 +3733,7 @@ deal:
       tot.recorded += c->recorded;
       tot.recoverStarts += c->recoverStarts;
       tot.repeated += c->repeated;
+      tot.descAlone += c->descAlone;
       tot.heldRepeated += c->heldRepeated;
       tot.recovered += c->recovered;
       tot.placed += c->placed;
@@ -3471,6 +3747,13 @@ deal:
       tot.rcvRefused += c->rcvRefused;
       tot.slotReused += c->slotReused;
       tot.offsetReplay += c->offsetReplay;
+      tot.hwLate += c->hwLate;
+      tot.lateUnit += c->lateUnit;
+      tot.recCopy += c->recCopy;
+      tot.recUnits += c->recUnits;
+      tot.lateDist += c->lateDist;
+      tot.lateWord += c->lateWord;
+      tot.recCopyNoRoom += c->recCopyNoRoom;
       tot.launchOnRows += c->launchOnRows;
       if (i == N - 1) {
         recoveredLast = c->recovered;
@@ -3523,6 +3806,7 @@ deal:
         attr[j].rtts += a->rtts;
         attr[j].sweptHeld += a->sweptHeld;
         attr[j].live += a->live;
+        attr[j].authBad += a->authBad;
         attr[j].recorded += a->recorded;
         attr[j].held += a->held;
         attr[j].heldFull += a->heldFull;
@@ -3550,6 +3834,8 @@ deal:
         wtot.cutUnit += ctr[i]->w.cutUnit;
         wtot.censored += ctr[i]->w.censored;
         wtot.faultDealt += ctr[i]->w.faultDealt;
+        wtot.tagPred += ctr[i]->w.tagPred;
+        wtot.tagBad += ctr[i]->w.tagBad;
         wtot.byz += ctr[i]->w.byz;
         wtot.withheld += ctr[i]->w.withheld;
         wtot.notGiven += ctr[i]->w.notGiven;
@@ -3578,6 +3864,36 @@ deal:
            tot.inXunit, tot.dupXunit, tot.unitSent, unitMax, tot.shardAhead, tot.shardOther);
     printf("INITIAL already fed %u  INITIAL under another value than the held unit's %u  replies said: echo %u ready %u\n",
            tot.dupInitial, tot.initOther, tot.replyEcho, tot.replyReady);
+    printf("messages said %lu  refused unproved, held already %u  HMACs run %u, failed %u\n",
+           totSaid, tot.copy, tot.authRun, tot.igrAuth);
+    /* -J: what a copy cost is the point: an HMAC for what was said and
+     * none for what the network said again */
+    if ((Copies || Older) && (!tot.copy || tot.authRun > totSaid)) {
+      printf("copies of datagrams: %u refused unproved and %u HMACs for %lu messages said: FAIL\n",
+             tot.copy, tot.authRun, totSaid);
+      exitCode = 1;
+    }
+    /* -I: an old copy starts no recover legs where its sender's later word
+     * says it needs none, and none once they are heard, so a seat at a
+     * position draws a set of each other seat, and only the positions a
+     * seat stopped at can: the pause's, the end's, and the one in hand */
+    printf("copies under a record: recover legs started %u for %u rows naming one\n", tot.recoverStarts, tot.recorded);
+    if (Older && tot.recoverStarts > 6UL * N * (N - 1) * (N - 1)) {
+      printf("older copies started %u recover legs at %u seats: FAIL\n", tot.recoverStarts, N);
+      exitCode = 1;
+    }
+    /* and a reply for what its sender has not heard, not for each copy:
+     * unbudgeted, the replies outnumber all that is said */
+    if ((Copies || Older) && tot.replyEcho + tot.replyReady > totSaid) {
+      printf("%u copies of every datagram drew %u replies for %lu messages said: FAIL\n",
+             Copies, tot.replyEcho + tot.replyReady, totSaid);
+      exitCode = 1;
+    }
+    if ((Byz & 128) && (!attr[BzSeat].authBad || byzIn)) {
+      printf("seat %u's every proof fails: %u refused, in %u subsets after the first: FAIL\n",
+             BzSeat, attr[BzSeat].authBad, byzIn);
+      exitCode = 1;
+    }
     printf("leg rows with no instance here %u  rows to a stopped ACS seat %u"
            "  rows held under a name not yet minted %u (re-sent %u, not held, the window full of the sender's %u, read at the launch %u, at most %u in one call)  positions launched on another seat's rows %u\n",
            tot.noInstance, tot.stopped, tot.future, tot.aheadDup, tot.aheadFull, tot.replayed, tot.replayMost, tot.launchOnRows);
@@ -3590,7 +3906,7 @@ deal:
     if (Freeze && rejoined)
       printf("seat %u, frozen at %u positions folded, was within one position of every other seat %lu ms after its thaw\n",
              N - 1, frozeAt, rejoinMs);
-    printf("own value broadcasts started alone, a bracha87Fig1, the agreement let go or at the ceiling with the position unfolded: %u; at a launch held, the folded position's machines gone: %u\n", tot.repeated, tot.heldRepeated);
+    printf("own value broadcasts started alone, a bracha87Fig1, an abandon on with the position unfolded: %u; at a launch held, the folded position's machines gone: %u\n", tot.repeated, tot.heldRepeated);
     printf("retention: rows naming a retained position %u  recover legs started %u  records held at the stop %u (%lu bytes; the most at once at one seat %lu)  let go %u\n",
            tot.recorded, tot.recoverStarts, tot.retained, tot.retainedBytes, tot.retainedMost, tot.released);
     printf("recovery: recover descriptions refused %u  positions folded on T of them alike %u, %u of them at seat %u\n"
@@ -3598,7 +3914,7 @@ deal:
            " parts placed %u, at most %u ticks after their position left the window\n",
            tot.rcvRefused, tot.recovered, recoveredLast, N - 1,
            tot.kept, tot.keptMembers, tot.keptPassed, tot.keptUnder, tot.keptNow, tot.placed, tot.placedAfter);
-    printf("attribution, by the sender the datagram tier verified or the signer, summed over the seats, the window ticks the newest:\n");
+    printf("attribution, by the sender a message's HMAC verified or the signer, summed over the seats, the window ticks the newest:\n");
     for (i = 0; i < N; ++i)
       printf("  seat %u: rows live %u recorded %u held %u (full %u) re-sent %u  swept to it %u (held %u)  in held already %u  replied to it %u  round trips %u (least at most %lu ms, most %lu ms)  no instance %u stopped %u lost %u"
              "  malformed %u notInitiator %u initOther %u parts refused %u (unchecked %u)  signer faults %u"
@@ -3609,10 +3925,10 @@ deal:
              attr[i].partOther,
              attr[i].secondApex + attr[i].signReplaced + attr[i].slotReused + attr[i].offsetReplay,
              attr[i].liveTick, attr[i].recordTick, attr[i].heldTick);
-    printf("unit refused: len %u sig %u sss %u rsec %u mem %u  unchecked %u  secondApex %u  sign part replaced %u  slot leaked %u  offset replayed %u  assembly unallocated %u\n",
+    printf("unit refused: len %u sig %u sss %u rsec %u mem %u  unchecked %u  secondApex %u  sign part replaced %u  slot agreed otherwise %u  offset below %u (past a signature %u)  assembly unallocated %u\n",
            tot.unitBad[AC_UNIT_LEN], tot.unitBad[AC_UNIT_SIG],
            tot.unitBad[AC_UNIT_SSS], tot.unitBad[AC_UNIT_RSEC], tot.unitBad[AC_UNIT_MEM], tot.partOther, tot.secondApex, tot.signReplaced,
-           tot.slotReused, tot.offsetReplay, tot.asmAlloc);
+           tot.slotReused, tot.offsetReplay, tot.hwLate, tot.asmAlloc);
     printf("malformed %u  notInitiator %u  loss %u (units %u)  qDrop %u  held rows refused by memory %u  rows refused by memory %u  own steps waiting on memory %u  cut %u (units %u)  censored %u  proposals past the bound %u\n",
            tot.malformed, tot.notInitiator, tot.loss, tot.lossUnit, tot.qDrop, tot.aheadMem, tot.rowMem, tot.ownMem,
            wtot.cut, wtot.cutUnit, wtot.censored, tot.proposeLong);
@@ -3740,6 +4056,10 @@ deal:
       /* and its positions the others had let go of the machines of it
        * DISCOVERed, T descriptions alike beside the recover legs their
        * records sent it: the recovery reached its counter */
+      if (CutAgr && !recoveredLast) {
+        printf("seat %u heard no agreement for %u ticks and DISCOVERed no position: FAIL\n", N - 1, CutAgr);
+        exitCode = 1;
+      }
       if (((Cut && !CutAll && !Dead && !Partitioned) || (Freeze && !Partitioned)) && behind
        && !recoveredLast) {
         printf("seat %u was cut or frozen past the live window and DISCOVERed no position: FAIL\n", N - 1);
@@ -3761,8 +4081,8 @@ deal:
        * comment says and moves nothing.  Saying HOLDING of nothing, it
        * is re-sent what it is owed at every tick, which its row counts;
        * its agreement rows under random names are held at the others,
-       * the live window of each shape and one more, the rest not held,
-       * which the chain shows once it has run past the window and one;
+       * the abandon's count of each shape and one more, the rest not held,
+       * which the chain shows once it has run past that;
        * its own INITIAL under the genesis is, while position 1 is live,
        * an INITIAL under another value, and once position 1 is a
        * record, a row naming a record it has folded past, which its row
@@ -3775,7 +4095,7 @@ deal:
        * honest seats' timing, and its INITIAL is its own and may be
        * late like any seat's.  Every count is in its row of the table,
        * summed over the seats that counted it */
-      if (Byz && !wtot.byz) {
+      if ((Byz & 127) && !wtot.byz) {
         printf("seat %u rewrote no tag or part: the arm did not fire, FAIL\n", BzSeat);
         exitCode = 1;
       }
@@ -3794,9 +4114,16 @@ deal:
                BzSeat, attr[BzSeat].held, attr[BzSeat].heldFull);
         exitCode = 1;
       }
-      if ((Byz & 4) && tot.retainedMost && (!attr[BzSeat].initOther || !attr[BzSeat].recorded || byzIn)) {
-        printf("seat %u named position 1 in its INITIAL and the counters attribute it %u under another value, %u naming a record, in %u subsets after the first: FAIL\n",
-               BzSeat, attr[BzSeat].initOther, attr[BzSeat].recorded, byzIn);
+      /* every seat correct and the chain shorter than the abandon: no
+       * sender has names enough to fill a shape, whatever window the
+       * refused memory holds a seat to */
+      if (Refuse && Count + 2 <= Abandon && tot.aheadFull) {
+        printf("%u rows of positions ahead not held, every sender correct and the chain shorter than the abandon: FAIL\n", tot.aheadFull);
+        exitCode = 1;
+      }
+      if ((Byz & 4) && tot.retainedMost && (!attr[BzSeat].initOther || !attr[BzSeat].resent || byzIn)) {
+        printf("seat %u named position 1 in its INITIAL and the counters attribute it %u under another value, %u refused unread, in %u subsets after the first: FAIL\n",
+               BzSeat, attr[BzSeat].initOther, attr[BzSeat].resent, byzIn);
         exitCode = 1;
       }
       /* hostile bytes under its own key: every part so sent refused at
@@ -3893,6 +4220,46 @@ deal:
              : "left a member it kept without its message");
       exitCode = 1;
     }
+    /* where a seat holds the value, no signature is paid to be refused by the
+     * high water: only a part ahead of its (initial, v) can turn on one */
+    if (Fault == AC_FAULT_REUSE && tot.hwLate >= tot.slotReused) {
+      printf("the payload at the first payload's slot: all %u refusals paid a signature first: FAIL\n", tot.hwLate);
+      exitCode = 1;
+    }
+    /* a unit landing past its position's end is in the record, unless the room
+     * for it would let the position go */
+    printf("units past their position's end %u (%u on the member's broadcast), records written again %u, no room %u, taking %u\n",
+           tot.lateUnit, tot.lateDist, tot.recCopy, tot.recCopyNoRoom, tot.recUnits);
+    if (tot.lateUnit > tot.recUnits) {
+      printf("units past their position's end reached no record: FAIL\n");
+      exitCode = 1;
+    }
+    if (LateDist && !tot.lateDist) {
+      printf("no member's own re-send landed past its position's end: the arm did not run, FAIL\n");
+      exitCode = 1;
+    }
+    if (NoDesc) {
+      printf("descriptions said alone, by records holding nothing to carry the seat that asked: %u\n", tot.descAlone);
+      if (!tot.descAlone) {
+        printf("no record with nothing to carry was asked: the arm did not run, FAIL\n");
+        exitCode = 1;
+      }
+    }
+    if (LapseAt) {
+      printf("a seat's word that it was owed nothing lapsed %u times\n", tot.lateWord);
+      if (!tot.lateWord) {
+        printf("no unit landed under a seat's word that it was owed nothing: the arm did not run, FAIL\n");
+        exitCode = 1;
+      }
+    }
+    if (TagAudit) {
+      printf("the framer's question: %u arrivals it would have refused, %u of them proved or replied to here\n",
+             wtot.tagPred, wtot.tagBad);
+      if (wtot.tagBad || !wtot.tagPred) {
+        printf("the framer's question %s: FAIL\n", wtot.tagBad ? "would have refused what moved a seat" : "found nothing: the arm did not run");
+        exitCode = 1;
+      }
+    }
     if (Fault == AC_FAULT_REUSE && (!wtot.faultDealt || !tot.slotReused)) {
       /* the dealer's first payload left out leaves its slot unagreed,
        * and a second value there is no leak any seat can see */
@@ -3977,6 +4344,7 @@ deal:
            "igrLate igrMsg  igrDcd  igrEvict\n");
     egrMsg = 0;
     igrMsg = 0;
+    igrRefused = 0;
     egrFrg = 0;
     igrFrg = 0;
     wSent = wRecv = wUnread = wStressed = wRefused = wNoBufs = 0;
@@ -3993,6 +4361,7 @@ deal:
       ic = ctr[i]->ic;
       egrMsg += ec.msg;
       igrMsg += ic.msg;
+      igrRefused += ic.refusedMsg;
       egrFrg += ec.frg;
       igrFrg += ic.frg;
       wSent += ctr[i]->w.sent;
@@ -4009,11 +4378,11 @@ deal:
       printf("%-5u %-7u %-7u %-7u %-7u %-9lu %-7u %-7u %-7u %-6u %-7u %-7u %-7u %-u\n"
             ,i
             ,ec.msg, ec.frg, ec.full, ec.again, ec.wait / 1000
-            ,ic.frg, ic.hash, ic.dhmac, ic.dup, ic.late
+            ,ic.frg, ic.hash, ctr[i]->c.igrAuth, ic.dup + ic.refused, ic.late
             ,ic.msg, ic.dcd, ic.evict);
-      if (ic.hash || ic.dhmac) {
-        printf("seat %u: the framer refused datagrams (gate %u, auth %u)\n",
-               i, ic.hash, ic.dhmac);
+      if (ic.hash || ic.shape || (ctr[i]->c.igrAuth && !(Byz & 128))) {
+        printf("seat %u: refused a correct seat's word (gate %u, geometry %u, HMAC %u)\n",
+               i, ic.hash, ic.shape, ctr[i]->c.igrAuth);
         exitCode = 1;
       }
     }
@@ -4040,11 +4409,11 @@ deal:
       printf("nothing in flight, nothing lost, and the fragment counts differ: MISMATCH\n");
       exitCode = 1;
     }
-    if ((Censor && !wtot.censored) || ((Cut || CutEgr || CutUnit || SplitM || NLinks) && !wtot.cut)) {
+    if ((Censor && !wtot.censored) || ((Cut || CutEgr || CutUnit || CutAgr || LapseAt || StrandAt || OwnOnly || NoDesc || SplitM || NLinks) && !wtot.cut)) {
       printf("the declared cut or censor dropped nothing: the arm did not fire, FAIL\n");
       exitCode = 1;
     }
-    printf("egress messages %u, ingress messages %u", egrMsg, igrMsg);
+    printf("egress messages %u, ingress messages %u, refused from the tag %u", egrMsg, igrMsg, igrRefused);
     if (wUnread)
       printf(" (a cut: %u datagrams in flight)", wUnread);
     else if (dropped || wRefused)
@@ -4064,21 +4433,27 @@ deal:
        * can evict again, so one message can be notified twice: the
        * identity is exact without evictions and, with them,
        * over-notified by at most their count. */
-      over = igrMsg + tot.loss - egrMsg;
-      overUnit = tot.inDunit + tot.inXunit + (tot.lossUnit + tot.routedUnit) - tot.unitSent;
-      printf(" (lossless, m=0: %s with %u notified lost; unit parts %u sent, %u received"
-             " + %u notified or of an instance not live there: %s)",
-             egrMsg == igrMsg + tot.loss ? "reconciled"
-             : igrMsg + tot.loss > egrMsg && over <= tot.loss
-               ? "reconciled net of a twice-notified train" : "MISMATCH",
-             tot.loss, tot.unitSent, tot.inDunit + tot.inXunit, (tot.lossUnit + tot.routedUnit),
-             tot.unitSent == tot.inDunit + tot.inXunit + (tot.lossUnit + tot.routedUnit) ? "ok"
-             : tot.inDunit + tot.inXunit + (tot.lossUnit + tot.routedUnit) > tot.unitSent
-               && overUnit <= (tot.lossUnit + tot.routedUnit) ? "ok net of it" : "MISMATCH");
-      if (igrMsg + tot.loss < egrMsg || over > tot.loss
-       || tot.inDunit + tot.inXunit + (tot.lossUnit + tot.routedUnit) < tot.unitSent
-       || overUnit > (tot.lossUnit + tot.routedUnit))
-        exitCode = 1;
+      {
+        unsigned int unitGot;
+
+        unitGot = tot.inDunit + tot.inXunit + tot.lossUnit + tot.routedUnit;
+        igrMsg += igrRefused;
+        over = igrMsg + tot.loss - egrMsg;
+        overUnit = unitGot - tot.unitSent;
+        printf(" (lossless, m=0: %s with %u notified lost; unit parts %u sent, %u received"
+               " + %u notified or of an instance not live there: %s)",
+               egrMsg == igrMsg + tot.loss ? "reconciled"
+               : igrMsg + tot.loss > egrMsg && over <= tot.loss
+                 ? "reconciled net of a twice-notified train"
+               : "MISMATCH",
+               tot.loss, tot.unitSent, tot.inDunit + tot.inXunit, tot.lossUnit + tot.routedUnit,
+               tot.unitSent == unitGot ? "ok"
+               : unitGot > tot.unitSent && overUnit <= tot.lossUnit + tot.routedUnit ? "ok net of it"
+               : "MISMATCH");
+        if ((igrMsg + tot.loss < egrMsg || over > tot.loss)
+         || (unitGot < tot.unitSent || overUnit > tot.lossUnit + tot.routedUnit))
+          exitCode = 1;
+      }
     }
     printf("\n");
 
@@ -4126,7 +4501,7 @@ deal:
       opFd[i] = -1;
       quiet[i] = 0;
     }
-    Cut = CutEgr = CutUnit = CutFrom = 0;
+    Cut = CutEgr = CutUnit = CutAgr = LapseAt = StrandAt = OwnOnly = NoDesc = CutFrom = 0;
     CutData = CutAll = Dead = Partitioned = 0;
     memset(Folded, 0, sizeof (Folded));
     memset(Ended, 0, sizeof (Ended));
@@ -4189,7 +4564,13 @@ usage:
     "  -x  seat N-1's ingress, and its egress unless -X, is cut for this many ticks from the go\n"
     "  -X  seat N-1's egress alone is cut for this many ticks from the go\n"
     "  -U  seat N-1's ingress of the exchange alone is cut for this many ticks from the go\n"
-    "  -V  with -U, the dealt units' data parts are cut too: the sign parts arrive\n");
+    "  -q  seat N-1's ingress of the agreement alone is cut for this many ticks from the go\n"
+    );
+  fprintf(stderr,
+    "  -l  the framer's refusals from a tag asked and not obeyed, each held to what the seat did\n"
+    "  -j  a member's own re-send expected past its position's end, the record to take it\n"
+    "  -V  with -U, the dealt units' data parts are cut too: the sign parts arrive\n"
+    "  -o  ticks, a late unit the one a returner needs: seat N-1's own data part comes to seat 0 past them\n");
   fprintf(stderr,
     "  -O  at:m, seat N-1's memory refuses member m's search, s the search's buffers or p the pool's, until kept\n"
     "  -C  seat 0 sends seat N-1 no (initial, v) of its own and no unit, ever\n");
