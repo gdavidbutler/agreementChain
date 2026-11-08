@@ -74,8 +74,12 @@
 #define AC_FAULT_BOTH    9          /* a shard of one leaf and a share of another */
 #define AC_FAULT_TWOSLOT 10         /* one apex signed at two slots */
 #define AC_FAULT_REUSE   11         /* the second payload signed at the first's slot */
+#define AC_FAULT_BELOW   12         /* the third payload signed at the first's slot, below the second's */
 /* the three signing faults, dealt to seat 0 alone */
 #define AC_FAULT_SIGNING(f) ((f) == AC_FAULT_TWOFACE || (f) == AC_FAULT_SPLIT || (f) == AC_FAULT_TWOSLOT)
+/* the two spent-slot faults: every unit the dealer deals is good, one
+ * payload is signed at a slot its subsets already took */
+#define AC_FAULT_SPENT(f) ((f) == AC_FAULT_REUSE || (f) == AC_FAULT_BELOW)
 
 /* the parameters by name, S the struct acPar in hand, as ac.c and the
  * harness both read them */
@@ -151,7 +155,8 @@ struct acTest {
   int tagMoved;                         /* and it drew a reply here */
   unsigned int tagPred;                 /* -l: arrivals it would have refused */
   unsigned int tagBad;                  /* of those, ones proved or replied to here */
-  unsigned int dealt;                   /* -f 7, 8, 10, 11: the fault's second
+  unsigned int dealtAt;                 /* -f 11, 12: the instance it was dealt at */
+  unsigned int dealt;                   /* -f 7, 8, 10, 11, 12: the fault's second
                                          * signature was made and dealt */
 };
 
@@ -170,6 +175,9 @@ void acTestPace(const struct acPar *, unsigned int payLen, unsigned int *m, unsi
 
 /* the framers' counters, copied into those not null */
 void acTestCounters(const struct ac *, struct rsecFrmEgrCtrs *, struct rsecFrmIgrCtrs *);
+
+/* the records whose machines run now */
+unsigned int acTestKept(const struct ac *);
 
 /* whether a signer's high water is set here and, when it is, its
  * context, signing offset, position and apex (hashSz bytes) */

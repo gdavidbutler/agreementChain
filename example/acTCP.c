@@ -1247,11 +1247,11 @@ refuse:
            acPar(s.ac)->patience, acPar(s.ac)->abandon, c.subsetMost, c.noSubset, c.liveMost,
            c.loss, c.parityLast, c.igrGate, c.igrAuth, c.copy, c.authRun,
            c.future, c.aheadFull, c.recorded, c.recoverStarts, c.retained, c.released);
-    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
+    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; parts with no machine %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
            " %u parts placed, at most %u ticks after their position left the window;"
            " parts refused %u; refused by this seat's memory %u; its own steps waiting on its memory %u;"
            " datagrams lost here for want of a connection %u, behind a full one %u, otherwise %u\n",
-           c.repeated, c.descAlone, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
+           c.repeated, c.descAlone, c.latePast, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
            c.unitBad[AC_UNIT_LEN] + c.unitBad[AC_UNIT_SIG] + c.unitBad[AC_UNIT_SSS] + c.unitBad[AC_UNIT_RSEC],
            c.aheadMem + c.rowMem + c.qDrop + c.asmAlloc + c.unitBad[AC_UNIT_MEM], c.ownMem,
            s.lostNone, s.lostFull, s.lostOther);

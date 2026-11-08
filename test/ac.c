@@ -200,6 +200,21 @@
  *                    this tick and nothing of seat 3's recover legs, so
  *                    only seat 0's recover legs reach it with a description,
  *                    and T > 1 asks a second, which only seat 1 can say
+ *     -5             a dealer past a position, its unit late at a seat whose
+ *                    machines of it are gone.  Seat 0 is dealt nothing by
+ *                    seat N-1 until it is back, and under the first position
+ *                    with a data part has seat N-1's only from seats 2 and
+ *                    3, so at T = 2 it reports, leaves the position and lets
+ *                    it go; seat 1 has them only from seats 2 and 0, so it
+ *                    stays a member short.  Seat N-1 hears nothing of seat 0
+ *                    on its own broadcasts, so its re-send goes on; a few
+ *                    ticks past folding that position, the next one named,
+ *                    it is frozen until seat 0 retains it, has answered seat
+ *                    1's rows from what it holds and let those machines go on
+ *                    seat 1's word that it was owed nothing more.  Back, its
+ *                    re-send is all of its unit that can reach seat 0, and
+ *                    only that unit, carried on, brings seat 1 to T.  The
+ *                    member needs its echoes without the two: 6 1
  *     -N ticks       with -f 4, parts a faulty dealer never deals: under
  *                    the first position carrying one, seat 0 gets seat
  *                    N-1's data part from it never and from the others
@@ -251,7 +266,19 @@
  *                    the others' readies and holds seat 0's unit only
  *                    from their legs, which re-send it until it says it
  *                    holds it: with -U it holds it when the cut heals
- *     -y tick        the cut (-x, -X, -U) begins at this tick instead
+ *     -6 positions   seats 0..t-1 send no INITIAL of their own under
+ *                    positions 1..this, on every class but the
+ *                    agreement's rows, until each has
+ *                    folded that position, and run as correct seats
+ *                    otherwise.  No correct seat echoes an INITIAL it
+ *                    never got, so none inputs 1 to a held seat's BA,
+ *                    none of those decides 1, and the subset is the
+ *                    N - t seats not held, seat N-1 among them, in
+ *                    whatever order the rest arrive.  With -f the
+ *                    dealer's payload is in those subsets, as the judge
+ *                    requires of every fault but -f 3's: by the hold,
+ *                    not by the order the seats' INITIALs land in
+ *     -y tick       the cut (-x, -X, -U) begins at this tick instead
  *                    of the go, and runs its length from there
  *     -T links       the Internet's directed links over time, N <= 10:
  *                    phases split by '/', each ms=pairs, the ms since
@@ -386,10 +413,26 @@
  *                    shares beside the bad one while its T shards still
  *                    include the bad one, and the message must come
  *                    when the pool fills, by the end's relaxed pass over
- *                    every subset.
+ *                    every subset; 10 one apex signed at a second slot
+ *                    too, that copy dealt to seat 0 and refused there,
+ *                    the message from the legs as under 7; 11 its second
+ *                    payload signed at its first payload's slot: -6 2
+ *                    puts the dealer in the subsets of positions 1..2 by
+ *                    rule, so every correct seat's high water stands at
+ *                    slot 1, and the second is refused at it at every
+ *                    seat and is in no subset; 12 its third payload
+ *                    signed at its first payload's slot, below the
+ *                    second's: -6 3 puts the dealer in the subsets of
+ *                    positions 1..3 by rule, so every correct seat's
+ *                    high water stands at slot 2, and the third is
+ *                    refused below it at every seat and is in no subset;
+ *                    under both the payload's INITIAL is kept from seat 0
+ *                    and its unit is not, so seat 0, with no value to
+ *                    place the part under one root, refuses it past a
+ *                    signature, the others unverified.
  *                    Instance 1 is every seat's rotation: -n 2 is the
  *                    first run that deals a fault 1..6 or 9, 7 is dealt at
- *                    instance 1, 8 at instance 3
+ *                    instance 1, 8 and 11 at instance 3, 12 at instance 4
  *     -b mask        seat N-1 (N-2 under -2) is a Byzantine row sender,
  *                    its tags, and under bits 8..32 its exchange parts,
  *                    rewritten at its egress before they are
@@ -542,7 +585,9 @@ static unsigned int        SplitK;              /* -S k:m: seats 0..k-1 receive 
 static unsigned int        SplitM;
 static int                 Censor;              /* -C: seat 0 sends seat N-1 no (initial, v)
                                                  * of its own and no unit */
-static int                 Idle;                /* -i: seat N-1 proposes nothing */
+static unsigned int        HoldTo;              /* -6: seats 0..t-1 send no INITIAL of their own
+                                                 * under positions 1..this until they fold it */
+static int                 Idle;               /* -i: seat N-1 proposes nothing */
 static unsigned int        Copies;              /* -J: datagrams sent this many times more */
 static int                 TagAudit;            /* -l: the framer's question asked, not obeyed */
 static unsigned int        Older;               /* -I: older datagrams played back per send */
@@ -573,6 +618,10 @@ static unsigned int        OwnOnly;             /* -3: seat N-1 hears only its o
                                                  * before this tick */
 static unsigned int        NoDesc;              /* -4: under one position seat 1 holds no unit, and
                                                  * seat 2 hears no agreement before this tick */
+static int                 LatePast;            /* -5: a dealer past a position re-sends its unit to
+                                                 * a seat whose machines of it are gone */
+static int                 LateKept;            /* -5: seat 0 retains the position */
+static int                 LateBack;            /* -5: seat N-1 is back */
 static unsigned int        StrandAt;            /* -N: seat N-1's data part comes to seat 0
                                                  * from no seat before this tick, from
                                                  * seat N-1 never, under one position */
@@ -838,9 +887,10 @@ struct wire {
   unsigned int cut;                   /* -x, -X, -U, -S: messages dropped at the cut */
   unsigned int cutUnit;               /* of those, unit parts */
   unsigned int censored;              /* -C: INITIALs with their units the dealer withheld */
+  unsigned int held;                  /* -6: INITIALs of its own a seat held to its fold */
   unsigned int tagPred;               /* -l: arrivals the framer's question would have refused */
   unsigned int tagBad;                /* -l: of those, ones proved or replied to */
-  unsigned int faultDealt;            /* -f 7, -f 8, -f 10, -f 11: the
+  unsigned int faultDealt;            /* -f 7, -f 8, -f 10, -f 11, -f 12: the
                                        * second signature was made and dealt */
   unsigned int byz;                   /* -b: tags rewritten at the egress */
   unsigned int withheld;              /* -a: exchange parts withheld at the egress */
@@ -1042,7 +1092,8 @@ struct hseat {
   int                 ended;          /* the seat's end is reported */
   int                 resumed;        /* -Z: the pause ended and the
                                        * seat said again it has a blob */
-  int                 thawed;         /* -Q: the freeze is over */
+  int                 thawed;         /* -Q, -5: the freeze is over */
+  unsigned int        lateFrz;        /* -5: the tick seat N-1 freezes, and one more */
   int                 frozeOut;       /* -Q: the others ended while it was frozen */
   unsigned long       thawUs;         /* -Q: when */
   unsigned long       goUs;           /* -T: the go */
@@ -1409,7 +1460,8 @@ hTrace(
 }
 
 /* the harness's adversary at the seat's egress: the cut (-x, -X, -Y,
- * -y) and the censor (-C), on the message, before the framer; and the
+ * -y), the censor (-C), the hold (-6) and -f 12's INITIAL kept from seat 0,
+ * on the message, before the framer; and the
  * Byzantine row sender (-b), who rewrites the tag the framer then
  * authenticates as this seat's word */
 static int
@@ -1515,6 +1567,33 @@ hEgress(
       ++h->w.cutUnit;
     return (-1);
   }
+  /* -6: seats 0..t-1 hold the INITIAL of their own value, on every
+   * class that carries it but the agreement's rows, under positions 1..HoldTo until they fold
+   * that position; a name not yet in the reports is the position past
+   * the last fold.  No correct seat echoes what it never got, so none
+   * inputs 1 to a held seat's BA, none of those BAs decides 1, and
+   * the N - t members are the seats not held, seat N-1 among them */
+  if (HoldTo && h->self < MaxByz && AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL
+   && AC_TAG_CLASS(tag[0]) != AC_CLS_ACS && tag[AC_TAG_BA] == h->self) {
+    unsigned int pos;
+
+    linkAt(h, tag + AC_TAG_NAME, &pos);
+    if (!pos)
+      pos = h->top + 1;
+    if (pos <= HoldTo && pos > h->top) {
+      ++h->w.held;
+      return (-1);
+    }
+  }
+  /* -f 11, -f 12: the dealer sends seat 0 no (initial, v) of the payload
+   * it signed at a spent slot, only its unit: seat 0 holds no value to
+   * place the part under one root, so where the successor is installed
+   * its gate cannot refuse it unverified, and the refusal is paid a
+   * signature.  No correct seat echoes a part it refused, so seat 0
+   * never accepts the value */
+  if (AC_FAULT_SPENT(Fault) && h->self == N - 1 && !dest && h->test.dealt && inst == h->test.dealtAt
+   && AC_TAG_CLASS(tag[0]) == AC_CLS_DIST && AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL)
+    return (-1);
   if (Censor && h->self == 0 && dest == N - 1 && AC_TAG_CLASS(tag[0]) == AC_CLS_DIST
    && (AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL || AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE)) {
     /* -C: the dealer sends seat N-1 no (initial, v) of its own and no
@@ -1644,6 +1723,33 @@ hIngress(
     if (h->self == 1)
       ++h->w.cutUnit;
     return (0);
+  }
+  /* -5: at seat N-1 nothing of seat 0's on its own broadcasts, so its re-send
+   * goes on; at seat 0 nothing it deals until it is back; under the first
+   * position with a data part of its value, such a part only from seats 2
+   * and 3 at seat 0, and 2 and 0 at seat 1 */
+  if (LatePast && tag[AC_TAG_BA] == N - 1) {
+    int back;
+
+    pthread_mutex_lock(&FoldMu);
+    back = LateBack;
+    pthread_mutex_unlock(&FoldMu);
+    if (h->self < 2 && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DATA && !h->lapseSet) {
+      h->lapseSet = 1;
+      memcpy(h->lapseName, tag + AC_TAG_NAME, HashSz);
+    }
+    if (h->self == N - 1
+     ? cls == AC_CLS_DIST && !tag[AC_TAG_SENDER]
+     : h->self < 2 && kind == BRACHA87_BESIDE
+       && ((!h->self && cls == AC_CLS_DIST && !back)
+        || (AC_TAG_VALUE(tag[0]) == AC_PART_DATA && !memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz)
+         && tag[AC_TAG_SENDER] != 2 && tag[AC_TAG_SENDER] != (h->self ? 0 : 3)
+         && (h->self || tag[AC_TAG_SENDER] != N - 1)))) {
+      ++h->w.cut;
+      if (kind == BRACHA87_BESIDE)
+        ++h->w.cutUnit;
+      return (0);
+    }
   }
   /* -N: a data part of seat N-1's value at seat 0, under the first position
    * that carries one: the dealer's never, another seat's from the tick */
@@ -2036,6 +2142,46 @@ flushDone:
       h->oldUs = us;
       olderPlay(h);
     }
+    /* -5: seat 0 says when it retains the position, the second, the first
+     * being every seat's rotation, has answered seat 1's rows from it and has
+     * let those machines go; seat N-1, a few ticks past folding it, is frozen
+     * until then */
+    if (LatePast && !h->self) {
+      struct acCounters lc;
+
+      acCounters(h->seat, &lc);
+      if (lc.retained >= 2 && lc.recoverStarts && !acTestKept(h->seat)) {
+        pthread_mutex_lock(&FoldMu);
+        LateKept = 1;
+        pthread_mutex_unlock(&FoldMu);
+      }
+    }
+    if (LatePast && h->self == N - 1 && !h->thawed && h->chains >= 2) {
+      struct timespec fz;
+      int kept;
+
+      if (!h->lateFrz)
+        h->lateFrz = acTicks(h->seat) + 4;
+      if (acTicks(h->seat) >= h->lateFrz) {
+        fz.tv_sec = 0;
+        fz.tv_nsec = 100000000L;
+        for (;;) {
+          nanosleep(&fz, 0);
+          pthread_mutex_lock(&FoldMu);
+          kept = LateKept;
+          for (e = 0; e < N - 1 && Ended[e]; ++e)
+            ;
+          pthread_mutex_unlock(&FoldMu);
+          if (kept || e == N - 1)
+            break;
+        }
+        pthread_mutex_lock(&FoldMu);
+        LateBack = 1;
+        pthread_mutex_unlock(&FoldMu);
+        h->thawed = 1;
+        continue;
+      }
+    }
     /* -Q: frozen, as a stopped process, from its -y tick on: nothing of
      * the seat runs and the socket's queue fills, the others going on
      * without it */
@@ -2326,7 +2472,7 @@ main(
   Knobs.shardDelayUs = -1;
   reboot = rebooted = wasDead = 0;
   memset(next, 0, sizeof (next));
-  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:J:I:q:o:N:3:4:2aCRYitVljh")) != -1) {
+  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:J:I:q:o:N:3:4:56:2aCRYitVljh")) != -1) {
     switch (opt) {
     case 'D':
       DropPct = atoi(optarg);
@@ -2371,8 +2517,8 @@ main(
       break;
     case 'f':
       Fault = atoi(optarg);
-      if (Fault < AC_FAULT_SHARD || Fault > AC_FAULT_REUSE) {
-        fprintf(stderr, "-f needs 1 (shard), 2 (share), 3 (geometry), 4 (ciphertext), 5 (salted shares), 6 (padding), 7 (two-faced), 8 (split), 9 (a shard and a share), 10 (one apex at two slots) or 11 (the second payload at the first's slot)\n");
+      if (Fault < AC_FAULT_SHARD || Fault > AC_FAULT_BELOW) {
+        fprintf(stderr, "-f needs 1 (shard), 2 (share), 3 (geometry), 4 (ciphertext), 5 (salted shares), 6 (padding), 7 (two-faced), 8 (split), 9 (a shard and a share), 10 (one apex at two slots), 11 (the second payload at the first's slot) or 12 (the third payload at the first's slot)\n");
         return (1);
       }
       break;
@@ -2537,6 +2683,12 @@ main(
     case '4':
       NoDesc = atoi(optarg);
       break;
+    case '5':
+      LatePast = 1;
+      break;
+    case '6':
+      HoldTo = atoi(optarg);
+      break;
     case '2':
       BzSeat = 2;                       /* N - 2, once N is known */
       break;
@@ -2619,12 +2771,30 @@ main(
     fprintf(stderr, "-C with -f makes seats 0 and N-1 both faulty\n");
     return (1);
   }
+  if (HoldTo && (!MaxByz || Censor)) {
+    fprintf(stderr, "-6 needs t >= 1 and not -C: seats 0..t-1, the seats held, are correct seats\n");
+    return (1);
+  }
+  if (Fault == AC_FAULT_REUSE && (MlsS < 2 || Count < 3 || HoldTo < 2)) {
+    /* its slots 0..1 at positions 1..2 in their subsets by the hold, so
+     * every correct seat's high water stands at slot 1 when position 3,
+     * signed at slot 1, is judged */
+    fprintf(stderr, "-f 11 needs -s 2 or more, -n 3 or more and -6 2 or more: the dealer in the subsets of its first two slots\n");
+    return (1);
+  }
+  if (Fault == AC_FAULT_BELOW && (MlsS < 2 || Count < 4 || HoldTo < 3)) {
+    /* its slots 0..2 at positions 1..3 in their subsets by the hold, so
+     * every correct seat's high water stands at slot 2 when position 4,
+     * signed at slot 1, is judged */
+    fprintf(stderr, "-f 12 needs -s 2 or more, -n 4 or more and -6 3 or more: the dealer in the subsets of its first three slots\n");
+    return (1);
+  }
   if (BzSeat && (!Byz || MaxByz < 2)) {
     fprintf(stderr, "-2 needs -b and t >= 2: two faulty seats\n");
     return (1);
   }
   BzSeat = BzSeat ? N - 2 : N - 1;
-  if (Accomplice && (!Fault || AC_FAULT_SIGNING(Fault) || Fault == AC_FAULT_REUSE || MaxByz < 2 || Byz || Censor)) {
+  if (Accomplice && (!Fault || AC_FAULT_SIGNING(Fault) || AC_FAULT_SPENT(Fault) || MaxByz < 2 || Byz || Censor)) {
     fprintf(stderr, "-a needs a dealer's fault of -f 1..6 or 9 and t >= 2, and neither -b nor -C: the dealer and its accomplice are the two faulty seats\n");
     return (1);
   }
@@ -3053,11 +3223,12 @@ deal:
              : Fault == AC_FAULT_GEOM ? "geometry-fault" : Fault == AC_FAULT_CT ? "ciphertext-fault"
              : Fault == AC_FAULT_SALT ? "salted-shares" : Fault == AC_FAULT_PAD ? "padding-fault"
              : Fault == AC_FAULT_TWOFACE ? "two-faced" : Fault == AC_FAULT_SPLIT ? "split"
-             : Fault == AC_FAULT_TWOSLOT ? "two-slot" : Fault == AC_FAULT_REUSE ? "reused-slot" : "shard-and-share-fault");
+             : Fault == AC_FAULT_TWOSLOT ? "two-slot" : Fault == AC_FAULT_REUSE ? "reused-slot"
+             : Fault == AC_FAULT_BELOW ? "slot-below" : "shard-and-share-fault");
     printf(") ---\n");
     totSaid = 0;
     lossless = !Copies && !Older && !DropPct && !BurstLen && !Freeze
-            && ParityShards <= 0 && !Cut && !CutEgr && !CutUnit && !CutAgr && !SplitM && !NLinks && !LapseAt && !StrandAt && !OwnOnly && !NoDesc;
+            && ParityShards <= 0 && !Cut && !CutEgr && !CutUnit && !CutAgr && !SplitM && !NLinks && !LapseAt && !StrandAt && !OwnOnly && !NoDesc && !LatePast;
     printf("instances %u, %u signings a context\n", Count, 1u << MlsS);
     allAgree = allLinked = allFolded = allMessages = allUniform = 1;
     accompliceHit = 0;
@@ -3335,9 +3506,9 @@ deal:
           if (Fault && j == N - 1 && !RP_MKIND(sp)[j]) {
             ++dealerIn;
             if (Fault == AC_FAULT_CT
-             || (Fault != AC_FAULT_PAD && Fault != AC_FAULT_REUSE && !AC_FAULT_SIGNING(Fault) && N - 1 == Threshold))
+             || (Fault != AC_FAULT_PAD && !AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault) && N - 1 == Threshold))
               want = AC_EXHAUSTED;
-            else if (Fault != AC_FAULT_REUSE && !AC_FAULT_SIGNING(Fault))
+            else if (!AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault))
               want = AC_INCONSISTENT;
           }
           if (!mp) {
@@ -3551,6 +3722,7 @@ deal:
            : Fault == AC_FAULT_SPLIT ? " (the dealer's: its apex signed by its successor refused at seat 0, the message from the legs)"
            : Fault == AC_FAULT_TWOSLOT ? " (the dealer's: its apex signed at a second slot refused at seat 0, the message from the legs)"
            : Fault == AC_FAULT_REUSE ? " (the dealer's: the payload at its first payload's slot in no subset)"
+           : Fault == AC_FAULT_BELOW ? " (the dealer's: the payload below its second payload's slot in no subset)"
            : N - 1 == Threshold && Fault != AC_FAULT_PAD ? " (the dealer's: no message, one bad part is in every subset at T = R)"
            : " (the dealer's: no message, its commitment inconsistent)", allMessages ? "ok" : "FAIL");
     if (budgetHit)
@@ -3752,6 +3924,7 @@ deal:
       tot.recCopy += c->recCopy;
       tot.recUnits += c->recUnits;
       tot.lateDist += c->lateDist;
+      tot.latePast += c->latePast;
       tot.lateWord += c->lateWord;
       tot.recCopyNoRoom += c->recCopyNoRoom;
       tot.launchOnRows += c->launchOnRows;
@@ -3833,6 +4006,7 @@ deal:
         wtot.cut += ctr[i]->w.cut;
         wtot.cutUnit += ctr[i]->w.cutUnit;
         wtot.censored += ctr[i]->w.censored;
+        wtot.held += ctr[i]->w.held;
         wtot.faultDealt += ctr[i]->w.faultDealt;
         wtot.tagPred += ctr[i]->w.tagPred;
         wtot.tagBad += ctr[i]->w.tagBad;
@@ -3929,9 +4103,9 @@ deal:
            tot.unitBad[AC_UNIT_LEN], tot.unitBad[AC_UNIT_SIG],
            tot.unitBad[AC_UNIT_SSS], tot.unitBad[AC_UNIT_RSEC], tot.unitBad[AC_UNIT_MEM], tot.partOther, tot.secondApex, tot.signReplaced,
            tot.slotReused, tot.offsetReplay, tot.hwLate, tot.asmAlloc);
-    printf("malformed %u  notInitiator %u  loss %u (units %u)  qDrop %u  held rows refused by memory %u  rows refused by memory %u  own steps waiting on memory %u  cut %u (units %u)  censored %u  proposals past the bound %u\n",
+    printf("malformed %u  notInitiator %u  loss %u (units %u)  qDrop %u  held rows refused by memory %u  rows refused by memory %u  own steps waiting on memory %u  cut %u (units %u)  censored %u  own INITIALs held to the fold %u  proposals past the bound %u\n",
            tot.malformed, tot.notInitiator, tot.loss, tot.lossUnit, tot.qDrop, tot.aheadMem, tot.rowMem, tot.ownMem,
-           wtot.cut, wtot.cutUnit, wtot.censored, tot.proposeLong);
+           wtot.cut, wtot.cutUnit, wtot.censored, wtot.held, tot.proposeLong);
     printf("physics: parity shards the decodes used %u (the most one message used %u, decodes with none to spare %u)"
            "  sends refused %u  passes past their tick %u  a tick late by at most %lu ms  decided at round %u at the latest"
            "  the longest agreement %u sweeps of the abandon's %u, agreements abandoned without a subset %u\n",
@@ -4175,10 +4349,12 @@ deal:
       for (i = 0; i < N; ++i) {
         named += attr[i].malformed;
         faults += attr[i].malformed + attr[i].notInitiator + attr[i].secondApex
-                + attr[i].signReplaced + attr[i].offsetReplay;
-        /* -f 11: the dealer's leaked slot, refused, is its own */
+                + attr[i].signReplaced;
+        /* -f 11, -f 12: the dealer's spent slot, refused, is its own */
         if (Fault != AC_FAULT_REUSE || i != N - 1)
           faults += attr[i].slotReused;
+        if (Fault != AC_FAULT_BELOW || i != N - 1)
+          faults += attr[i].offsetReplay;
         /* a signing fault's copy refused at seat 0 on its value is the
          * dealer's, as one refused at its signature gate is; so is a
          * sign part -b 8 flipped in its offset or hashes, refused on
@@ -4191,7 +4367,7 @@ deal:
           faults += attr[i].initOther;
       }
       if (faults || tot.malformed - named || tot.qDrop || tot.aheadMem || (tot.asmAlloc && !Refuse) || tot.proposeLong
-       || (!Byz && (tot.notInitiator || (Fault != AC_FAULT_REUSE && tot.slotReused) || tot.offsetReplay || tot.secondApex || tot.signReplaced || tot.initOther))) {
+       || (!Byz && (tot.notInitiator || (Fault != AC_FAULT_REUSE && tot.slotReused) || (Fault != AC_FAULT_BELOW && tot.offsetReplay) || tot.secondApex || tot.signReplaced || tot.initOther))) {
         printf("a counter a correct run leaves at zero is not (the faults by seat, malformed, qDrop, held rows refused by memory,"
                " assembly unallocated, proposals past the bound): FAIL\n");
         exitCode = 1;
@@ -4226,6 +4402,10 @@ deal:
       printf("the payload at the first payload's slot: all %u refusals paid a signature first: FAIL\n", tot.hwLate);
       exitCode = 1;
     }
+    if (Fault == AC_FAULT_BELOW && tot.hwLate >= tot.offsetReplay) {
+      printf("the payload below the second payload's slot: all %u refusals paid a signature first: FAIL\n", tot.hwLate);
+      exitCode = 1;
+    }
     /* a unit landing past its position's end is in the record, unless the room
      * for it would let the position go */
     printf("units past their position's end %u (%u on the member's broadcast), records written again %u, no room %u, taking %u\n",
@@ -4245,6 +4425,13 @@ deal:
         exitCode = 1;
       }
     }
+    if (LatePast) {
+      printf("machines built back for a part of a unit its record lacked, its dealer past the position: %u\n", tot.latePast);
+      if (!tot.latePast) {
+        printf("none was built: the arm did not run, FAIL\n");
+        exitCode = 1;
+      }
+    }
     if (LapseAt) {
       printf("a seat's word that it was owed nothing lapsed %u times\n", tot.lateWord);
       if (!tot.lateWord) {
@@ -4260,11 +4447,16 @@ deal:
         exitCode = 1;
       }
     }
-    if (Fault == AC_FAULT_REUSE && (!wtot.faultDealt || !tot.slotReused)) {
-      /* the dealer's first payload left out leaves its slot unagreed,
-       * and a second value there is no leak any seat can see */
+    if (Fault == AC_FAULT_REUSE && (!wtot.faultDealt || !tot.slotReused || !tot.hwLate)) {
       printf("the payload at the first payload's slot %s: the arm did not run\n",
-             !wtot.faultDealt ? "was never signed" : "reached no seat's gate with that slot agreed");
+             !wtot.faultDealt ? "was never signed" : !tot.slotReused ? "reached no seat's gate with that slot agreed"
+             : "was refused past a signature nowhere, seat 0 sent no value among them");
+      exitCode = 1;
+    }
+    if (Fault == AC_FAULT_BELOW && (!wtot.faultDealt || !tot.offsetReplay || !tot.hwLate)) {
+      printf("the payload below the second payload's slot %s: the arm did not run\n",
+             !wtot.faultDealt ? "was never signed" : !tot.offsetReplay ? "reached no seat's gate with a higher slot agreed"
+             : "was refused past a signature nowhere, seat 0 sent no value among them");
       exitCode = 1;
     }
     if (AC_FAULT_SIGNING(Fault) && !wtot.faultDealt) {
@@ -4409,8 +4601,8 @@ deal:
       printf("nothing in flight, nothing lost, and the fragment counts differ: MISMATCH\n");
       exitCode = 1;
     }
-    if ((Censor && !wtot.censored) || ((Cut || CutEgr || CutUnit || CutAgr || LapseAt || StrandAt || OwnOnly || NoDesc || SplitM || NLinks) && !wtot.cut)) {
-      printf("the declared cut or censor dropped nothing: the arm did not fire, FAIL\n");
+    if ((Censor && !wtot.censored) || (HoldTo && !wtot.held) || ((Cut || CutEgr || CutUnit || CutAgr || LapseAt || StrandAt || OwnOnly || NoDesc || LatePast || SplitM || NLinks) && !wtot.cut)) {
+      printf("the declared cut, censor or hold dropped nothing: the arm did not fire, FAIL\n");
       exitCode = 1;
     }
     printf("egress messages %u, ingress messages %u, refused from the tag %u", egrMsg, igrMsg, igrRefused);
@@ -4501,7 +4693,7 @@ deal:
       opFd[i] = -1;
       quiet[i] = 0;
     }
-    Cut = CutEgr = CutUnit = CutAgr = LapseAt = StrandAt = OwnOnly = NoDesc = CutFrom = 0;
+    Cut = CutEgr = CutUnit = CutAgr = LapseAt = StrandAt = OwnOnly = NoDesc = LatePast = CutFrom = 0;
     CutData = CutAll = Dead = Partitioned = 0;
     memset(Folded, 0, sizeof (Folded));
     memset(Ended, 0, sizeof (Ended));
@@ -4533,7 +4725,7 @@ usage:
     "            [-n instances] [-e step] [-E k] [-s signings] [-z lagticks] [-w slowness] [-v seats] [-x cutticks] [-X egressticks] [-U legticks] [-V] [-O at:m] [-C] [-S k:m] [-y cutstart] [-Y] [-Z from:len]\n"
     "            [-T ms=pairs/...] [-Q positions] [-G bytes]\n");
   fprintf(stderr,
-    "            [-A sweeps] [-M bytes] [-P phases] [-i] [-b mask] [-2] [-f fault] [-a] [-R] [-t] N t\n");
+    "            [-A sweeps] [-M bytes] [-P phases] [-i] [-b mask] [-2] [-f fault] [-a] [-6 positions] [-R] [-t] N t\n");
   fprintf(stderr,
     "  N   seats (3-%d)\n"
     "  -W  bits/s a seat sends, required: UDP has no back pressure, the seats pace to it\n"
@@ -4573,7 +4765,9 @@ usage:
     "  -o  ticks, a late unit the one a returner needs: seat N-1's own data part comes to seat 0 past them\n");
   fprintf(stderr,
     "  -O  at:m, seat N-1's memory refuses member m's search, s the search's buffers or p the pool's, until kept\n"
-    "  -C  seat 0 sends seat N-1 no (initial, v) of its own and no unit, ever\n");
+    "  -C  seat 0 sends seat N-1 no (initial, v) of its own and no unit, ever\n"
+    "  -6  seats 0..t-1 send no INITIAL of their own under positions 1..this until each folds it:\n"
+    "      no correct seat echoes them, so the N - t members are the others, seat N-1 among them\n");
   fprintf(stderr,
     "  -w  seats 0..-v less one are this many times slower: each sleeps that less one times its processor time\n"
     "  -z  seat N-1 holds each new proposal's INITIAL this many ticks: the laggard\n");
@@ -4596,7 +4790,10 @@ usage:
     "  -f  seat N-1's fault: 1 a shard, 2 a share, 3 the geometry, 4 the ciphertext,\n"
     "      5 every share but the last T, 6 a padding byte, 7 two-faced, 8 split (-n below 2^s),\n"
     "      9 a shard of one leaf and a share of another, 10 one apex at two slots,\n"
-    "      11 the second payload at the first's slot\n"
+    "      11 the second payload at the first's slot (-6 2),\n"
+    "      12 the third payload at the first's slot, below the second's (-6 3),\n"
+    "      each one's INITIAL kept from seat 0\n");
+  fprintf(stderr,
     "  -a  with -f 1..6 or 9 and t >= 2, not -b or -C: seat N-2, the dealer's accomplice,\n"
     "      sends its exchange parts to seat 0 alone\n"
     "  -t  the state trace, one line per transition\n");

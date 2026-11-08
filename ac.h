@@ -630,6 +630,8 @@ struct acCounters {
   unsigned int lateUnit;              /* this seat's unit of a member whole under a record:
                                        * past the position's end, the record to take it */
   unsigned int lateDist;              /* of those, on the member's own broadcast */
+  unsigned int latePast;              /* machines built back for a part of a unit the record
+                                       * lacks, its dealer past the position */
   unsigned int lateWord;              /* of those, under a seat's word that it was owed
                                        * nothing here, which lapsed: this seat holds more */
   unsigned int recCopy;               /* records written again at the head, holding more */

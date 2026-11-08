@@ -1761,6 +1761,8 @@ struct inst {
                                        * the position's end, its member reported or not:
                                        * the record's copy due */
   unsigned int     endTick;           /* the tick it left the live window */
+  unsigned int     lateAt;            /* under a record: the tick the last new part of a
+                                       * unit of its dealer's came, 0 none */
   unsigned int     lagUntil;          /* -z: the tick its INITIAL is held to */
   unsigned int     rot;               /* members that are rotations */
   unsigned int     noop;              /* members that are noops */
@@ -2854,6 +2856,33 @@ unitCheck(
  * this seat can carry it to a seat that comes to need it */
 #define LATE_UNIT(k, x) ((k)->hasVal[x] && BKR94ACS_BIT_TST((k)->subset, x) && !(k)->dist[x].held)
 
+/* the same asked of a record with no machines to ask, of a member x, not this
+ * seat, and of the part in hand, so a sign part it holds buys nothing: a unit
+ * its dealer still re-sends is as late with them gone */
+static int
+recLacks(
+  const struct ac *V
+ ,const struct recIx *rx
+ ,unsigned int x
+ ,unsigned int part
+){
+  const struct acPar *S;
+  const unsigned char *r;
+  const unsigned char *mp;
+  unsigned int m;
+
+  S = &V->p;
+  r = V->rec + rx->off;
+  if (part > AC_PART_DATA || !BKR94ACS_BIT_TST(r + REC_SUBSET, x) || !(r[REC_HASVAL + (x >> 3)] & (1 << (x & 7))))
+    return (0);
+  for (mp = r + REC_HDR, m = GET16(r + REC_MEMB); m; --m) {
+    if (mp[RM_SEAT] == x)
+      return (part == AC_PART_DATA && !mp[RM_KIND] && !GET32(mp + RM_SHLEN));
+    mp += RM_HDR + SigLen + RM_BODY(mp[RM_KIND], mp[RM_SEAT] == V->self, GET32(mp + RM_SHLEN));
+  }
+  return (1);
+}
+
 /*
  * Whether a fragment's message would move nothing here, from its tag alone,
  * ahead of the framer's entry and decode: the same question as the arrival's
@@ -2958,8 +2987,9 @@ tagDecide(
         return (TAG_RECORD);
     } else if ((GET32(V->rec + rx->off + REC_NUM) < NAMED(V, from)
              || (rx->done[from >> 3] >> (from & 7) & 1))
-            && !(kind == BRACHA87_BESIDE && I
-              && ((I->srch[x].kept && !I->srch[x].reported) || (cls == AC_CLS_DIST && LATE_UNIT(I, x)))))
+            && !(kind == BRACHA87_BESIDE
+              && (I ? (I->srch[x].kept && !I->srch[x].reported) || (cls == AC_CLS_DIST && LATE_UNIT(I, x))
+                    : cls == AC_CLS_DIST && recLacks(V, rx, x, value))))
       return (DESC_OWED(V, rx, from, kind, GET32(V->rec + rx->off + REC_NUM)) ? TAG_PASS : TAG_RECORD);
     if (!I || !I->loaded || cls != AC_CLS_RCV)
       return (TAG_PASS);
@@ -3446,10 +3476,12 @@ askedSlot:
     I->blobLen = 0;
   }
 #ifdef AC_TEST
-  if (TESTFAULT(V) == AC_FAULT_REUSE && !V->gen && V->slot == SLOT_PAY + 1 && !V->test->dealt) {
+  if (AC_FAULT_SPENT(TESTFAULT(V)) && !V->gen && !V->test->dealt
+   && V->slot == SLOT_PAY + (TESTFAULT(V) == AC_FAULT_REUSE ? 1 : 2)) {
     I->own->off = SLOT_PAY;
     ++V->test->dealt;
-    trace(V, I->num, "reuse: the payload signed at slot %u again", SLOT_PAY);
+    V->test->dealtAt = I->num;
+    trace(V, I->num, "%s: the payload signed at slot %u again", TESTFAULT(V) == AC_FAULT_REUSE ? "reuse" : "below", SLOT_PAY);
   } else
 #endif
   I->own->off = V->slot;
@@ -3957,6 +3989,7 @@ ownBroadcastLagDone:
    * is read as an arrival, then the work the arrivals left.
    */
 input:
+  evAuth = 0;                           /* a datagram: nothing proved */
   adr[0] = 1;
   adr[1] = 0;
   if (!rsecFrmIgrPut(&V->igr, adr, dgram, dlen))
@@ -4156,7 +4189,8 @@ drain:
          * an abandon ago: nothing new starts -- no recover leg,
          * whatever a row names, and no row held for a position no seat
          * launches -- so no seat keeps another alive; a record's
-         * machines already running go on to their count.  Until then a
+         * machines already running go on to their count or an abandon
+         * past a late unit's last new part.  Until then a
          * row naming the last link's record, as any record's, starts
          * recover legs: what carries a seat behind to the end */
         if (END_SHUT(V) && (!rx || !rx->kept)) {
@@ -4206,16 +4240,22 @@ drain:
            * nothing and is refused unread, whatever it costs to have
            * retained.  So no copy, however old, buys a proof, a machine or
            * a send from a record but toward the one position a seat is
-           * still at.  A part of a member whose assembly this seat keeps
-           * is that assembly's, whoever carries it */
+           * still at, but as below.  A part of a member whose assembly this seat keeps
+           * is that assembly's, whoever carries it.  And a dealer's part
+           * the record lacks is taken whether its machines are here or not,
+           * each new part holding them an abandon for the rest (lateAt): a
+           * copy of it costs a proof and at times a kept instance, a part
+           * alone goes with them if the rest never comes, and a whole unit
+           * lapses the words above, so a seat's next row may start legs */
           k = rx->kept;
           past = evNum < NAMED(V, evFrom) || (rx->done[evFrom >> 3] >> (evFrom & 7) & 1);
           if (evCls == AC_CLS_RCV
               ? !k && (evS == V->self || evKind != BRACHA87_INITIAL
                     || (rx->done[BITS(N) + (evFrom >> 3)] >> (evFrom & 7) & 1))
-              : past && !(evKind == BRACHA87_BESIDE && k
-                       && ((k->srch[evX].kept && !k->srch[evX].reported)
-                        || (evCls == AC_CLS_DIST && LATE_UNIT(k, evX))))) {
+              : past && !(evKind == BRACHA87_BESIDE
+                       && (k ? (k->srch[evX].kept && !k->srch[evX].reported)
+                            || (evCls == AC_CLS_DIST && LATE_UNIT(k, evX))
+                             : evCls == AC_CLS_DIST && evFrom == evX && recLacks(V, rx, evX, evValue)))) {
             ++V->c.copy;
             ++SEATC(V, evFrom).resent;
             if (evCls != AC_CLS_RCV && DESC_OWED(V, rx, evFrom, evKind, evNum) && !END_SHUT(V) && AUTHED()) {
@@ -4240,6 +4280,8 @@ drain:
             goto drain;
           }
           if (!(k = rx->kept)) {
+            if (past && evCls != AC_CLS_RCV)
+              ++V->c.latePast;
             if (V->nKept == V->keptCap) {
               struct inst **grown;
 
@@ -4622,6 +4664,9 @@ rcvLegDone:
         evFrom = V->self;
         evPl = m->v;
         evLen = HashSz;
+        evTag = 0;                      /* no arrival: no tag, landed in no */
+        evWin = WIN_NONE;               /* window, names no position */
+        evNum = 0;
         evAuth = 1;
         dispatchSite = SITE_HANDBACK;
         goto dispatch;
@@ -5865,7 +5910,8 @@ recCopyRoomDone:
       for (i = 0; i < N; ++i)
         if (BKR94ACS_BIT_TST(I->subset, i) && i != V->self && !I->srch[i].reported)
           break;
-      if (i < N || (!I->gone && I->legGone < I->legCnt) || V->swPhase != SW_IDLE
+      if (i < N || (!I->gone && (I->legGone < I->legCnt || (I->lateAt && V->ticks - I->lateAt < Abandon)))
+       || V->swPhase != SW_IDLE
        || (V->eActive && V->eI == I) || (V->held && V->heldI == I)) {
         ++wi;
         continue;
@@ -7480,6 +7526,8 @@ unitIn:
         memcpy(*stash, pl, evLen);
         *stashLen = evLen;
         ++V->c.shardAhead;
+        if (uDist && I->rx)
+          I->lateAt = V->ticks;
         trace(V, I->num, "shard of %u%s held ahead of its sign part", evX, fromS);
         goto dispatchReturn;
       }
@@ -7560,9 +7608,10 @@ unitIn:
         int other;
 
         other = 0;
+        /* hk: the root tried, 0 once none is left: a break leaves it set */
         for (ri = whichRoot == 2 ? 0 : whichRoot;
-             ri < (whichRoot == 2 ? 2 : whichRoot + 1)
-             && (hk = !ri ? ROOT(I, evX) : I->hasNext[evX] ? ROOTNEXT(I, evX) : 0); ++ri) {
+             (hk = ri >= (whichRoot == 2 ? 2 : whichRoot + 1) ? 0
+                 : !ri ? ROOT(I, evX) : I->hasNext[evX] ? ROOTNEXT(I, evX) : 0); ++ri) {
           gen = I->gen[evX] + ri;
           if (gen > V->hwGen[evX] || (gen == V->hwGen[evX] && po > V->hwOff[evX]))
             break;
@@ -7576,7 +7625,7 @@ unitIn:
             other = 1;
           }
         }
-        if (!rc && (ri == (whichRoot == 2 ? 2 : whichRoot + 1) || !hk)) {
+        if (!rc && !hk) {
           if (other) {
             ++V->c.slotReused;
             ++SEATC(V, evX).slotReused;
@@ -7776,6 +7825,8 @@ keyWalkUnitDone:
         e->held = 1;
       goto unitHeld;
     }
+    if (uDist && I->rx)
+      I->lateAt = V->ticks;
     trace(V, I->num, "sign part of %u%s held (offset %u)%s", evX, fromS, tmp.off,
           *stash ? ", the stashed shard to its gate" : "");
     if (!*stash)
@@ -9087,6 +9138,14 @@ acPar(
 }
 
 #ifdef AC_TEST
+/* the records whose machines run now */
+unsigned int
+acTestKept(
+  const struct ac *V
+){
+  return (V->nKept);
+}
+
 /* the framers' counters, copied */
 void
 acTestCounters(
