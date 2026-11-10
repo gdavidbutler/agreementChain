@@ -137,31 +137,40 @@ main(
     goto done;
   }
 
-  if (!cmMlsVerify(current, anchor, sig, sgsz, &off)) {
-    fprintf(stderr, "%s: seat %u signing offset %u REJECT: signature does not verify vs book current\n"
+  /* the floor first, at the offset the signature's structure yields: the
+   * refusals are arithmetic over the bytes received and this seat's record,
+   * so a refused copy is never verified; what is admitted (RETRY or ACCEPT)
+   * is admitted only past the signature, over the bytes that offset came
+   * from */
+  if (!cmMlsOff(sig, sgsz, &off)) {
+    fprintf(stderr, "%s: seat %u signing offset %u REJECT: the signature yields no signing offset\n"
            ,argv[0], idx + 1, slot);
     goto done;
   }
-
   haveFloor = cmGetField(fpath, "pub", floorPub, CM_SIGN_HSZ) == CM_SIGN_HSZ
            && cmGetU(fpath, "highwater", &hw) == 0
            && cmGetField(fpath, "anchor", floorAnc, CM_SIGN_HSZ) == CM_SIGN_HSZ
            && !memcmp(floorPub, current, CM_SIGN_HSZ);
 
   if (haveFloor && off < hw) {
-    fprintf(stderr, "%s: seat %u signing offset %u REJECT: offset %u < high-water %lu (re-injection)\n"
+    fprintf(stderr, "%s: seat %u signing offset %u REJECT: offset %u < high-water %lu (re-injection; signature not checked)\n"
            ,argv[0], idx + 1, slot, off, hw);
     goto done;
   }
+  /* the RETRY / re-authoring split: identical bytes are the same message
+   * again, a different apex at one one-time signing offset is leaked key material */
+  if (haveFloor && off == hw && memcmp(floorAnc, anchor, CM_SIGN_HSZ)) {
+    fprintf(stderr, "%s: seat %u signing offset %u REJECT: offset %u re-authored"
+                    " (different apex at one signing offset; signature not checked)\n"
+           ,argv[0], idx + 1, slot, off);
+    goto done;
+  }
+  if (!cmMlsVerify(current, anchor, sig, sgsz)) {
+    fprintf(stderr, "%s: seat %u signing offset %u REJECT: signature does not verify vs book current\n"
+           ,argv[0], idx + 1, slot);
+    goto done;
+  }
   if (haveFloor && off == hw) {
-    /* the RETRY / re-authoring split: identical bytes are the same message
-     * again, a different apex at one one-time signing offset is leaked key material */
-    if (memcmp(floorAnc, anchor, CM_SIGN_HSZ)) {
-      fprintf(stderr, "%s: seat %u signing offset %u REJECT: offset %u re-authored"
-                      " (different apex at one signing offset)\n"
-             ,argv[0], idx + 1, slot, off);
-      goto done;
-    }
     fprintf(stderr, "%s: seat %u signing offset %u RETRY: offset %u byte-identical"
                     " re-presentation (high-water %lu unchanged)\n"
            ,argv[0], idx + 1, slot, off, hw);

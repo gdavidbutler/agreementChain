@@ -95,13 +95,12 @@ main(
   unsigned int idx;
   unsigned int off;
   int installed;                      /* the book already moved past this dispersal */
-  int sigOk;                          /* the signature recovers current, at whatever signing offset */
   int ok;
   int rc;
 
   cfg = 0;
   sig = 0;
-  sigOk = ok = 0;
+  ok = 0;
   installed = 0;
   rc = 1;
   if (argc != 5) {
@@ -211,8 +210,7 @@ main(
     goto done;
   }
 
-  sigOk = cmMlsVerify(current, apex, sig, sgsz, &off);
-  ok = sigOk && off == CM_SLOT_ROT;
+  ok = off == CM_SLOT_ROT && cmMlsVerify(current, apex, sig, sgsz);   /* the offset class first: arithmetic */
 
   if (installed) {                /* the RETRY / re-authoring split */
     if (!ok)
@@ -250,7 +248,7 @@ main(
 
   fprintf(stderr, "%s: seat %u dispersal %u  %s\n", argv[0], idx + 1, process
          ,ok ? "ok: installed successor as new current"
-             : sigOk ? "BAD: signed at a payload signing offset, not the rotation's; book unchanged"
+             : off != CM_SLOT_ROT ? "BAD: signed at a payload signing offset, not the rotation's (signature not checked); book unchanged"
              : "BAD: signature does not verify vs current; book unchanged");
   rc = ok ? 0 : 1;
  done:

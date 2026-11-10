@@ -47,14 +47,15 @@
  * current pub and the offset its signature yields (apex = H(current pub ||
  * signing offset || orig_hash || rsecmk_root || sssmk_root), the pub the
  * book names being a verifier's one candidate signer, the offset read from
- * the signature's structure), the initiator's MLS signature must recover that same current pub
- * at a payload signing offset (not CM_SLOT_ROT, the
- * rotation's; this is the path a seat that never ran receive takes, so it
- * gates the signing offset itself), and -- assembling the LIVE dispersal -- the
- * signing-offset floor is read exactly as receive reads it (offset below the
- * high-water or at it under another apex: refused; the floor is read, never
- * written; an older dispersal read in resend mode is below the high-water by
- * definition, and there the chain walk is the gate).  The exchange wire is
+ * the signature's structure); -- assembling the LIVE dispersal -- the
+ * signing-offset floor is read exactly as receive reads it, at that offset
+ * and before the signature (offset below the high-water or at it under
+ * another apex: refused; the floor is read, never written; an older
+ * dispersal read in resend mode is below the high-water by definition, and
+ * there the chain walk is the gate); then the initiator's MLS signature must
+ * recover that same current pub at a payload signing offset (not
+ * CM_SLOT_ROT, the rotation's; this is the path a seat that never ran
+ * receive takes, so it gates the signing offset itself).  The exchange wire is
  * the distribution wire -- the same three messages under the same field
  * names, the sender id and the share's mask the only differences -- and
  * this is the same reader.  Then each PART on its own, into its apex's
@@ -308,6 +309,7 @@ main(
   unsigned char *rsecw;
   unsigned char *shardprobe;          /* measures shard_len = the shard's own length */
   unsigned char *canon;               /* after PASS: the delivered blob's canonical stream */
+  const char *spent;                  /* the search the try budget ran out in: share or shard subsets */
   unsigned char *ovArr[1];
   unsigned int *ssel;
   unsigned int *sa;
@@ -375,6 +377,7 @@ main(
   sig = sssvf = rsecvf = sproof = rproof = 0;
   shareptr = outPtr = shardptr = dptr = 0;
   ptSel = outPts = outBuf = xidx = dbuf = ptbuf = ks = rswork = blob = shardprobe = canon = 0;
+  spent = 0;
   reShare = reLeaf = reParity = sssw = rsecw = 0;
   reSharePtr = 0; reLeafPtr = reShardPtr = 0;
   ssel = sa = sb = dsel = da = db = 0;
@@ -528,8 +531,8 @@ main(
    * hmacs, the apex message, the sign message's tag and signed header, the
    * dispersal label, the apex recomputed under the book's pub and the
    * signature's offset and required to
-   * be the apex message's, the initiator's signature extracting to that pub
-   * at a payload signing offset, the offset floor (live) -- then
+   * be the apex message's, the offset floor (live), the initiator's
+   * signature extracting to that pub at a payload signing offset -- then
    * the share and the shard each under its own proof into the apex's pool.
    * Leaf idx is this seat's own unit: gathered from its receive record by
    * the same path, gated by receive's verdicts in place of a wire hmac (and
@@ -599,12 +602,12 @@ main(
     cmApex(pubroot, off, oh, rr, sr, ap);              /* under the book's pub, the one candidate signer */
     if (!held && memcmp(carried, ap, CM_SIGN_HSZ))     /* the sign message hashes to its apex message's value */
       continue;
-    if (!cmMlsVerify(pubroot, ap, sig, sgsz, &off)     /* initiator-authentic */
-     || off == CM_SLOT_ROT)                            /* at a payload signing offset */
+    if (haveFloor                                      /* not passed by the floor, as receive reads it, */
+     && (off < hw                                      /* at the offset the apex was recomputed at: re-injected, or */
+      || (off == hw && memcmp(floorAnc, ap, CM_SIGN_HSZ))))  /* re-authored -- before the signature is paid for */
       continue;
-    if (haveFloor                                      /* not passed by the floor, as receive reads it: */
-     && (off < hw                                      /* re-injected, or */
-      || (off == hw && memcmp(floorAnc, ap, CM_SIGN_HSZ))))  /* re-authored */
+    if (off == CM_SLOT_ROT                             /* at a payload signing offset */
+     || !cmMlsVerify(pubroot, ap, sig, sgsz))          /* initiator-authentic */
       continue;
     sigOk = 1;
 
@@ -686,18 +689,16 @@ main(
         P->added = 1;
       }
     }
-    if (P->added && P->cs >= t && P->cd >= t)
+    if (P->added && !P->budget && P->cs >= t && P->cd >= t)   /* a spent budget is spent: no search again */
       goto search;
   }
-  /* every leaf read: a pool at threshold with parts unsearched is searched;
-   * one searched with everything gets its relaxed pass; one searched
-   * relaxed is exhausted; the rest are under threshold */
+  /* every leaf read: a pool at threshold was searched when its last part
+   * joined, so one searched with everything gets its relaxed pass; one
+   * searched relaxed is exhausted; the rest are under threshold */
   for (q = 0; q < nPools; ++q) {
     P = pools + q;
     if (P->pass || P->fraud || P->budget || P->cs < t || P->cd < t)
       continue;
-    if (P->added)
-      goto search;
     if (!P->relaxed) {
       P->relaxed = 1;                 /* the last pass: every subset, agreement or not, the hash deciding */
       P->csOld = 0;
@@ -742,8 +743,10 @@ main(
       ;
     if (j == t)
       continue;                         /* tried against an earlier pool */
-    if (++P->tries > CM_SEARCH_TRIES)
+    if (++P->tries > CM_SEARCH_TRIES) {
+      spent = "share";
       goto budget;
+    }
     /* one seed across the subset: the seed the points derive from */
     for (j = 0; j < t; ++j) {
       shareptr[j] = P->shareBuf + (unsigned long)ssel[j] * CM_KEY_LEN;
@@ -818,8 +821,10 @@ main(
         ;
       if (j == t)
         continue;                       /* tried under this K against an earlier pool */
-      if (++P->tries > CM_SEARCH_TRIES)
+      if (++P->tries > CM_SEARCH_TRIES) {
+        spent = "shard";
         goto budget;
+      }
       for (j = 0; j < t; ++j) {
         shardptr[j] = P->shardBuf + (unsigned long)dsel[j] * P->shardLen;
         xidx[j] = P->shardLeaf[dsel[j]];
@@ -852,8 +857,8 @@ main(
         blob = p;
         blobCap = declen;
       }
-      if (declen && hufDecode(blob, declen, ptbuf, (hufLen)(k * P->shardLen)) != declen)
-        continue;
+      if (declen)                       /* the same stream: the count the probe read */
+        hufDecode(blob, declen, ptbuf, (hufLen)(k * P->shardLen));
       cmHash(blob, declen, recvHash);
       if (!memcmp(recvHash, P->orig, CM_SIGN_HSZ)) {
         memcpy(kkey, P->triedK + (unsigned long)q * CM_KEY_LEN, CM_KEY_LEN);
@@ -871,7 +876,8 @@ main(
 
  budget:
   P->budget = 1;
-  fprintf(stderr, "%s: FAIL -- the search is unfinished at the try budget (%u tries)\n", argv[0], P->tries);
+  fprintf(stderr, "%s: FAIL -- the search is unfinished at the try budget (%u tries, in the %s subsets)\n"
+         ,argv[0], P->tries, spent);
   goto gather;
 
  found:
@@ -900,8 +906,7 @@ main(
     cap = (unsigned long)declen + 1024;
     if (!(canon = malloc(cap)))
       goto done;
-    if (!(clen = hufEncode(canon, (hufLen)cap, blob, declen)))
-      goto done;
+    clen = hufEncode(canon, (hufLen)cap, blob, declen);
     if (clen > cap) {
       free(canon);
       if (!(canon = malloc(clen)))

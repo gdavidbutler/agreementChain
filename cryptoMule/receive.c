@@ -55,6 +55,14 @@
  *     that pub at that offset is not its sidecar, whichever key signed it at
  *     whichever offset.  The equality is arithmetic over the bytes received
  *     and the book, and needs no signature, so it comes first;
+ *   - read the signing-offset floor (priv/<p>_floor.txt, the record offsetgate
+ *     keeps for this pub; read here, never written) and refuse a signature the
+ *     floor has passed -- offset below the high-water (re-injection) or at it
+ *     under a different apex (re-authored: a one-time signing offset spent twice);
+ *     at the high-water under the same apex it is the same message again, admitted.
+ *     The offset is the structure's, the one the apex was recomputed at, so
+ *     this too is arithmetic before the signature: a refused copy is never
+ *     verified (sig_ok: unchecked);
  *   - verify the MLS signature over THAT apex recovers the SAME current pub
  *     at a PAYLOAD signing offset (the recovered signing offset is not CM_SLOT_ROT, the
  *     rotation's one-time signing offset; a payload signed there is refused).  Both
@@ -63,11 +71,6 @@
  *     does not verify under another, and a value signed at two offsets is
  *     admitted at one of them only -- the offset the floor records is the
  *     value's, whichever copy arrived;
- *   - read the signing-offset floor (priv/<p>_floor.txt, the record offsetgate
- *     keeps for this pub; read here, never written) and refuse a signature the
- *     floor has passed -- offset below the high-water (re-injection) or at it
- *     under a different apex (re-authored: a one-time signing offset spent twice);
- *     at the high-water under the same apex it is the same message again, admitted;
  *   - unmask the [seed][key-share] unit with PSK(init,i), DERIVE the whole
  *     SSS code points from the seed (cmGeometry), and verify the unit's sssMk
  *     proof -- under the derived scp and this leaf's derived ocp -- against
@@ -258,18 +261,21 @@ main(
     fprintf(stderr, "%s: seat %u  apex=BAD (sign message does not hash to the apex)\n", argv[0], idx + 1);
     goto refuse;
   }
-  sigOk = cmMlsVerify(pubroot, apex, sig, sgsz, &off) && off != CM_SLOT_ROT;
 
   /* the signing-offset floor for this pub (offsetgate's record; no floor, or
-   * a floor for another pub, admits): refuse a re-injected or re-authored
-   * signature, admit the same one again */
-  offOk = sigOk;
-  if (sigOk
-   && cmGetField(fpath, "pub", floorPub, CM_SIGN_HSZ) == CM_SIGN_HSZ
+   * a floor for another pub, admits), at the offset the signature's
+   * structure yields: refuse a re-injected or re-authored signature, admit
+   * the same one again.  Arithmetic over the bytes received and this seat's
+   * record, so it comes before the signature is paid for; the offset it
+   * reads is the one the apex just recomputed at, and the signature then
+   * verifies at that same offset */
+  offOk = 1;
+  if (cmGetField(fpath, "pub", floorPub, CM_SIGN_HSZ) == CM_SIGN_HSZ
    && !memcmp(floorPub, pubroot, CM_SIGN_HSZ)
    && !cmGetU(fpath, "highwater", &hw)
    && cmGetField(fpath, "anchor", floorAnc, CM_SIGN_HSZ) == CM_SIGN_HSZ)
     offOk = off > hw || (off == hw && !memcmp(floorAnc, apex, CM_SIGN_HSZ));
+  sigOk = offOk && off != CM_SLOT_ROT && cmMlsVerify(pubroot, apex, sig, sgsz);
 
   /* the share part: its own fields (a malformed one costs the part, never
    * the unit; assemble reads its wire the same way), then unmask the value,
@@ -322,7 +328,7 @@ main(
   cmPutU(of, "system", idx + 1);
   cmPutU(of, "process", plProcess);
   fprintf(of, "hmac_ok: yes\n");
-  fprintf(of, "sig_ok: %s\n", sigOk ? "yes" : "no");
+  fprintf(of, "sig_ok: %s\n", sigOk ? "yes" : offOk ? "no" : "unchecked");
   fprintf(of, "offset_ok: %s\n", offOk ? "yes" : "no");
   fprintf(of, "sssmk_ok: %s\n", sssOk ? "yes" : "no");
   fprintf(of, "rsecmk_ok: %s\n", rsecOk ? "yes" : "no");
@@ -342,7 +348,7 @@ main(
   fclose(of); of = 0;
 
   fprintf(stderr, "%s: seat %u  sig=%s offset=%s sss=%s rsec=%s\n", argv[0], idx + 1
-         ,sigOk ? "ok" : "BAD", offOk ? "ok" : "BAD", sssOk ? "ok" : "BAD", rsecOk ? "ok" : "BAD");
+         ,sigOk ? "ok" : offOk ? "BAD" : "unchecked", offOk ? "ok" : "BAD", sssOk ? "ok" : "BAD", rsecOk ? "ok" : "BAD");
   rc = (sigOk && offOk && sssOk && rsecOk) ? 0 : 1;
   goto done;
 

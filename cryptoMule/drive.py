@@ -40,13 +40,14 @@ analyzed without wire captures.
   drive.py steps N T       # one step for the whole flow, the single ratchet after it
   drive.py fwdsec N T      # forward secrecy of both phases, bounded by the retention floor
   drive.py tamper N T      # wire tampering detected by the pairwise hmac
-  drive.py byz N T         # byzantine dealer: a bad committed part searched past, most leaves salted, a wrong codeword FRAUD
+  drive.py byz N T         # byzantine dealer: a bad committed part searched past, most leaves salted, a ground seed, another encoder's stream, a wrong codeword FRAUD
+  drive.py budget N T      # the try budget: an unfinished search is FAIL, never FRAUD (46 2: shard subsets; 23 5: share subsets)
   drive.py parts N T       # the share and the shard are two parts: a rotted shard costs its holder's share nothing
-  drive.py limit N T       # the 64k ciphertext cap: refused at distribute, and refused on the wire when dispersed anyway
-  drive.py retry N T       # byte-identical re-presentation accepted, re-authoring not (payload and rotation)
+  drive.py limit N T       # the caps: a blob past CM_BLOB_MAX unread; the 64k ciphertext refused at distribute and on the wire; the signed header alone
+  drive.py retry N T       # byte-identical re-presentation accepted, re-authoring not (payload and rotation); a rotation ahead of the book
   drive.py resend R N T    # a banked distribute re-sent, mask rebuilt off the floor chain
   drive.py chain R N T     # the dispersal chain from the dealt genesis, and its two ways to fall off
-  drive.py evidence R N T  # the chain as OUTSIDE evidence: gap, where it starts, how far it validates
+  drive.py evidence R N T  # the chain as OUTSIDE evidence: gap, where it starts, how far it validates, past the log
   drive.py empty N T       # an empty message is a message: reconstructed at length 0, and its wrong codeword still FRAUD
   drive.py slot N T        # the signing offset partition: a rotation at a payload signing offset, a payload at the rotation's, a payload apex as a rotation
   drive.py hostile N T     # hostile bytes at every ingress, authenticated by a Byzantine sender
@@ -56,7 +57,8 @@ analyzed without wire captures.
 
 byz needs R-2 >= T (its geom fault is rejected at receive on two leaves, and a
 seat must still reach threshold on shares from the rest), so N=5 T=2 rather
-than N=4 T=2.
+than N=4 T=2.  Its stream fault needs T x ceil(6 / T) < 8 (six bytes dispersed
+where the canonical stream is eight): T = 2, 3 or 6.
 
 WIRE TAMPER -- between phases an adversary can alter any disk file OUTSIDE priv/
 (the disk IS the wire).  Every wire message therefore ends in hmac =
@@ -348,7 +350,7 @@ def cmd_dist(ctx="priv/00_ctx_00.bin", process=0, fault=None, other=None):
     cmd = ["./distribute", "priv/00_config.txt", "priv/00_blob.bin", ctx, ".", str(process)]
     if fault:
         cmd.append(fault)
-    if other:                                  # the signer fault's other context
+    if other:                                  # the signer fault's other context, the stream fault's stream
         cmd.append(other)
     r = subprocess.run(cmd, cwd=HERE)
     if r.returncode:
@@ -445,7 +447,8 @@ def cmd_fwdsec(n, t):
     past, so the same legs still read in resend mode (that is the retention
     obligation, and the walk landing on the right step is what proves the
     floor's indexing) until `release` moves the floor past the dispersal:
-    forward secrecy starts at the floor, not at the step."""
+    forward secrecy starts at the floor, not at the step.  `release` moves
+    the floor forward only, and never past the current step."""
     cmd_keychain(1)
     cmd_setup(n, t)
     _reset_floor()
@@ -480,6 +483,16 @@ def cmd_fwdsec(n, t):
                                   cwd=HERE).returncode == 0)
     n_rel += sum(1 for p in range(1, n) if os.path.exists(os.path.join(HERE, "priv", "%02d_assemble.txt" % p)))
     print("after release past dispersal 0, off the floor: %d/%d (expect 0; no record left either)" % (n_rel, total))
+    # the floor moves forward only, and never past the current step
+    ks1 = open(os.path.join(HERE, _kspath(1))).read()
+    step = _ks_step(1)
+    back = subprocess.run(["./release", _cfgpath(1), "0", "anchorlog.txt"], cwd=HERE, capture_output=True)
+    past = subprocess.run(["./release", _cfgpath(1), str(step + 1), "anchorlog.txt"], cwd=HERE, capture_output=True)
+    ok_fwd = (back.returncode != 0 and b"forward-only" in back.stderr
+              and past.returncode != 0 and b"would pass the current step" in past.stderr
+              and open(os.path.join(HERE, _kspath(1))).read() == ks1)
+    print("release back below the floor, or past the current step %d: %s"
+          % (step, "refused, keystate unchanged" if ok_fwd else "MOVED (BUG)"))
     # re-derive the step (re-seed back to step 0) -> readable again
     _seed_all()
     n_re_recv = sum(1 for r in cmd_phase("receive") if r == 0)
@@ -506,7 +519,7 @@ def cmd_fwdsec(n, t):
     print("keystate short of a row: %s" % ("refused" if ok_short else "ACCEPTED (BUG)"))
     ok = (n_recv == total and n_asm == total and n_recv_post == 0 and n_asm_post == 0
           and n_floor == total and n_rel == 0 and n_re_recv == total and n_re_asm == total
-          and ok_short)
+          and ok_short and ok_fwd)
     print("FORWARD SECRECY (both phases at one step; bounded by the floor): %s"
           % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
@@ -762,12 +775,13 @@ def _ks_floor(p):
 
 def _gate(p, slot):
     """run seat p's MLS offset floor over wire/run_<slot>_to_<p>.txt and return
-    the verdict word offsetgate printed: ACCEPT, RETRY or REJECT."""
+    the verdict word offsetgate printed: ACCEPT, RETRY or REJECT, the REJECT
+    the floor gives before the signature as REJECT-unchecked."""
     e = subprocess.run(["./offsetgate", _cfgpath(p), str(slot), str(p - 1), "."],
                        cwd=HERE, capture_output=True).stderr.decode()
     for w in ("ACCEPT", "RETRY", "REJECT"):
         if w + ":" in e:
-            return w
+            return w + ("-unchecked" if "signature not checked" in e else "")
     return "?"
 
 
@@ -932,12 +946,12 @@ def cmd_retry(n, t):
     an honest one.  The floor therefore records the accepted
     APEX beside the high-water and splits the equal-offset case by what was
     signed -- byte-identical is a RETRY, a different apex at the same one-time
-    signing offset is leaked key material and a rejected re-authoring.  Nine arms, in
+    signing offset is leaked key material and a rejected re-authoring.  Ten arms, in
     the order a reader should take them: four at the floor itself (offsetgate),
     two showing receive and assemble READ that floor, one showing the floor is
     a LIVE gate (an older dispersal read in resend mode is below it by
-    definition), two giving a re-presented rotation the same split at the book
-    (rotverify)."""
+    definition), one refusing a rotation that arrives ahead of the book, two
+    giving a re-presented rotation the same split at the book (rotverify)."""
     cmd_keychain(2)
     cmd_setup(n, t)
     _reset_floor()
@@ -971,24 +985,27 @@ def cmd_retry(n, t):
     print("byte-identical re-presentation     : %s (high-water %s, unmoved)" % (again, hw2))
     print("re-authored: same signing offset, new apex : %s" % reauth)
     print("stale offset 0 under high-water 1  : %s" % stale)
+    # both refusals are the floor's arithmetic, before the signature is paid for
     ok = (first == "ACCEPT" and again == "RETRY" and hw1 == hw2 == 1
-          and reauth == "REJECT" and stale == "REJECT")
+          and reauth == "REJECT-unchecked" and stale == "REJECT-unchecked")
 
     # 5: the phase programs READ the floor.  A re-authored DISTRIBUTION -- the
-    # same identity signs a second payload apex at the same signing offset -- verifies as
-    # the initiator's, and receive refuses it on the floor it never writes.
+    # same identity signs a second payload apex at the same signing offset -- would
+    # verify as the initiator's, and receive refuses it on the floor it never
+    # writes, before checking the signature.
     write_blob("cryptoMule retry demonstration, re-authored. " * 40)
     cmd_dist("priv/00_ctx_00.bin", 0)
     rcs = cmd_phase("receive")
     ok5 = all(r != 0 for r in rcs) and all(
-        _field("priv/%02d_recv.txt" % p, "sig_ok") == "yes"
+        _field("priv/%02d_recv.txt" % p, "sig_ok") == "unchecked"
         and _field("priv/%02d_recv.txt" % p, "offset_ok") == "no" for p in range(1, n))
     print("re-authored distribution at receive: %s"
-          % ("REFUSED on the floor at all %d recipients" % (n - 1) if ok5 else "ACCEPTED (BUG)"))
+          % ("REFUSED on the floor, signature unchecked, at all %d recipients" % (n - 1) if ok5 else "ACCEPTED (BUG)"))
     # 6: a forwarder that vouches for it anyway (its own receive record edited)
     # gets it past nobody: assemble reads the floor at the lock
     rec = os.path.join(HERE, "priv", "01_recv.txt")
-    vouched = open(rec).read().replace("offset_ok: no", "offset_ok: yes")
+    vouched = open(rec).read().replace("offset_ok: no", "offset_ok: yes").replace(
+        "sig_ok: unchecked", "sig_ok: yes")
     open(rec, "w").write(vouched)
     if _sys("exchange", 0):
         sys.exit("retry: seat 1 did not forward the vouched unit")
@@ -1022,10 +1039,19 @@ def cmd_retry(n, t):
     # 7/8: the same split for a ROTATION.  Once the book has moved past dispersal
     # 0, a copy of the installed rotation presented again is a RETRY; a second successor
     # signed at the same rotation signing offset is a REJECT (leaked signing offset).
+    # Before that, rotation 1 arrives ahead of the book (still at dispersal 0):
+    # refused unread, the book unchanged, and it installs once rotation 0 has.
+    subprocess.run(["./rotate", "priv/00_config.txt", "priv/00_ctx_01.bin",
+                    "priv/00_ctx_02.bin", "1", "."], cwd=HERE, capture_output=True)
+    book = open(os.path.join(HERE, "priv", "01_book.txt")).read()
+    ahead = subprocess.run(["./rotverify", _cfgpath(1), "1", "0", "."], cwd=HERE, capture_output=True)
+    okA = (ahead.returncode != 0 and b"book at dispersal 0, asked 1" in ahead.stderr
+           and open(os.path.join(HERE, "priv", "01_book.txt")).read() == book)
+    print("rotation 1 ahead of the book       : %s" % ("REFUSED, book unchanged" if okA else "INSTALLED (BUG)"))
     if rotate_verify(0) != n - 1:
         sys.exit("retry: rotation 0 did not install everywhere")
     rrot = _rotgate(1, 0)
-    if rotate_verify(1) != n - 1:          # two dispersals on, still the same rotation
+    if [_rotgate(p, 1) for p in range(1, n)] != ["INSTALL"] * (n - 1):   # two dispersals on, still the same rotation
         sys.exit("retry: rotation 1 did not install everywhere")
     book = open(os.path.join(HERE, "priv", "01_book.txt")).read()
     rrot2 = _rotgate(1, 0)
@@ -1038,7 +1064,7 @@ def cmd_retry(n, t):
     print("rotation re-authored: new successor : %s (book unchanged: %s)"
           % (rreauth, "yes" if ok7 else "NO (BUG)"))
 
-    ok = ok and ok5 and ok6 and ok6b and ok7
+    ok = ok and ok5 and ok6 and ok6b and okA and ok7
     print("RETRY WITHOUT RE-INJECTION (byte-identity at the offset floor,"
           " read by receive/assemble, and at the rotation book): %s"
           % ("demonstrated" if ok else "NOT shown"))
@@ -1158,7 +1184,7 @@ def cmd_evidence(processes, n, t):
     Past the retention floor there is no inside heal: nothing anyone still holds
     reaches back, and a resend refuses.  The public link sequence is what is left,
     and ./chainverify is what makes it usable -- fold from the DEALT genesis over
-    whatever fragments have been gathered and compare each link to the log.  Three
+    whatever fragments have been gathered and compare each link to the log.  Five
     arms, one per answer the returning seat needs:
 
       complete   every position gathered -> validates 0..R-1
@@ -1166,6 +1192,9 @@ def cmd_evidence(processes, n, t):
                                             the chain validated before it
       wrong item an item at the wrong position -> MISMATCH, even though the item
                                             is perfectly authentic elsewhere
+      past the log an item for a position the log has not reached -> the log
+                                            ends before it
+      no hash    an item that carries no message hash -> malformed, refused
 
     The third arm is the one worth watching: the fragment is genuine and its
     signature is fine.  What the chain decides is not who made it but whether it
@@ -1206,12 +1235,18 @@ def cmd_evidence(processes, n, t):
     swap = frag[:]
     swap[1] = frag[2]                                       # authentic, wrong place
     rc2, m2 = verify(swap)                                  # wrong item
+    rc3, m3 = verify(frag + frag[-1:])                      # an item past the log's end
+    rc4, m4 = verify(frag[:1] + ["priv/01_book.txt"])       # an item that carries no message hash
 
     print("complete   : rc=%d  %s" % (rc0, m0))
     print("gap        : rc=%d  %s" % (rc1, m1))
     print("wrong item : rc=%d  %s" % (rc2, m2))
+    print("past the log: rc=%d  %s" % (rc3, m3))
+    print("no hash    : rc=%d  %s" % (rc4, m4))
     ok = (rc0 == 0 and rc1 == 2 and "GAP at dispersal 1" in m1
-          and rc2 == 1 and "MISMATCH at dispersal 1" in m2)
+          and rc2 == 1 and "MISMATCH at dispersal 1" in m2
+          and rc3 == 2 and "log ends before dispersal %d" % processes in m3
+          and rc4 == 1 and "malformed fragment" in m4)
     print("CHAIN AS OUTSIDE EVIDENCE (gap exists / where it starts / how far it"
           " validates): %s" % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
@@ -1356,8 +1391,9 @@ def cmd_tamper(n, t):
          (hmac_ok: no); 1b. a tampered dist shard message: the shard part
          refused unparsed (rsecmk_ok: no, no shard kept), the share kept;
          1c. the hmac field in capitals or changed in its first or last digit,
-         and the message hmac'd for the other direction or under the other
-         pair's key: refused unparsed;
+         its line not ended by its newline, the message hmac'd for the other
+         direction or under the other pair's key, and the message grown past
+         what one hmac covers or cut short of an hmac line: refused unparsed;
       2. a tampered exchange fragment: assemble skips that sender and still
          reaches threshold from the untampered rest (censorship recovery);
       3. a tampered rotation: the recipient rejects it, its book unchanged;
@@ -1398,6 +1434,19 @@ def cmd_tamper(n, t):
         else:
             open(os.path.join(HERE, apx), "w").write(bodyApx + "hmac: " + field + "\n")
         os.remove(os.path.join(HERE, "priv", "01_recv.txt"))   # this read's verdict, no earlier one
+        good = _sys("receive", 0) != 0 and _field("priv/01_recv.txt", "hmac_ok") == "no"
+        print("%s: %s" % (name, "unit REJECTED unparsed (hmac)" if good else "ACCEPTED (BUG)"))
+        ok1c = ok1c and good
+    # the hmac line not ended by its newline, the message grown past what one
+    # hmac covers (a sparse file of 4 GiB: sized, never read), and the message
+    # cut to fewer bytes than an hmac line
+    for name, grow in (("hmac line's newline replaced", 0), ("message past what one hmac covers", 2 ** 32),
+                       ("message cut short of an hmac line", 8)):
+        with open(os.path.join(HERE, apx), "w") as f:
+            f.write(cleanApx if grow else cleanApx[:-1] + " ")
+            if grow:
+                f.truncate(grow)
+        os.remove(os.path.join(HERE, "priv", "01_recv.txt"))
         good = _sys("receive", 0) != 0 and _field("priv/01_recv.txt", "hmac_ok") == "no"
         print("%s: %s" % (name, "unit REJECTED unparsed (hmac)" if good else "ACCEPTED (BUG)"))
         ok1c = ok1c and good
@@ -1483,6 +1532,18 @@ def cmd_tamper(n, t):
     sys.exit(0 if ok else 1)
 
 
+def _huflen(k):
+    """huffman's length field for k: base 128 most significant first, every
+    byte but the last marked, each marked byte one less (bijective)."""
+    b = [k & 0x7f]
+    k >>= 7
+    while k:
+        k -= 1
+        b.insert(0, 0x80 | (k & 0x7f))
+        k >>= 7
+    return bytes(b)
+
+
 def _asm_result(p):
     """recipient p's assemble verdict (PASS / FAIL / FRAUD)."""
     for line in open(os.path.join(HERE, "priv", "%02d_assemble.txt" % p)):
@@ -1508,7 +1569,13 @@ def cmd_byz(n, t):
     not the seed's derivation is rejected at receive on the mis-bound leaves
     (their holders forward the shard part alone) and the rest deliver.  A
     CONSISTENT codeword of the wrong bytes (the ct fault) is the one thing no
-    subset repairs: the search exhausts and the verdict is FRAUD."""
+    subset repairs: the search exhausts and the verdict is FRAUD.  A leaf
+    under a seed ground to the same secret point and leaf point (the grind
+    fault) passes receive, and no subset mixing seeds is interpolated: the
+    rest deliver and the re-encode names it.  A stream
+    of another encoder's choosing that decodes to the message (the stream
+    fault) delivers it, and the canonical stream does not fit the committed
+    shards: inconsistent, and no leaf can be named."""
     # per fault: the description, the bad shares and bad shards every
     # assembler must name (leaf 0 is seat 1), the receives that reject.
     # salt corrupts every share but the last T: more T-subsets than R, so
@@ -1517,23 +1584,44 @@ def cmd_byz(n, t):
     # that is there).  pad flips a padding byte of data shard k-1 (seat T):
     # the hash passes without reading it, and a re-encode from the winning
     # shards would name nothing (or an honest parity leaf); the re-encode from
-    # the canonical ciphertext names seat T
+    # the canonical ciphertext names seat T.  stream and long are streams of
+    # another encoder's choosing, the file's bytes dispersed in place of the
+    # blob's huffman encoding.  stream: six bytes of two values, coded --
+    # length 6, codes of at most one bit, two of them, a 0 and b 1, the bits
+    # 000001 -- where huffman writes them raw in eight (the length, a zero,
+    # the six); the hash passes, the canonical stream does not fit the
+    # committed T x ceil(6 / T), so the commitment is inconsistent and no
+    # leaf can be named -- at T = 2, 3 and 6; at T = 4 and 5 the eight bytes
+    # fit.  long: the one-symbol form whose length field names 2^30 + 1
+    # symbols, past CM_BLOB_MAX, so every try fails at the probe: FRAUD
+    streams = {
+        "stream": (b"aaaaab", b"\x06\x01\x02ab\x04"),
+        "long": (b"a", _huflen(2 ** 30 + 1) + b"\x01\x01a"),
+    }
     salted = [str(i + 1) for i in range(n - 1 - t)]
     faults = {
         "shard": ("non-codeword RS shard    -> delivered, commitment inconsistent, bad shard named", [], ["1"], 0),
         "pad":   ("flipped padding byte     -> the hash never reads it: delivered, named by the canonical re-encode", [], [str(t)], 0),
+        "stream": ("another encoder's stream -> delivered; the canonical stream does not fit the shards: inconsistent, no leaf named", [], [], 0),
         "share": ("off-polynomial SSS share -> delivered, commitment inconsistent, bad share named", ["1"], [], 0),
         "salt":  ("every share but T off    -> delivered past R candidates, the salted leaves named", salted, [], 0),
         "geom":  ("off-derivation geometry  -> receive rejects the mis-bound leaves; delivered from the rest", [], [], 2),
+        "grind": ("a leaf under a ground seed -> passes receive, never interpolated with the rest: delivered, named", ["1"], [], 0),
         "ct":    ("consistent codeword, wrong bytes -> nothing reproduces the signed hash: FRAUD", None, None, 0),
+        "long":  ("a stream past CM_BLOB_MAX -> every try fails at the probe: FRAUD", None, None, 0),
     }
     allok = True
     for fault, (desc, badShares, badShards, rejects) in faults.items():
         cmd_keychain(1)
         cmd_setup(n, t)
         _reset_floor()
-        write_blob("cryptoMule byzantine-dealer %s payload. " % fault * 40)
-        cmd_dist("priv/00_ctx_00.bin", 0, fault)
+        if fault in streams:
+            write_blob(streams[fault][0])
+            open(os.path.join(HERE, "priv", "00_stream.bin"), "wb").write(streams[fault][1])
+            cmd_dist("priv/00_ctx_00.bin", 0, "stream", "priv/00_stream.bin")
+        else:
+            write_blob("cryptoMule byzantine-dealer %s payload. " % fault * 40)
+            cmd_dist("priv/00_ctx_00.bin", 0, fault)
         recv = cmd_phase("receive")
         rej = sum(1 for r in recv if r != 0)
         gate_offset(_apex())
@@ -1543,7 +1631,7 @@ def cmd_byz(n, t):
         verdicts = [_asm_result(p) for p in range(1, n)]
         tries = [_asm(p, "tries") for p in range(1, n)]
         commit = [_asm(p, "commitment") for p in range(1, n)]
-        if fault == "ct":
+        if fault in ("ct", "long"):
             ok = all(v == "FRAUD" for v in verdicts)
         else:
             # the commitment reads inconsistent iff a committed part is off:
@@ -1564,6 +1652,66 @@ def cmd_byz(n, t):
     print("BYZANTINE DEALER (a bad part searched past, a wrong codeword FRAUD): %s"
           % ("demonstrated" if allok else "NOT shown"))
     sys.exit(0 if allok else 1)
+
+
+def cmd_budget(n, t):
+    """THE TRY BUDGET.  Past CM_SEARCH_TRIES the search stops unfinished, and
+    a spent budget has not shown that no subset reproduces the signed hash,
+    so it is no accusation: FAIL with `search: budget`, never FRAUD.  Two
+    dealers at the deal, each judged at every seat, and assemble names the
+    search the budget ran out in:
+      salt -- every share but T off the polynomial: PASS, or the budget
+              spent.  The salt flips one bit of each salted share, so at
+              T >= 3 a subset mixing good and salted shares can interpolate
+              the true K by chance (its error term is zero at the secret's
+              point about once in 256) and the search PASSes at a count
+              that varies run to run; at T = 2 that term is one share's
+              Lagrange basis at the secret's point, never zero, and the
+              count moves a few percent (41 2: 55381 to 57721 tries; 43 2:
+              65437 to 65537).  At 46 2 it spends the budget in the shard
+              subsets, with margin.
+      ct   -- a consistent codeword of the wrong bytes: FRAUD, or the budget
+              spent.  Every share is good, so every share subset is the one
+              K: the gather tries each share subset and each shard subset
+              once, 2 x C(R, T), and the relaxed pass tries the share
+              subsets alone again, C(R, T) more.  Where 2 x C(R, T) < 65536
+              <= 3 x C(R, T) the budget runs out in the share subsets, every
+              seat alike: 23 5 (C(22, 5) = 26334), 30 4, 53..60 3.
+    The arm passes when neither dealer reads the other's verdict and one of
+    them spends the budget at every seat."""
+    rows = []
+    for fault, other in (("salt", "PASS"), ("ct", "FRAUD")):
+        cmd_keychain(1)
+        cmd_setup(n, t)
+        _reset_floor()
+        write_blob("cryptoMule byzantine-dealer %s payload. " % fault * 40)
+        cmd_dist("priv/00_ctx_00.bin", 0, fault)
+        cmd_phase("receive")
+        gate_offset(_apex())
+        cmd_phase("exchange")
+        loops = set()
+        for i in range(n - 1):
+            e = subprocess.run(["./assemble", _cfgpath(i + 1), str(i), "."], cwd=HERE,
+                               capture_output=True).stderr.decode()
+            loops.update(w for w in ("share", "shard") if "in the %s subsets" % w in e)
+        ratchet_all(0, _chain(None, _msg()), range(n))
+        verdicts = [_asm_result(p) for p in range(1, n)]
+        search = [_asm(p, "search") for p in range(1, n)]
+        tries = [_asm(p, "tries") for p in range(1, n)]
+        spent = [v == "FAIL" and s == ["budget"] for v, s in zip(verdicts, search)]
+        honest = all(v == other or b for v, b in zip(verdicts, spent))
+        print("  %-4s assemble %s  tries %s" % (fault, sorted(set(verdicts)), sorted(set(x[0] if x else "?" for x in tries))))
+        print("       spent the budget at %d of %d seats%s, the rest %s: %s"
+              % (sum(spent), n - 1, " in the %s subsets" % "/".join(sorted(loops)) if loops else "",
+                 other, "yes" if honest else "NO (BUG)"))
+        rows.append((honest, all(spent)))
+    ok = all(h for h, _ in rows) and any(a for _, a in rows)
+    if all(h for h, _ in rows) and not ok:
+        print("THE TRY BUDGET: not spent at every seat at this deal")
+        sys.exit(1)
+    print("THE TRY BUDGET (an unfinished search is FAIL, never FRAUD): %s"
+          % ("demonstrated" if ok else "NOT shown"))
+    sys.exit(0 if ok else 1)
 
 
 def cmd_parts(n, t):
@@ -1603,14 +1751,29 @@ def cmd_parts(n, t):
 
 
 def cmd_limit(n, t):
-    """THE CIPHERTEXT CAP (CM_CT_MAX).  A message that compresses past it is
-    not dispersed; dispersed anyway (distribute's `big` fault), every
-    receiver refuses the shard part on its own wire (rsecmk_ok no, the share
-    kept), exchange forwards shares alone, and no assembler reaches T on
-    shards -- the same check on both wires."""
+    """THE CAPS.  A blob past CM_BLOB_MAX is refused at distribute before a
+    byte of it is read.  A message that compresses past CM_CT_MAX is not
+    dispersed; dispersed anyway (distribute's `big` fault), every receiver
+    refuses the shard part on its own wire (rsecmk_ok no, the share kept),
+    exchange forwards shares alone, and no assembler reaches T on shards --
+    the same check on both wires.  A seat whose share is refused too holds
+    neither part, and exchange still forwards it the signed header."""
     cmd_keychain(1)
     cmd_setup(n, t)
     _reset_floor()
+    # a blob past CM_BLOB_MAX, sized and refused before a byte is read (the
+    # file is sparse: nothing of it exists to read)
+    huge = os.path.join(HERE, "priv", "00_huge.bin")
+    with open(huge, "wb") as f:
+        f.truncate(2 ** 30 + 1)
+    for f in glob.glob(os.path.join(HERE, "wire", "dist", "00_to_01_*.txt")):
+        os.remove(f)                             # an earlier arm's leg must not stand in for this one
+    r = subprocess.run(["./distribute", "priv/00_config.txt", "priv/00_huge.bin",
+                        "priv/00_ctx_00.bin", ".", "0"], cwd=HERE, capture_output=True)
+    os.remove(huge)
+    ok0 = (r.returncode != 0 and b"past CM_BLOB_MAX" in r.stderr
+           and not os.path.exists(os.path.join(HERE, "wire", "dist", "00_to_01_shard.txt")))
+    print("distribute of a blob past CM_BLOB_MAX: %s" % ("REFUSED unread, nothing on the wire" if ok0 else "DISPERSED (BUG)"))
     write_blob(os.urandom(70000))               # incompressible: past 64k however it is packed
     for f in glob.glob(os.path.join(HERE, "wire", "dist", "00_to_01_*.txt")):
         os.remove(f)                             # an earlier arm's leg must not stand in for this one
@@ -1642,8 +1805,26 @@ def cmd_limit(n, t):
     ok4 = (os.path.exists(os.path.join(HERE, "wire", "exch", "01_to_02_shard.txt"))
            and all("1" not in _asm(p, "shard_senders") and "1" in _asm(p, "share_senders") for p in range(2, n)))
     print("vouched oversize shard on the exchange wire: %s" % ("REFUSED by assemble's own cap check, the share kept" if ok4 else "ADMITTED (BUG)"))
-    ok = ok1 and ok2 and ok3 and ok4
-    print("THE CIPHERTEXT CAP (the same check on both wires): %s" % ("demonstrated" if ok else "NOT shown"))
+    # the last seat's share arrives rotted too (re-hmac'd by the dealer's
+    # key): it holds neither part, and exchange still forwards the signed
+    # header, the apex and sign messages carrying no part
+    q = n - 1
+    _hostile("wire/dist/00_to_%02d_sign.txt" % q, 0, q, "share_masked", HOSTILE["flip"])
+    _sys("receive", q - 1)
+    rq = open(os.path.join(HERE, "priv", "%02d_recv.txt" % q)).read()
+    _sys("exchange", q - 1)
+    leg = "wire/exch/%02d_to_01_%%s.txt" % q
+    ok5 = ("sssmk_ok: no" in rq and "rsecmk_ok: no" in rq and "sig_ok: yes" in rq
+           and os.path.exists(os.path.join(HERE, leg % "apex"))
+           and not os.path.exists(os.path.join(HERE, leg % "shard"))
+           and _field(leg % "sign", "mls_sig") is not None
+           and _field(leg % "sign", "share_masked") is None
+           and _field(leg % "sign", "rsecmk_proof") is None)
+    _sys("assemble", q - 1)                      # its own unit, holding neither part, joins no pool
+    ok5 = ok5 and _asm_result(q) == "FAIL" and not [x for x in _asm(q, "share_senders") + _asm(q, "shard_senders") if "held" in x]
+    print("a seat holding neither part: %s" % ("forwards the signed header alone, and gathers nothing of its own" if ok5 else "NOT forwarded alone (BUG)"))
+    ok = ok0 and ok1 and ok2 and ok3 and ok4 and ok5
+    print("THE CAPS (the blob unread; the ciphertext, the same check on both wires): %s" % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
 
 
@@ -1713,7 +1894,8 @@ def cmd_slot(n, t):
       1: a rotation signed at a payload signing offset (rotate's `slot` fault) is
          refused by rotverify on the signing offset it recovers, the book unchanged;
          the genuine rotation then installs (the gate is the signing offset, not the
-         message);
+         message), and the faulty copy presented again is refused against the
+         install record the same way;
       2: a payload signed at the rotation signing offset (distribute's `slot` fault) is
          refused by receive at every recipient;
       3: a forwarder that vouches for it anyway (its own receive record edited
@@ -1740,8 +1922,22 @@ def cmd_slot(n, t):
     ok1 = (r1.returncode != 0 and "payload signing offset" in r1.stderr.decode()
            and open(os.path.join(HERE, "priv", "01_book.txt")).read() == book0)
     print("rotation at a payload signing offset: %s" % ("REFUSED on the signing offset, book unchanged" if ok1 else "INSTALLED (BUG)"))
+    rot = ["wire/rot/00_rotate_00_to_01_%s.txt" % m for m in ("apex", "sign")]
+    faulty = [open(os.path.join(HERE, f)).read() for f in rot]
     ok1 = ok1 and rotate_verify(0) == n - 1
     print("genuine rotation at the rotation signing offset: %s" % ("installed" if ok1 else "REFUSED (BUG)"))
+    # the faulty copy again, the book past it: refused against the install record
+    genuine = [open(os.path.join(HERE, f)).read() for f in rot]
+    for f, b in zip(rot, faulty):
+        open(os.path.join(HERE, f), "w").write(b)
+    book1 = open(os.path.join(HERE, "priv", "01_book.txt")).read()
+    r1 = subprocess.run(["./rotverify", _cfgpath(1), "0", "0", "."], cwd=HERE, capture_output=True)
+    for f, b in zip(rot, genuine):
+        open(os.path.join(HERE, f), "w").write(b)
+    okL = (r1.returncode != 0 and b"re-presented rotation does not verify" in r1.stderr
+           and open(os.path.join(HERE, "priv", "01_book.txt")).read() == book1)
+    print("that copy again, the book past it: %s" % ("REJECT against the install record, book unchanged" if okL else "ACCEPTED (BUG)"))
+    ok1 = ok1 and okL
     # 2: ctx_01 (now current, dispersal 1) signs a payload apex at signing offset 0
     write_blob("cryptoMule slot demonstration payload. " * 40)
     cmd_dist("priv/00_ctx_01.bin", 1, "slot")
@@ -1804,13 +2000,17 @@ HOSTILE = {                     # one field, rewritten by a sender who holds the
     "huge": lambda v: "ab" * 70000,
     "flip": lambda v: v[:len(v) // 2] + ("0" if v[len(v) // 2] != "0" else "1") + v[len(v) // 2 + 1:],
     "tail": lambda v: v + "x",
+    "lead": lambda v: ("1" if v[:1] != "1" else "2") + v[1:],
+    "upper": lambda v: v.upper(),
 }
 
 
 def _hostile(path, a, b, field, how):
     """rewrite one field of the wire message at path as the Byzantine sender a
     would -- and re-authenticate it with mac(a,b), so the hmac gate PASSES and
-    the bytes reach the reader.  Returns the clean text to put back."""
+    the bytes reach the reader.  Returns the clean text to put back, or None
+    when the rewriting leaves the field as it was (nothing written: bytes no
+    one changed are not hostile)."""
     clean = open(os.path.join(HERE, path)).read()
     out = []
     for line in clean.splitlines():
@@ -1819,7 +2019,10 @@ def _hostile(path, a, b, field, how):
         if line.startswith(field + ": "):
             if how is None:
                 continue
-            line = field + ": " + how(line.split(": ", 1)[1])
+            v = line.split(": ", 1)[1]
+            if how(v) == v:
+                return None
+            line = field + ": " + how(v)
         out.append(line)
     open(os.path.join(HERE, path), "w").write("\n".join(out) + "\n")
     subprocess.run(["./cmhmac", _mac(a, b), str(a), str(b), path], cwd=HERE, capture_output=True, check=True)
@@ -1840,7 +2043,8 @@ def cmd_hostile(n, t):
     wire hmac refuses the network's alterations unparsed (tamper); a BYZANTINE
     SENDER authenticates whatever it likes, so every reader must survive
     every field of every message being missing, empty, non-hex, odd, short,
-    overlong, huge or bit-flipped -- no crash, the message refused, and (for
+    overlong, huge, bit-flipped, with its first digit changed or in upper
+    case (hex is one form: the other case is not the same bytes) -- no crash, the message refused, and (for
     an exchange fragment) threshold still reached from the honest rest.  The
     driver plays that sender: it rewrites one field and re-hmacs with the
     dealt pairwise key.  Four ingresses: dist -> receive, exch -> assemble,
@@ -1882,6 +2086,8 @@ def cmd_hostile(n, t):
                 off, on = None, None
             for how, m in HOSTILE.items():
                 clean = _hostile(path, 0, 1, f, m)
+                if clean is None:
+                    continue
                 rc = run(["./receive", _cfgpath(1), "0", "."])
                 open(os.path.join(HERE, path), "w").write(clean)
                 r = open(os.path.join(HERE, "priv", "01_recv.txt")).read()
@@ -1909,6 +2115,8 @@ def cmd_hostile(n, t):
                 lists = ("share_senders", "shard_senders")
             for how, m in HOSTILE.items():
                 clean = _hostile(path, 2, 1, f, m)
+                if clean is None:
+                    continue
                 rc = run(["./assemble", _cfgpath(1), "0", "."])
                 open(os.path.join(HERE, path), "w").write(clean)
                 cases += 1
@@ -1924,6 +2132,8 @@ def cmd_hostile(n, t):
         for f in _fields(path, ("process",)):
             for how, m in HOSTILE.items():
                 clean = _hostile(path, 0, 1, f, m)
+                if clean is None:
+                    continue
                 rc = run(["./rotverify", _cfgpath(1), "0", "0", "."])
                 open(os.path.join(HERE, path), "w").write(clean)
                 cases += 1
@@ -1934,6 +2144,8 @@ def cmd_hostile(n, t):
     for f in _fields("wire/run_01_to_01.txt", ("slot",)):
         for how, m in HOSTILE.items():
             clean = _hostile("wire/run_01_to_01.txt", 0, 1, f, m)
+            if clean is None:
+                continue
             rc = run(["./offsetgate", _cfgpath(1), "1", "0", "."])
             open(os.path.join(HERE, "wire", "run_01_to_01.txt"), "w").write(clean)
             cases += 1
@@ -2214,6 +2426,8 @@ def main(argv):
         cmd_tamper(int(argv[2]), int(argv[3]))
     elif c == "byz":
         cmd_byz(int(argv[2]), int(argv[3]))
+    elif c == "budget":
+        cmd_budget(int(argv[2]), int(argv[3]))
     elif c == "parts":
         cmd_parts(int(argv[2]), int(argv[3]))
     elif c == "limit":

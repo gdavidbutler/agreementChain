@@ -78,13 +78,16 @@
  *            T-subsets than R, so the search's candidate list must grow to
  *            the try budget to reach the good pair
  *   geom  -- commit non-derived code points: build the sssMk tree with ocp 0/1 swapped
+ *   grind -- commit leaf 0 under another seed, ground until its code points
+ *            give the same scp and leaf-0 point: it passes receive, and no
+ *            subset mixing it with the dealt seed is interpolated
  *   ct    -- commit a CONSISTENT codeword of the wrong bytes: corrupt the
  *            ciphertext BEFORE the RS encode, so every subset decodes to it
  *   big   -- disperse past CM_CT_MAX (the cap is skipped here): every
  *            receiver refuses the shard part on its own wire
  * Every per-unit gate still passes where the fraud is not local; detection is
- * receive's code points check or assemble's search: shard, share and geom
- * deliver the message from the good parts and name the commitment
+ * receive's code points check or assemble's search: shard, share, geom and
+ * grind deliver the message from the good parts and name the commitment
  * inconsistent, ct exhausts the search (nothing reproduces the signed hash)
  * and is the FRAUD verdict.
  *   slot  -- sign the apex at CM_SLOT_ROT, the rotation's one-time signing offset
@@ -104,6 +107,13 @@
  *            and sign it with <currentCtxPriv> (`drive.py signer`): the
  *            signature extracts to the signer's pub, the apex commits another,
  *            and every recipient refuses the unit at the apex recompute.
+ *   stream <streamFile> -- disperse the bytes of <streamFile> in place of
+ *            the blob's huffman encoding, a stream of another encoder's
+ *            choosing (`drive.py byz`).  One that decodes to the blob
+ *            passes the hash, and where the canonical stream does not fit
+ *            the committed k x shard_len the commitment is inconsistent with
+ *            no leaf named; one whose length field names more than
+ *            CM_BLOB_MAX fails every try at the probe: FRAUD.
  *
  * usage: distribute <config> <blob> <currentCtxPriv> <outDir> <dispersal> [fault]
  */
@@ -153,6 +163,7 @@ main(
   unsigned char pool[CM_MAXPROC];     /* derived: pool[0] = scp, pool[1..] = ocps */
   unsigned char scp;
   unsigned char *ocp;
+  char *pubCtx;                       /* the context whose pub the apex commits: the signer's (the signer fault: another's) */
   char path[1024];
   char apexName[64];                  /* the apex message's file name: the parts' tag */
   unsigned long origLen;
@@ -176,9 +187,11 @@ main(
   int fltShare;
   int fltSalt;
   int fltGeom;
+  int fltGrind;
   int fltSlot;
   int fltCt;
   int fltBig;
+  int fltStream;
   int rc;
 
   cfg = 0; bf = of = 0;
@@ -186,11 +199,12 @@ main(
   ivp = dptr = pptr = 0; sShare = shardPtr = leafPtr = 0;
   sssw = rsecw = sproof = rproof = sig = sig2 = 0;
   t = r = 0;
-  fltShard = fltPad = fltShare = fltSalt = fltGeom = fltSlot = fltCt = fltBig = 0;
+  fltShard = fltPad = fltShare = fltSalt = fltGeom = fltGrind = fltSlot = fltCt = fltBig = fltStream = 0;
   rc = 1;
 
-  if (argc != 6 && argc != 7 && !(argc == 8 && !strcmp(argv[6], "signer"))) {
-    fprintf(stderr, "usage: %s <config> <blob> <currentCtxPriv> <outDir> <dispersal> [shard|pad|share|salt|geom|slot|slot2|twoslot|ct|big|signer <otherCtxPriv>]\n", argv[0]);
+  if (argc != 6 && argc != 7
+   && !(argc == 8 && (!strcmp(argv[6], "signer") || !strcmp(argv[6], "stream")))) {
+    fprintf(stderr, "usage: %s <config> <blob> <currentCtxPriv> <outDir> <dispersal> [shard|pad|share|salt|geom|grind|slot|slot2|twoslot|ct|big|stream <streamFile>|signer <otherCtxPriv>]\n", argv[0]);
     return (1);
   }
   process = (unsigned int)atoi(argv[5]);
@@ -200,6 +214,7 @@ main(
     else if (!strcmp(argv[6], "share")) fltShare = 1;
     else if (!strcmp(argv[6], "salt")) fltSalt = 1;
     else if (!strcmp(argv[6], "geom")) fltGeom = 1;
+    else if (!strcmp(argv[6], "grind")) fltGrind = 1;
     else if (!strcmp(argv[6], "slot")) fltSlot = 1;
     else if (!strcmp(argv[6], "slot2")) fltSlot = 2;
     else if (!strcmp(argv[6], "twoslot")) fltSlot = 3;
@@ -209,6 +224,13 @@ main(
       fprintf(stderr, "%s: unknown fault %s\n", argv[0], argv[6]);
       return (1);
     }
+  }
+  pubCtx = argv[3];
+  if (argc == 8) {                    /* a fault with its file */
+    if (!strcmp(argv[6], "signer"))
+      pubCtx = argv[7];
+    else
+      fltStream = 1;
   }
 
   if (!(cfg = malloc(sizeof (*cfg))) || cmCfgLoad(argv[1], cfg)) {
@@ -244,6 +266,14 @@ main(
     goto done;
   }
   origLen = (unsigned long)ol;
+  /* the blob is bounded by what an assembler will decode (CM_BLOB_MAX, the
+   * application's to size); past it nothing is read or dispersed, and within
+   * it the length fits the hash's and the huffman encoding's unsigned int */
+  if (origLen > CM_BLOB_MAX) {
+    fprintf(stderr, "%s: blob %lu bytes past CM_BLOB_MAX %lu: not dispersed\n"
+           ,argv[0], origLen, (unsigned long)CM_BLOB_MAX);
+    goto done;
+  }
   rewind(bf);
   /* an empty blob is a message: nothing to read, hashed and encoded at length
    * 0 (the huffman encoding of nothing is two bytes) */
@@ -253,14 +283,6 @@ main(
     goto done;
   }
   fclose(bf); bf = 0;
-  /* the blob is bounded by what an assembler will decode (CM_BLOB_MAX, the
-   * application's to size); past it nothing is dispersed, and within it the
-   * length fits the hash's and the huffman encoding's unsigned int */
-  if (origLen > CM_BLOB_MAX) {
-    fprintf(stderr, "%s: blob %lu bytes past CM_BLOB_MAX %lu: not dispersed\n"
-           ,argv[0], origLen, (unsigned long)CM_BLOB_MAX);
-    goto done;
-  }
   cmHash(blob, (unsigned int)origLen, orig_hash);
 
   /* huffman compress (self-describing length); retry if the guess is short */
@@ -268,15 +290,25 @@ main(
   if (!(comp = malloc(cap)))
     goto done;
   clen = hufEncode(comp, (hufLen)cap, blob, (hufLen)origLen);
-  if (!clen)
-    goto done;
   if (clen > cap) {
     free(comp);
     if (!(comp = malloc(clen)))
       goto done;
     clen = hufEncode(comp, (hufLen)clen, blob, (hufLen)origLen);
-    if (!clen)
+  }
+  if (fltStream) {                    /* another encoder's stream in place of the canonical one */
+    FILE *sf;
+    long sl;
+
+    if (!(sf = fopen(argv[7], "rb")) || fseek(sf, 0, SEEK_END) || (sl = ftell(sf)) <= 0
+     || (clen = (unsigned long)sl) > cap || fseek(sf, 0, SEEK_SET)
+     || fread(comp, 1, clen, sf) != clen) {
+      fprintf(stderr, "%s: cannot read a stream of 1 to %lu bytes from %s\n", argv[0], cap, argv[7]);
+      if (sf)
+        fclose(sf);
       goto done;
+    }
+    fclose(sf);
   }
 
   /* dealt randomness: K (= first KEY_LEN of ivBuf) and the SSS pad values */
@@ -324,6 +356,23 @@ main(
     memcpy(leafBuf + (unsigned long)i * CM_MVAL_LEN + CM_SEED_LEN
           ,sShare[i], CM_KEY_LEN);
     leafPtr[i] = leafBuf + (unsigned long)i * CM_MVAL_LEN;
+  }
+  if (fltGrind) {                     /* leaf 0 under a seed of the same scp and leaf-0 point */
+    unsigned char g[CM_SEED_LEN];
+    unsigned char st[CM_KDF_HSZ];       /* cmGeometry's first block: scp, then the first byte unlike it */
+    unsigned char info[2];
+
+    info[0] = CM_DOM_GEO;
+    info[1] = 0;
+    for (;;) {
+      arc4random_buf(g, CM_SEED_LEN);
+      CM_KDF(g, CM_SEED_LEN, info, sizeof (info), st, sizeof (st));
+      for (j = 1; j < sizeof (st) && st[j] == st[0]; ++j)
+        ;
+      if (st[0] == scp && j < sizeof (st) && st[j] == ocp[0])
+        break;
+    }
+    memcpy(leafBuf, g, CM_SEED_LEN);
   }
   if (fltGeom) {                      /* commit non-derived code points */
     unsigned char x;
@@ -394,8 +443,8 @@ main(
    * refuses a signature there).  The verifier roots trust in the
    * rotation-managed current pub, not signerPub here, and takes the offset
    * from the signature. */
-  if (cmMlsPub(argc == 8 ? argv[7] : argv[3], apexPub)) {   /* argc 8: the signer fault */
-    fprintf(stderr, "%s: cannot derive the signer pub from %s\n", argv[0], argc == 8 ? argv[7] : argv[3]);
+  if (cmMlsPub(pubCtx, apexPub)) {
+    fprintf(stderr, "%s: cannot derive the signer pub from %s\n", argv[0], pubCtx);
     goto done;
   }
   off = fltSlot == 1 ? CM_SLOT_ROT : fltSlot == 2 ? CM_SLOT_PAY + 1 : CM_SLOT_PAY;

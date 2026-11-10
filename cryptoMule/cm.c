@@ -60,13 +60,11 @@ cmHexDec(
     c = h[2 * n];
     if (c >= '0' && c <= '9') v = c - '0';
     else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
-    else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
     else break;
     o[n] = v << 4;
     c = h[2 * n + 1];
     if (c >= '0' && c <= '9') v = c - '0';
     else if (c >= 'a' && c <= 'f') v = c - 'a' + 10;
-    else if (c >= 'A' && c <= 'F') v = c - 'A' + 10;
     else break;
     o[n] |= v;
   }
@@ -74,7 +72,8 @@ cmHexDec(
    * token): a run longer than the reader's bound, a non-hex tail, or a
    * dangling nibble is malformed, never "the first n bytes of it" -- every
    * reader tests for an exact count, and a tail silently dropped here would
-   * pass that test */
+   * pass that test.  Hex is cmHexEnc's lower case: an upper-case digit is
+   * not the same bytes, so it ends the run like any non-hex character */
   if (h[2 * n] != '\n' && h[2 * n] != '\0')
     return (-1);
   return ((int)n);
@@ -580,13 +579,11 @@ cmMlsVerify(
  ,const unsigned char *anchor
  ,const unsigned char *sig
  ,unsigned long sigLen
- ,unsigned int *off
 ){
   mlsHsh_t plug;
   unsigned char *work;
   unsigned char *p;
   unsigned int ewsz;
-  unsigned int o;
   int ok;
 
   cmMlsPlug(&plug);
@@ -596,12 +593,7 @@ cmMlsVerify(
     return (0);
   ok = (p = mlsExtract(&plug, work, anchor, sig)) != 0 && !memcmp(p, pub, CM_SIGN_HSZ);
   free(work);
-  if (!ok)
-    return (0);
-  if (!(o = mlsEgOf(CM_SIGN_H, sig, (unsigned int)sigLen)))  /* 0 == error sentinel */
-    return (0);
-  *off = o - 1;
-  return (1);
+  return (ok);
 }
 
 int

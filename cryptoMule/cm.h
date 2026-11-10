@@ -218,8 +218,10 @@ typedef struct {
   unsigned char genesisHave;                 /* the deal carried a genesis row */
 } cmCfg;
 
-/* hex: write 2*l chars (no NUL); decode up to max bytes, return count, or -1
- * when the hex runs past max (overlong is malformed, never truncated) */
+/* hex: write 2*l lower-case chars (no NUL); decode up to max bytes of that
+ * one form, return count, or -1 when the hex runs past max or is not that
+ * form (overlong is malformed, never truncated; upper case is not the same
+ * bytes) */
 void cmHexEnc(const unsigned char *b, unsigned int l, char *o);
 int cmHexDec(const char *h, unsigned char *o, unsigned int max);
 
@@ -352,23 +354,24 @@ void cmMask(const unsigned char *ikm, unsigned int ikml, const unsigned char *ap
 /* MLS identity helpers (the rotation/payload signing boundary).
  * sign: load private data, derive the signer pub, sign anchor (CM_SIGN_HSZ) at signing offset;
  *       returns malloc'd sig in *sig (caller frees) + *sigLen, writes signer pub.
- * verify: mlsExtract(anchor, sig) == pub ? (1 ok / 0 bad), and on success write
- *       the signing offset (mlsEgOf - 1) to *off.  The offset is part of every
- *       verdict, not a detail the caller may drop: a signing offset is one-time, and what
- *       makes the rotation's signing offset unreachable by a payload (and the payload
- *       signing offsets by a rotation) is that rotverify, receive and assemble each gate
- *       the offset they recovered -- CM_SLOT_ROT for a rotation, any other for
- *       a payload; the offset floor (offsetgate) gates offsets, not signing offset
- *       classes, and polices reuse within the payload signing offsets.
+ * verify: mlsExtract(anchor, sig) == pub ? (1 ok / 0 bad).  The offset is
+ *       cmMlsOff's, read first by every verifier.
  * off: the signing offset a signature yields (mlsEgOf - 1), read from its
  *       structure before anything is verified (1 ok / 0 malformed): the
  *       offset is an input of the apex, so a verifier needs it to recompute
- *       the apex before it verifies the signature over it.
+ *       the apex, and every gate on it is arithmetic that comes before the
+ *       signature is paid for -- the slot class (CM_SLOT_ROT for a rotation,
+ *       any other for a payload: rotverify, receive and assemble each gate
+ *       it, which is what keeps one class's one-time offsets out of the
+ *       other's) and the offset floor (receive, assemble, offsetgate: below
+ *       the high-water, or at it under another anchor, refused).  The
+ *       signature then verifies the bytes the offset was read from, so a
+ *       verifier admits at that offset or not at all.
  * pub: derive only. */
 int cmMlsSign(const char *privPath, unsigned int slot, const unsigned char *anchor
              ,unsigned char **sig, unsigned long *sigLen, unsigned char *pub);
 int cmMlsVerify(const unsigned char *pub, const unsigned char *anchor
-               ,const unsigned char *sig, unsigned long sigLen, unsigned int *off);
+               ,const unsigned char *sig, unsigned long sigLen);
 int cmMlsOff(const unsigned char *sig, unsigned long sigLen, unsigned int *off);
 int cmMlsPub(const char *privPath, unsigned char *pub);
 
