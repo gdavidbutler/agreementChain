@@ -46,9 +46,10 @@
  * to acGo, acInput and acWork; the caller calls acWork at least every
  * tick, and at least every quarter of the clock's range.  Identity on
  * the wire is the in-tag sender a message's HMAC verified under the
- * dealt pairwise secret, never where a datagram came from: a datagram carries a destination seat, the caller maps seats to
- * addresses, and no datagram is handed to the caller for the seat
- * itself, which feeds its own messages back locally.
+ * dealt pairwise secret, never where a datagram came from: a datagram
+ * carries a destination seat, the caller maps seats to addresses, and
+ * no datagram is handed to the caller for the seat itself, which feeds
+ * its own messages back locally.
  *
  * The caller gives the seat its PHYSICS and its CONFIGURATION, and the
  * seat derives the rest (acDerive).  The physics is what the network
@@ -97,27 +98,27 @@
  * of each member, its own distribution -- in the retention, a ring of
  * the declared bytes, the newest record overwriting the oldest, the
  * only forgetting.  A row naming a recorded position is evidence, unless
- * its sender's own word says it is owed nothing there, a row of its naming
- * a later position or HOLDING on the legs run toward it, and what deals with
- * it is RECOVER: where no recover leg of this seat's
- * runs toward the row's sender there, this seat starts one, a
- * bracha87Fig1 point to point (n = 2, t = 0), for every member whose
- * unit it holds, its own among them, carrying beside the member's
- * agreed value this seat's unit of the member and the position's
- * description, the subset and every member's agreed value; each runs to
- * the abandon, the record stays, and a row naming it after that starts
- * them again.  The returner folds on T descriptions alike from distinct
- * seats (DISCOVER), assembles from the units beside them, mints the
- * next name and launches the next, so it walks forward a position a
- * round trip until the machines of a position still running at the
- * others carry it; a position it folded is never agreed again.  A
- * member still under threshold here when its position leaves for the
- * retention keeps its assembly with the record: a part of it landing
- * later is received all the same and placed there, and nothing is sent
- * for it: the member's report says under threshold only when the
- * retention lets the record go.
- * A seat behind the oldest record is beyond what the seats can do for
- * it: partitioned until the operator intervenes, who reads where it is
+ * its sender's own word says it is owed nothing there, a row of its
+ * naming a later position or HOLDING on the legs run toward it, and what
+ * deals with it is RECOVER: where no recover leg of this seat's runs
+ * toward the row's sender there, this seat starts one, a bracha87Fig1
+ * point to point (n = 2, t = 0), for every member whose unit it holds,
+ * its own among them, carrying beside the member's agreed value this
+ * seat's unit of the member and the position's description, the subset
+ * and every member's agreed value; each runs to the abandon, the record
+ * stays, and a row naming it after that starts them again.  The returner
+ * folds on T descriptions alike from distinct seats (DISCOVER),
+ * assembles from the units beside them, mints the next name and launches
+ * the next, so it walks forward a position a round trip until the
+ * machines of a position still running at the others carry it; a
+ * position it folded is never agreed again.  A member still under
+ * threshold here when its position leaves for the retention keeps its
+ * assembly with the record: a part of it landing later is received all
+ * the same and placed there, and nothing is sent for it: the member's
+ * report waits for it, and this seat's next launch with the report, so
+ * its record is the newest and no other's room lets it go.  A seat
+ * behind the oldest record is beyond what the seats can do for it:
+ * partitioned until the operator intervenes, who reads where it is
  * from the chain the reports publish, since a name this seat has
  * neither minted nor kept is one it cannot place.
  *
@@ -125,11 +126,11 @@
  * mints its signing identity at acInit and publishes the public key
  * alone (acPub); the caller deals every other seat's row entry (acDeal)
  * -- the pairwise secret, which the message HMAC, the datagram gate and
- * the mask key are sliced from, and that seat's public key -- then the go (acGo) with
- * the chain's genesis, the dealt base every seat folds from.  Every
- * seat of a deployment is dealt the same physics and configuration but
- * self; a secret is one per unordered pair; the genesis is one for all.
- * Nothing here touches disk.
+ * the mask key are sliced from, and that seat's public key -- then the
+ * go (acGo) with the chain's genesis, the dealt base every seat folds
+ * from.  Every seat of a deployment is dealt the same physics and
+ * configuration but self; a secret is one per unordered pair; the
+ * genesis is one for all.  Nothing here touches disk.
  *
  * The callbacks: random runs inside acInit and acGo too (the coin, at
  * an agreement's turn, inside acInput and acWork), the rest inside
@@ -162,16 +163,22 @@ struct ac;                              /* one seat */
  * A hash suite the caller plugs.  init, update and final take the
  * suite's context as void *, so a suite whose functions take their own
  * context type is plugged through casts to these types; alloc returns a
- * context of tsize bytes from malloc, which the seat frees; hmac is
- * (key, keyLen, data, dataLen, out) and hkdf (ikm, ikmLen, info,
- * infoLen, out, outLen).  The sign role (the agreed value, the
- * signatures and keys, both Merkle trees, and a payload's message hash,
- * the hash of its bytes alone, which the reports carry) needs a
- * power-of-two width, h its exponent, h at least 1; the kdf role (the
- * keystream, the masks, the key walk, the message authentication) any
- * width.  Neither may exceed AC_HASH_MAX.  The seat calls the sign
- * role's alloc, tsize, init, update and final and the kdf role's hmac
- * and hkdf; the rest are the caller's.
+ * context of tsize bytes from malloc, which the seat frees.  The HMAC
+ * is keyed once and run many times: kinit (keyed, key, keyLen) hashes
+ * the key into a keyed state of ktsize bytes, at least one and
+ * AC_SEATS of them within what an unsigned int counts, and khmac
+ * (keyed, data, dataLen, out) runs it; the seat holds a state a pair,
+ * the pairs' at multiples of ktsize in one allocation, so ktsize is a
+ * multiple of the state's alignment, as a sizeof is, and wipes them at
+ * acFree.  hkdf is (ikm, ikmLen, info, infoLen, out, outLen).  The
+ * sign role (the agreed value, the signatures and keys, both Merkle
+ * trees, and a payload's message hash, the hash of its bytes alone,
+ * which the reports carry) needs a power-of-two width, h its exponent,
+ * h at least 1; the kdf role (the keystream, the masks, the key walk,
+ * the message authentication) any width.  Neither may exceed
+ * AC_HASH_MAX.  The seat calls the sign role's alloc, tsize, init,
+ * update and final and the kdf role's ktsize, kinit, khmac and hkdf;
+ * the rest are the caller's.
  */
 struct acHash {
   const char *name;                     /* the caller's, for its prints */
@@ -180,7 +187,9 @@ struct acHash {
   void (*init)(void *);
   void (*update)(void *, const unsigned char *, unsigned int);
   void (*final)(void *, unsigned char *);
-  void (*hmac)(const unsigned char *, unsigned int, const unsigned char *, unsigned int, unsigned char *);
+  unsigned int (*ktsize)(void);         /* the keyed HMAC's state, bytes */
+  void (*kinit)(void *, const unsigned char *, unsigned int);
+  void (*khmac)(const void *, const unsigned char *, unsigned int, unsigned char *);
   void (*hkdf)(const unsigned char *, unsigned int, const unsigned char *, unsigned int, unsigned char *, unsigned int);
   unsigned int size;
   unsigned char h;
@@ -234,7 +243,8 @@ struct acPar {
   unsigned int  t;                      /* seats that may be Byzantine, n > 3t */
   unsigned int  self;                   /* this seat, 0..n-1 */
   unsigned int  dgramMax;               /* the datagram, bytes; 0 for 1232,
-                                         * IPv6's least MTU less its headers */
+                                         * IPv6's least MTU less its headers;
+                                         * at most 508 where a long is 32 bits */
   unsigned int  mlsS;                   /* 2^mlsS one-time signings a context,
                                          * the first its rotation, 1..8; 0 for 2 */
   /* derived from here on */
@@ -294,18 +304,14 @@ struct acPar {
  * different ones, and an application acts on the outcome alone.  No
  * message comes of what was dealt: a commitment that is the encoding
  * of a message within msgMax, each part checked against it on arrival,
- * gives AC_PASS at every correct seat at threshold.  AC_UNDER, and
- * AC_NONE in a report, are this seat's alone: it fell outside what its
- * deployment declared, its retention or its memory, and the library
- * gives it the message no more; its chain report still carries the
- * member's agreed hash, which bytes taken from any other seat must
- * reproduce.
+ * gives AC_PASS at every correct seat at threshold.  A seat short of a
+ * member's parts reports nothing for it until they land, and launches
+ * nothing after it: slow, not stopped.
  */
 #define AC_NONE      0  /* not yet: under threshold, or the search still has pool to try */
 #define AC_PASS      1  /* the message that matches the signed hash,
                          * under a commitment that is its encoding */
 #define AC_EXHAUSTED 2  /* at threshold, every subset tried: no subset reproduces the hash */
-#define AC_UNDER     3  /* under threshold when the retention let the position's record go */
 #define AC_BUDGET    4  /* at threshold, the try budget spent: not shown either way */
 #define AC_INCONSISTENT 5  /* a subset reproduces the hash under a
                             * commitment that is not its encoding */
@@ -362,9 +368,7 @@ struct acChain {
  * member's end here: a payload's message at AC_PASS; under an
  * inconsistent commitment no seat's, since which seats reproduce the
  * hash is which leaves reach them; a rotation's or noop's AC_PASS with
- * no message, its hash the value; AC_NONE only where this seat's memory
- * still refused the search when the retention let the position's record
- * go */
+ * no message, its hash the value */
 struct acMessage {
   const unsigned char *prev;            /* the chain hash before the position */
   const unsigned char *hash;            /* the member's hash, as the chain's report carries
@@ -382,7 +386,7 @@ struct acMessage {
   unsigned int tries;                   /* the search's */
   unsigned char member;
   unsigned char kind;
-  unsigned char verdict;                /* AC_NONE .. AC_INCONSISTENT */
+  unsigned char verdict;                /* AC_PASS .. AC_INCONSISTENT */
 };
 
 struct acCb {
@@ -436,11 +440,11 @@ struct acCb {
  * What this seat counts under one other seat's name: the in-tag sender,
  * or a verified signature's signer.  A count of what is refused is of the
  * name on it and is no finding about the seat: Byzantine behavior can occur
- * anywhere, CPU, memory, I/O or network.  The three windows, per seat, are the tick its rows last
- * landed in each: placed in a live machine, naming a record, held under
- * a name not yet minted here; the newest of the three is where that
- * seat is, as this seat last saw it, and nothing else here says.  Read
- * one seat at a time (acSeatCounters).
+ * anywhere, CPU, memory, I/O or network.  The three windows, per seat, are
+ * the tick its rows last landed in each: placed in a live machine, naming
+ * a record, held under a name not yet minted here; the newest of the three
+ * is where that seat is, as this seat last saw it, and nothing else here
+ * says.  Read one seat at a time (acSeatCounters).
  */
 struct acSeatCounters {
   unsigned int liveTick;              /* the tick of its last row placed in a live machine here */
@@ -458,8 +462,6 @@ struct acSeatCounters {
   unsigned int sweptTurn;             /* of those, an agreement's INITIAL on its pass's completing
                                        * step: a turn that step fired, or a re-send; the rest are
                                        * re-sends */
-  unsigned int sweptHeld;             /* its re-sends a sweep held: its least round trip had not
-                                       * passed since its sweep was last due */
   unsigned int resent;                /* what is held already, under its name: a row recorded, a
                                        * part held, a row held ahead, refused unproved, so its
                                        * re-send or the network's copy of one */
@@ -578,8 +580,6 @@ struct acCounters {
                                        * last pass owed, at their position's
                                        * end here: kept */
   unsigned int keptPassed;            /* of them, reported with the message */
-  unsigned int keptUnder;             /* reported under threshold, the record let
-                                       * go */
   unsigned int keptNow;               /* still kept, unreported, as read */
   unsigned int repeated;              /* this seat's value broadcasts started as a
                                        * bracha87Fig1 alone, an abandon on with
@@ -696,8 +696,6 @@ struct acCounters {
   unsigned int replyEcho;             /* replies said, an echo to one seat, */
   unsigned int replyReady;            /* or a ready */
   unsigned int frmRefused;            /* a message the egress framer refused */
-  unsigned int igrBusy;               /* a datagram the ingress framer refused,
-                                       * its last deliveries not all taken */
   unsigned int igrGate;               /* datagrams the ingress framer's gate refused:
                                        * not keyed by a dealt secret, or a fragment
                                        * claiming another seat than that key's */
@@ -780,9 +778,8 @@ int acDeal(struct ac *, unsigned char seat, const unsigned char *psk, const unsi
  * The go: every other seat dealt, the chain's genesis, hashSz bytes,
  * copied, and the caller's clock.  The framers are keyed and position 1
  * launches, every seat's rotation.  0, or -1 with a seat undealt, a go
- * already made, the framers refused -- memory alone, and the seat left
- * as the call found it, to go again -- or the seat failed at the launch
- * (acFailed).
+ * already made, or the framers refused -- memory alone, and the seat
+ * left as the call found it, to go again.
  */
 int acGo(struct ac *, const unsigned char *genesis, unsigned long nowUs);
 
@@ -796,7 +793,7 @@ int acGo(struct ac *, const unsigned char *genesis, unsigned long nowUs);
  * kept; 1: the chain report of the one in hand is where the caller
  * learns what became of its proposal and decides what to propose next.
  * -1 for a null seat, or one ended -- its caller's acEnd, or the
- * chain's last link folded here -- quiet or failed.
+ * chain's last link folded here -- or quiet.
  */
 int acAvailable(struct ac *);
 
@@ -805,8 +802,7 @@ int acAvailable(struct ac *);
  * received into dgramMax + 1 bytes so a longer one shows, and the
  * clock.  What it completes is read and the work that leaves is done;
  * what that says waits in the framer for acWork to send.  0, or -1 for
- * a null seat or datagram, one not started, or one that failed before
- * the call.
+ * a null seat or datagram, or one not started.
  */
 int acInput(struct ac *, const unsigned char *dgram, unsigned int len, unsigned long nowUs);
 
@@ -820,7 +816,7 @@ int acInput(struct ac *, const unsigned char *dgram, unsigned int len, unsigned 
  * something is due now or a send was refused, which the caller, who
  * refused it, knows and waits for its socket on, and -1 when nothing is
  * due: a seat quiet, told so or its end run over, with nothing left in
- * its framer, one not started, or one that failed (acFailed).
+ * its framer, or one not started.
  */
 long acWork(struct ac *, unsigned long nowUs);
 
@@ -844,28 +840,23 @@ long acWork(struct ac *, unsigned long nowUs);
  * of it reported here, its record carries a seat behind for one abandon
  * more, then nothing new starts, and once every record's machines are
  * let go the seat is quiet of its own accord: acWork returns -1 once
- * the framer is empty.  A member whose message this seat cannot yet
- * have holds the end as it holds a launch: slow, never stopped.  The
- * last link, the final hash, is a next chain's genesis where more than
- * t seats report it alike, a correct seat's; that chain is dealt
- * afresh, since no seat's identity outlives its process and a message
- * is authenticated by its pair secret alone: under the old
- * secrets what this chain put on the wire, replayed or from a seat
- * still in it, would be a seat's word in the next.  The caller's stop
- * (acQuiet) is local: nothing more is said -- no pass, no re-send, no
- * launch -- and what the framer holds goes at its pace; to the other
- * seats it is a silence, one of t.  Either may be called from a
- * callback.
+ * the framer is empty.  That quiet is the end its caller said, and to
+ * the other seats a silence, one of t, as the caller's stop is: no seat
+ * can know that no other still re-sends to it.  A member whose message
+ * this seat cannot yet have holds the end as it holds a launch: slow,
+ * never stopped.  The last link, the final hash, is a next chain's
+ * genesis where more than t seats report it alike, a correct seat's;
+ * that chain is dealt afresh, since no seat's identity outlives its
+ * process and a message is authenticated by its pair secret alone:
+ * under the old secrets what this chain put on the wire, replayed or
+ * from a seat still in it, would be a seat's word in the next.  The
+ * caller's stop (acQuiet) is local: nothing more is said -- no pass,
+ * no re-send, no launch -- and what the framer holds goes at its pace;
+ * to the other seats it is a silence, one of t.  Either may be called
+ * from a callback.
  */
 void acEnd(struct ac *);
 void acQuiet(struct ac *);
-
-/* non-zero once the seat has stopped on a parameter its derivation
- * validated, refused by a library beneath it whose only refusal is a
- * parameter: no deployment reaches that, short of a fault in this tree.
- * Memory refused never stops a seat (rowMem, ownMem, asmAlloc).  acWork
- * returns -1 and acInput refuses from then on */
-int acFailed(const struct ac *);
 
 /* this seat's tick count: a tick starts a pass of the retry over every
  * live position, and every count here is in ticks */

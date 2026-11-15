@@ -200,8 +200,9 @@
  *   window: the last pass, the reports, its record goes to the
  *   retention with the assembly of a member still under threshold
  *   or whose last pass this seat's memory refused, and the current step moves over the link it minted; a record the
- *   head overwrites steps the floor over its link, and reports a member
- *   it kept.
+ *   head overwrites steps the floor over its link, every member it
+ *   kept reported by then: the launch gate holds the seat at a member
+ *   unreported, so that record is the newest.
  *
  * The thresholds are the papers' and cryptoMule's: the subset is the
  * library's n - t; assembly is T, and so is DISCOVER, T descriptions
@@ -336,8 +337,11 @@
  *                sign is stashed unjudged), and feeds BESIDE once it
  *                holds what the sign part's format announced.  A shard
  *                that fails its root is refused, the sign kept for the
- *                re-send.  Once X's value is agreed here a unit of X is
- *                taken only under the agreed value.  X's accept here is
+ *                re-send.  Once X's value is agreed here that value alone
+ *                judges a unit of X, whatever (initial, v) this seat
+ *                holds: under it the unit is held and exchanged, since
+ *                under unbounded latency any valid unit may be the only
+ *                piece that can form T at another seat.  X's accept here is
  *                Q(X) = 1, inside the library.  The gate is step 1's
  *                initial enabling alone: a seat does not echo X's
  *                (initial, v) without validating the unit beside it,
@@ -347,7 +351,10 @@
  *                is carried to the same accept by the others (Lemma 3,
  *                Theorem 1 as printed), holds X's value and no unit,
  *                initiates no leg for X, and takes X's signed header
- *                and X's parts from the exchange.
+ *                and X's parts from the exchange; a seat X dealt
+ *                another value's (initial, v) beside a unit under the
+ *                value agreed echoes nothing of it, and holds it and
+ *                leads its leg once the value is agreed here.
  *   agreement    one bkr94acs seat an instance, values of HashSz
  *                bytes, beside 1 (a value's (initial, v) waits for its
  *                unit; nothing rides beside a BA broadcast), 85 phases
@@ -409,23 +416,24 @@
  *                leaves reach them, so none delivers it.  No message is
  *                reported too, each its own word: every subset tried
  *                at threshold (exhausted: no subset reproduces the
- *                hash); the try budget spent at threshold (shown
- *                nothing either way); or under threshold when the
- *                retention lets the position's record go, the search's
- *                last pass over what is held.  A member under
- *                threshold when the position leaves the live window
- *                keeps its assembly with the record, which places a
- *                part of it still landing, a message received all the
- *                same [Bracha87 Section 3: "including those received at
- *                previous steps"]; nothing is sent for it.  Reaching
- *                threshold there with no message found, it waits an
- *                abandon past its last new part, then has that same
- *                last pass.  A last pass
- *                this seat's memory refuses is kept the same way, the
- *                pass taken again at every tick, and only where the
- *                memory refuses it still when the retention lets the
- *                record go is the member reported with no verdict.  Self holds
- *                its own message by construction.
+ *                hash), or the try budget spent at threshold (shown
+ *                nothing either way).  Every member without a verdict
+ *                has the search's last pass over what is held as the
+ *                position leaves the live window.  A member under
+ *                threshold then keeps its assembly with the record,
+ *                which places a part of it still landing, a message
+ *                received all the same [Bracha87 Section 3: "including
+ *                those received at previous steps"]; nothing is sent
+ *                for it.  Reaching threshold there with no message
+ *                found, it waits an abandon past its last new part,
+ *                then has the last pass the position leaving would
+ *                have given it.  A last pass this seat's memory
+ *                refuses is kept the same way, the pass taken again at
+ *                every tick.  Such a member's report waits for what it
+ *                lacks, and the launch gate waits on the report, so
+ *                its record stays the newest and no room the retention
+ *                makes lets it go: slow, not stopped.  Self holds its
+ *                own message by construction.
  *   the fold     once SUBSET is held, every member's value is the ACS's
  *                for it, and the sign part held under it says the
  *                member's kind and context and, for a payload, the
@@ -458,11 +466,8 @@
  *                instance, every member's hash -- a payload's message
  *                hash, a rotation's or a noop's value -- and the chain
  *                hash after it.  The messages', once a member, at that
- *                member's verdict here -- the message at its PASS,
- *                judged over every leaf held by then, or why none --
- *                or, no verdict yet, when the retention lets the
- *                position's record go, the search's last pass over
- *                what is held: the
+ *                member's verdict here, the message at its PASS,
+ *                judged over every leaf held by then, or why none: the
  *                chain hash before the instance, the member's hash, and
  *                the message or why none -- never held for the others,
  *                since some come only by recovery.
@@ -480,8 +485,8 @@
  *                and a search for the next tick (asmAlloc).
  *                Before it leaves, every member without a verdict gets
  *                the search's last pass and its report, but one under
- *                threshold, whose assembly goes with the record until
- *                the retention lets it go.
+ *                threshold, whose assembly goes with the record and
+ *                whose report waits for its parts.
  *   behind       an ACS seat not yet complete while the others folded
  *                is behind, and the seat cannot tell by how much.
  *                Receiving noise, it does nothing new: the same seat
@@ -537,9 +542,9 @@
  *                next position, whose rows then start the others'
  *                recover legs toward it from their records.  A member
  *                still under threshold when its position leaves this
- *                seat's window has its record place what still lands
- *                until the retention lets the record go, and only then
- *                does the report say under threshold.
+ *                seat's window has its record place what still lands,
+ *                and its report, and this seat's next launch, wait for
+ *                it.
  *                Participating, returning, partitioned:
  *                the three windows, and the third is the operator's to
  *                see, from the chain the reports publish, since a row
@@ -692,6 +697,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef AC_TEST
+#include <assert.h>
+#endif
 #include "huf.h"
 #include "sss.h"
 #include "sssMk.h"
@@ -875,9 +883,8 @@ kindName(
   case BRACHA87_INITIAL: return ("INITIAL");
   case BRACHA87_ECHO:    return ("ECHO");
   case BRACHA87_READY:   return ("READY");
-  case BRACHA87_BESIDE:  return ("BESIDE");
-  default:               return ("???");
   }
+  return ("BESIDE");                    /* the kind is two bits */
 }
 
 static const char *
@@ -887,7 +894,6 @@ verdictName(
   switch (v) {
   case AC_PASS:      return ("message");
   case AC_EXHAUSTED: return ("no message, exhausted");
-  case AC_UNDER:     return ("no message, under threshold");
   case AC_BUDGET:    return ("no message, budget spent");
   case AC_INCONSISTENT: return ("no message, the commitment inconsistent");
   default:                return ("none yet");
@@ -899,19 +905,13 @@ verdictName(
 /*  The primitives, plugged.                                              */
 /*------------------------------------------------------------------------*/
 
-/* one sign-role hash over up to four buffers: 0, or -1 with o untouched
- * where the suite's context could not be allocated, this seat's memory */
+/* one sign-role hash over a buffer: 0, or -1 with o untouched where the
+ * suite's context could not be allocated, this seat's memory */
 static int
 hashBuf(
   const struct acPar *S
  ,const unsigned char *a
  ,unsigned int al
- ,const unsigned char *b
- ,unsigned int bl
- ,const unsigned char *c
- ,unsigned int cl
- ,const unsigned char *d
- ,unsigned int dl
  ,unsigned char *o
 ){
   void *h;
@@ -921,12 +921,6 @@ hashBuf(
   Sign->init(h);
   if (al)
     Sign->update(h, a, al);
-  if (bl)
-    Sign->update(h, b, bl);
-  if (cl)
-    Sign->update(h, c, cl);
-  if (dl)
-    Sign->update(h, d, dl);
   Sign->final(h, o);
   free(h);
   return (0);
@@ -1477,9 +1471,15 @@ struct msg {
 struct own {
   unsigned char *sig;                 /* SigLen */
   unsigned char *shards;              /* R * shardLen: data, then parity */
-  unsigned char *sig0;                /* -f 7: the apex signed again, at slot 0 */
+  unsigned char *sig0;                /* -f 7: the apex signed again, at slot 0, for
+                                       * a rotation's shape */
   unsigned char *sig1;                /* -f 8: the apex signed again, under the
-                                       * successor; -f 10: at the next slot */
+                                       * successor; -f 10: at the next slot; -f 15:
+                                       * at slot 0, for the payload's shape */
+  struct own    *alt;                 /* -f 13: a second value for the position,
+                                       * at the next slot */
+  unsigned char *apex1;               /* -f 14: the value sig1 signs, under the
+                                       * successor's key */
   unsigned int   shardLen;            /* 0: a rotation or a noop */
   unsigned int   off;                 /* the slot it was signed at */
   unsigned int   ref;                 /* the instances presenting it, and the seat
@@ -1488,6 +1488,7 @@ struct own {
                                        * to, not yet promoted to at the others */
   unsigned char  kind;                /* 0 a payload, AC_ROTATION, AC_NOOP */
   unsigned char  end;                 /* a rotation or noop carrying the end */
+  unsigned char  altDealt;            /* -f 13: alt's sign part sent to seat t */
   unsigned char  apex[AC_HASH_MAX];   /* the value: signed, agreed */
   unsigned char  succ[AC_HASH_MAX];   /* a rotation's successor key: the value's
                                        * preimage after the key and slot */
@@ -1643,8 +1644,9 @@ struct search {
                                        * over the new subsets, its candidates kept
                                        * only by a PASS; at the end over every subset */
   unsigned char  owed;                /* a search this seat's memory refused: tried again */
-  unsigned char  final;               /* the position leaving the live window, or the retention
-                                       * letting the record go: the last pass over what is held */
+  unsigned char  final;               /* the position leaving the live window, or a kept member
+                                       * an abandon past its last new part at threshold: the last
+                                       * pass over what is held */
   unsigned char  kept;                /* under threshold at the position's end, or its
                                        * last pass owed: the record places its parts */
   unsigned char  reported;            /* X's second report is out */
@@ -1755,7 +1757,8 @@ struct inst {
   int              ending;            /* leaving the live window: the last pass and the
                                        * reports first */
   struct recIx    *rx;                /* left the live window, its assembly kept: its record */
-  int              gone;              /* and the retention let the record go: the last pass */
+  int              gone;              /* and the retention let the record go, every member
+                                       * reported: its machines go */
   int              loaded;            /* this seat's units of the members taken from the record */
   int              recDue;            /* a part of this seat's distribution placed past
                                        * the position's end, its member reported or not:
@@ -1801,7 +1804,9 @@ ownDrop(
   free(o->sig);
   free(o->sig0);
   free(o->sig1);
+  free(o->apex1);
   free(o->shards);
+  ownDrop(S, o->alt);
   free(o);
 }
 
@@ -1903,9 +1908,22 @@ instFree(
 /* the harness's memory refusing X's search at one allocation, until the
  * position's end keeps X */
 #define TESTREFUSE(V, x, s, at) ((V)->test && (V)->test->refuse == (x) + 1 && (V)->test->refuseAt == (at) && !(s)->kept)
+/* a call e at site k of memory path p whose failure f this seat takes as
+ * its memory's -- an allocation, or a library's through the hash suite's
+ * allocator -- failing at its first reach under memOnce: the call is not
+ * made, and f is what it returned */
+#define TESTCALL(V, p, k, f, e) ((V)->test && (V)->test->memOnce && !((V)->test->memDone[p] & 1UL << (k)) \
+                                 && ((V)->test->memDone[p] |= 1UL << (k)) ? (f) : (e))
+#define TESTALLOC(V, p, k, e) TESTCALL(V, p, k, 0, e)
+/* a rule the reading proves, checked at every test run; a running seat
+ * never aborts */
+#define TESTASSERT(e) assert(e)
 #else
 #define TESTFAULT(V) 0
 #define TESTREFUSE(V, x, s, at) 0
+#define TESTCALL(V, p, k, f, e) (e)
+#define TESTALLOC(V, p, k, e) (e)
+#define TESTASSERT(e) ((void)0)
 #endif
 
 /* what seat() is entered on */
@@ -1917,7 +1935,7 @@ struct ac {
   struct pskTab            *egrTab;   /* the framers' gate */
   struct pskTab            *igrTab;
   unsigned char            *obuf;     /* the held message, for the egress framer */
-  unsigned char            *ubuf;     /* one part of a unit, PartMax, or a description, DESC_MAX */
+  unsigned char            *ubuf;     /* one part of a unit or a description, PartMax */
   unsigned char            *pbuf;     /* the proposal's huffman stream, the ciphertext
                                        * bound: a message past it is refused at the ask */
   void                     *hLink;    /* the fold's link hash: the suite's context, made once */
@@ -1935,11 +1953,8 @@ struct ac {
                                        * by seat, 1 + the tick a description alone was last
                                        * owed it (DESC_AT) */
   struct recIx            **descTo;   /* by seat: the record whose description alone it is owed */
-  unsigned long            *swUs;     /* by seat: when its sweep was last due */
   unsigned long            *tickNow;  /* by seat, two each: the message bytes sent it and
                                        * completed from it this tick so far */
-  unsigned char            *swDue;    /* its sweep due this pass: its least round trip
-                                       * has passed since swUs */
   unsigned int              qCap;
   unsigned int              putAt;    /* the held message's why, class and kind: saidBytes */
   unsigned int              qHead;
@@ -1985,6 +2000,7 @@ struct ac {
                                        * again where the caller gives the same bytes */
   unsigned int              slot;     /* the next payload slot of the signing context */
   unsigned int              gen;      /* contexts this seat has spent */
+  unsigned int              kmacSz;   /* a pair's keyed HMAC, the kdf role's ktsize */
   int                       avail;    /* the caller has a message to propose, with no
                                        * position in hand: the next pass launches one */
   int                       rotated;  /* the signing context's rotation is made */
@@ -2015,7 +2031,13 @@ struct ac {
                                        * sender or the signer (SEATC) */
   struct rsecFrmEgr         egr;      /* the framers, this seat's alone */
   struct rsecFrmIgr         igr;
-  unsigned char            *psk;      /* X x PSK_SIZE (PSKROW): this row of the mesh */
+  unsigned char            *psk;      /* X x PSK_SIZE (PSKROW): each pair's gate slice,
+                                       * until the go copies it to the framers and
+                                       * wipes the row; the deal keys the HMAC slice
+                                       * and copies the mask slice, so only the floor
+                                       * (FLOORIKM) holds the dealt mask IKM */
+  unsigned char            *kmac;     /* X x kmacSz (KMAC): each pair's message HMAC,
+                                       * keyed at the deal */
   unsigned char            *pub;      /* X x HashSz (PUB): the dealt public keys */
   /*
    * The chain and the keys.  chain is the dealt genesis folded, at
@@ -2083,7 +2105,8 @@ struct ac {
   unsigned int              eVal;     /* BA value, */
   unsigned int              eJ;       /* the recipient reached, */
   unsigned int              eU;       /* and which part of its unit is next:
-                                       * 0 none, 1 the sign, 2 the data */
+                                       * 0 none, 1 the sign, 2 the data,
+                                       * 4 -f 13's second sign part */
   unsigned int              eTo;      /* a reply's one recipient */
   unsigned int              swPhase;  /* where the pass is */
   unsigned int              sN;       /* the step's actions */
@@ -2122,8 +2145,6 @@ struct ac {
                                        * start recover legs, then nothing new starts */
   int                       quiet;    /* the caller's stop: nothing more is
                                        * said, what the framer holds goes */
-  int                       failed;   /* a parameter derive validated,
-                                       * refused: it goes no further */
   int                       went;     /* acGo given: the seat runs, its first launch made or due */
   int                       launchDue; /* a launch begun and not yet made: its memory refused */
   unsigned char             sOut[BRACHA87_FIG1_OUT];
@@ -2145,6 +2166,7 @@ struct ac {
 #define PUBNEXT(V, x)  ((V)->pubNext + (x) * HashSz)
 #define HWAPEX(V, x)   ((V)->hwApex + (x) * HashSz)
 #define PSKROW(V, x)   ((V)->psk + (x) * PSK_SIZE)
+#define KMAC(V, x)     ((V)->kmac + (x) * (V)->kmacSz)
 #define CURIKM(V, x)   ((V)->curIkm + (x) * PSK_MASK_SIZE)
 #define FLOORIKM(V, x) ((V)->floorIkm + (x) * PSK_MASK_SIZE)
 /* what this seat counts of seat x: never of itself, whose rows are
@@ -2205,20 +2227,8 @@ struct pskTab {
 };
 #define PSKTAB_SZ (sizeof (struct pskTab) + N * PSK_HASH_SIZE)
 
-/* the seat a framer address names: one byte, the seat; N for none */
-static unsigned int
-addrToIdx(
-  const struct pskTab *tab
- ,const unsigned char *adr
-){
-  const struct acPar *S;
-
-  S = tab->p;
-  if (adr[0] != 1 || adr[1] >= N)
-    return (N);
-  return (adr[1]);
-}
-
+/* the address is emit's, one byte: the destination seat, never this one,
+ * whose self-messages go to its queue */
 static void
 gateSignCb(
   void *ctx
@@ -2228,16 +2238,10 @@ gateSignCb(
  ,unsigned int len
 ){
   struct pskTab *tab;
-  const struct acPar *S;
-  unsigned int id;
 
   tab = ctx;
-  S = tab->p;
-  if ((id = addrToIdx(tab, adr)) >= N || id == tab->self) {
-    memset(dst, 0, GATE_SIZE);
-    return;
-  }
-  halfsiphash(src, len, tab->psk + id * PSK_HASH_SIZE, dst);
+  TESTASSERT(adr[0] == 1 && adr[1] < tab->p->n && adr[1] != tab->self);
+  halfsiphash(src, len, tab->psk + adr[1] * PSK_HASH_SIZE, dst);
 }
 
 static int
@@ -2258,8 +2262,9 @@ gateVrfyCb(
   (void)adr;
   tab = ctx;
   S = tab->p;
-  if (len < TagSz)
-    return (0);
+  /* the framer verifies a datagram at least a fragment's header long
+   * (tagSize + 5, tagSize TagSz) */
+  TESTASSERT(len >= TagSz);
   sender = src[AC_TAG_SENDER];
   if (sender >= N || sender == tab->self)
     return (0);
@@ -2270,7 +2275,7 @@ gateVrfyCb(
 }
 
 /*
- * A message's HMAC, under the slice of the pair's secret: over its tag
+ * A message's HMAC, keyed by the slice of the pair's secret: over its tag
  * and its payload, whatever the framer's fields between them, which are
  * the framer's and differ from one end to the other.  The hash takes one
  * run of bytes, so the tag slides over them for the call.
@@ -2290,7 +2295,7 @@ msgMac(
   S = &V->p;
   memcpy(between, tag + TagSz, gap);
   memmove(tag + gap, tag, TagSz);
-  Kdf->hmac(PSKROW(V, peer) + PSK_HMAC_OFF, PSK_HMAC_SIZE, tag + gap, TagSz + len, out);
+  Kdf->khmac(KMAC(V, peer), tag + gap, TagSz + len, out);
   memmove(tag, tag + gap, TagSz);
   memcpy(tag + TagSz, between, gap);
 }
@@ -2387,9 +2392,9 @@ copyBudget(
   S = &V->p;
   rowSz = RLEG_ROW + (I->rx ? 0 : RACS_ROW);  /* a record's machines are legs alone */
   if (!I->rCopy) {
-    if (!(I->rCopy = calloc(N, rowSz)))
+    if (!(I->rCopy = TESTALLOC(V, AC_MEM_COPY, 0, calloc(N, rowSz))))
       return (0);
-    if (!(I->rCopyAt = calloc(N, sizeof (*I->rCopyAt)))) {
+    if (!(I->rCopyAt = TESTALLOC(V, AC_MEM_COPY, 1, calloc(N, sizeof (*I->rCopyAt))))) {
       free(I->rCopy);
       I->rCopy = 0;
       return (0);
@@ -2430,15 +2435,14 @@ pace(
   unsigned int k;
 
   payLen += HmacSz;
-  if (!(k = (payLen + Shard - 1) / Shard))
-    k = 1;
+  k = (payLen + Shard - 1) / Shard;
+  TESTASSERT(k >= 1);
   if (ParityShards >= 0)
     *m = ParityShards;
-  else if (S->lossPct >= 100)
-    *m = 256 - k;
   else {
     unsigned int loss;
 
+    TESTASSERT(S->lossPct < 100);       /* derive refuses the rest */
     loss = S->lossPct;
     *m = (k * loss + (100 - loss) / 2) / (100 - loss);
   }
@@ -2495,7 +2499,7 @@ emit(
 
       /* doubled, unless the count wraps */
       if ((c = 2 * ctx->qCap) <= ctx->qCap
-       || !(grown = realloc(ctx->q, c * sizeof (*ctx->q)))) {
+       || !(grown = TESTALLOC(ctx, AC_MEM_Q, 0, realloc(ctx->q, c * sizeof (*ctx->q))))) {
         ++ctx->c.qDrop;
         return;
       }
@@ -2547,6 +2551,10 @@ emit(
 #ifdef AC_TEST
   if (ctx->test && ctx->test->badMac)
     p[payLen] ^= 1;
+  if (ctx->test && ctx->test->noMac) {
+    *hold = 1 + addrLen + TagSz + 5 + payLen;
+    return;
+  }
 #endif
   *hold = 1 + addrLen + TagSz + 5 + payLen + HmacSz;
 }
@@ -2562,6 +2570,7 @@ struct part {
   const unsigned char *sig;
   const unsigned char *sig0;
   const unsigned char *sig1;
+  const unsigned char *apex1;         /* -f 14: seat 0's leaf masks under it */
   const unsigned char *apex;
   const unsigned char *succ;
   const unsigned char *origHash;
@@ -2645,13 +2654,13 @@ unitPut(
   p += HashSz;
   memcpy(p, u->rsecRoot, HashSz);
   p += HashSz;
-  /* -f 8: seat 0's copy signed by the successor */
+  /* -f 8, 10, 15: seat 0's copy under the second signature */
   memcpy(p, u->own && u->sig1 && j == 0 ? u->sig1 : u->sig, SigLen);
   p += SigLen;
   if (u->own) {
     leaf = LEAF(x, j);
     memcpy(p, u->leaf + leaf * MVAL_LEN, MVAL_LEN);
-    mask(S, ikm, u->apex, DOM_DIST, leaf, p, MVAL_LEN);
+    mask(S, ikm, u->apex1 && j == 0 ? u->apex1 : u->apex, DOM_DIST, leaf, p, MVAL_LEN);
     p += MVAL_LEN;
     memcpy(p, u->sssPf + leaf * PfSz, PfSz);
     p += PfSz;
@@ -2701,7 +2710,9 @@ unitPut(
  * the kind's: 0 the rotation's, any other a payload's or a noop's.  The
  * shard's gate runs where the shard is in hand (unitIn).  The crypto
  * boundary, called for every sign part that lands and is neither a
- * duplicate nor refused for its value unchecked.
+ * duplicate nor refused for its value unchecked, its shape and its
+ * signature's structure -- its size and its offset -- read by the
+ * caller already: mlsEwSz fails only where mlsEgSz does (mls.c).
  */
 static unsigned int
 unitCheck(
@@ -2733,8 +2744,7 @@ unitCheck(
   mval = sssProof = rsecProof = 0;
   d->shard = 0;
   d->shardLen = 0;
-  if (!SHAPE_OK(ul) || (SHAPE_END(ul) && u[ul - 1] != END_MARK))
-    return (AC_UNIT_LEN);
+  TESTASSERT(SHAPE_OK(ul) && (!SHAPE_END(ul) || u[ul - 1] == END_MARK));
   d->end = SHAPE_END(ul);
   if (ul == SigLen || ul == SigLen + 1) {
     /* [signature]: a noop, over the hash of the signing key and slot,
@@ -2768,20 +2778,22 @@ unitCheck(
     sssProof = mval + MVAL_LEN;
     rsecProof = sssProof + PfSz;
   }
-  if (mlsEgSz(SignH, sig, SigLen) != SigLen
-   || !(ew = mlsEwSz(SignH, sig, SigLen)))
-    return (AC_UNIT_SIG);
-  if (!(wa = malloc(ew)))
+  TESTASSERT(mlsEgSz(SignH, sig, SigLen) == SigLen);
+  ew = mlsEwSz(SignH, sig, SigLen);
+  TESTASSERT(ew);
+  if (!(wa = TESTALLOC(V, AC_MEM_UNIT, 0, malloc(ew))))
     return (AC_UNIT_MEM);
   /* the offset first, from the signature's structure: the value is
    * recomputed at it, so the value commits the slot that signed it */
-  if (!(ew = mlsEgOf(SignH, sig, SigLen))) {
-    free(wa);
-    return (AC_UNIT_SIG);
-  }
+  ew = mlsEgOf(SignH, sig, SigLen);
+  TESTASSERT(ew);
   d->off = ew - 1;
   /* slot 0 is the rotation's and no payload's or noop's */
   if ((d->kind == AC_ROTATION) != !d->off) {
+#ifdef AC_TEST
+    if (V->test)
+      ++V->test->slotKind;
+#endif
     free(wa);
     return (AC_UNIT_SIG);
   }
@@ -2792,18 +2804,18 @@ unitCheck(
   cand = root;
   d->underNext = 0;
   for (;;) {
-    if (d->kind == AC_NOOP
+    if (TESTCALL(V, AC_MEM_UNIT, 8, -1, d->kind == AC_NOOP
         ? apexBuf(S, cand, d->off, EndMark, d->end, 0, 0, 0, 0, d->apex)
         : d->kind == AC_ROTATION
         ? apexBuf(S, cand, d->off, d->succ, HashSz, EndMark, d->end, 0, 0, d->apex)
         : apexBuf(S, cand, d->off, d->origHash, HashSz, d->rsecRoot, HashSz, d->sssRoot, HashSz,
-                  d->apex)) {
+                  d->apex))) {
       free(wa);
       return (AC_UNIT_MEM);
     }
     /* the extractors' arguments are this seat's and well formed, so a 0
      * is the hash allocator's refusal: this seat's memory, no judgment */
-    if (!(p = mlsExtract(&MlsPlug, wa, d->apex, sig))) {
+    if (!(p = TESTCALL(V, AC_MEM_UNIT, 9, 0, mlsExtract(&MlsPlug, wa, d->apex, sig)))) {
       free(wa);
       return (AC_UNIT_MEM);
     }
@@ -2830,10 +2842,10 @@ unitCheck(
   d->scp = pts[0];
   d->ocp = pts[1 + leaf];
   memset(pts, 0, sizeof (pts));
-  if (!(vf = malloc(sssMkVfSz(SignH))))
+  if (!(vf = TESTALLOC(V, AC_MEM_UNIT, 1, malloc(sssMkVfSz(SignH)))))
     return (AC_UNIT_MEM);
-  if (!(p = sssMkExtract(&SssPlug, d->scp, d->ocp, d->unit, MVAL_LEN, leaf, r,
-                         sssProof, vf))) {
+  if (!(p = TESTCALL(V, AC_MEM_UNIT, 10, 0, sssMkExtract(&SssPlug, d->scp, d->ocp, d->unit, MVAL_LEN, leaf, r,
+                         sssProof, vf)))) {
     free(vf);
     return (AC_UNIT_MEM);
   }
@@ -2963,8 +2975,6 @@ tagDecide(
      || (kind == BRACHA87_BESIDE ? value > AC_PART_DESC || from != s : (value & 2)))
       return (TAG_PASS);
     break;
-  default:
-    return (TAG_PASS);
   }
   for (wi = 0; wi < V->nLive && memcmp(V->live[wi]->prev, name, HashSz); ++wi)
     ;
@@ -3052,7 +3062,9 @@ budget:
   return (kind == BRACHA87_BESIDE ? TAG_UNIT : TAG_ROW);
 }
 
-/* the framer's question, counted as the arrival counts it, once a message */
+/* the framer's question, counted as the arrival counts it: once a
+ * message, since the framer asks once a train, of whichever fragment
+ * comes first, and marks a train refused */
 static int
 tagOkCb(
   void *ctx
@@ -3063,6 +3075,7 @@ tagOkCb(
   unsigned int from;
   unsigned int rc;
 
+  (void)si;
   V = ctx;
 #ifdef AC_TEST
   if (V->test && V->test->tagAudit)
@@ -3070,8 +3083,6 @@ tagOkCb(
 #endif
   if (!(rc = tagDecide(V, tag)))
     return (1);
-  if (si)
-    return (0);
   from = tag[AC_TAG_SENDER];
   if (AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && (rc == TAG_RECORD || rc == TAG_END))
     ++V->c.routedUnit;
@@ -3267,7 +3278,6 @@ seat(
   struct inst *kI;
   unsigned int kJ;
   unsigned int kSite;
-  int kKeep;                          /* the walk reached kI over stepped links: its key holds */
   unsigned int kw;
   unsigned long ko;
   unsigned char kIkm[PSK_MASK_SIZE];
@@ -3302,8 +3312,6 @@ seat(
   lMem = 0;
   V->aheadMore = 0;
   us = nowUs;
-  if (V->failed)
-    return;
   switch (ev) {
   case EV_GO:    goto launch;
   case EV_INPUT: goto input;
@@ -3326,20 +3334,20 @@ launch:
   if (V->nLive == V->liveCap) {
     struct inst **grown;
 
-    if (!(grown = realloc(V->live, (V->liveCap ? 2 * V->liveCap : 8) * sizeof (*grown))))
+    if (!(grown = TESTALLOC(V, AC_MEM_LAUNCH, 0, realloc(V->live, (V->liveCap ? 2 * V->liveCap : 8) * sizeof (*grown)))))
       goto launchMem;
     V->live = grown;
     V->liveCap = V->liveCap ? 2 * V->liveCap : 8;
   }
   if ((I = V->launching))
     goto launchAgain;
-  if (!(I = calloc(1, sizeof (*I))))
+  if (!(I = TESTALLOC(V, AC_MEM_LAUNCH, 1, calloc(1, sizeof (*I)))))
     goto launchMem;
-  if (!(I->blob = malloc(MsgMax))
-   || !(I->a = calloc(1, bkr94acsSz(N - 1, HashSz - 1, Rounds)))
-   || !(I->oAcs = calloc(N * N * (Rounds + 1), sizeof (*I->oAcs)))
-   || !(I->rAcs = calloc(N * RACS_ROW + N * N * (Rounds + 1), 1))
-   || !(I->tab = calloc(1, INST_TAB_SZ))) {
+  if (!(I->blob = TESTALLOC(V, AC_MEM_LAUNCH, 2, malloc(MsgMax)))
+   || !(I->a = TESTALLOC(V, AC_MEM_LAUNCH, 3, calloc(1, bkr94acsSz(N - 1, HashSz - 1, Rounds))))
+   || !(I->oAcs = TESTALLOC(V, AC_MEM_LAUNCH, 4, calloc(N * N * (Rounds + 1), sizeof (*I->oAcs))))
+   || !(I->rAcs = TESTALLOC(V, AC_MEM_LAUNCH, 5, calloc(N * RACS_ROW + N * N * (Rounds + 1), 1)))
+   || !(I->tab = TESTALLOC(V, AC_MEM_LAUNCH, 6, calloc(1, INST_TAB_SZ)))) {
     free(I->blob);
     free(I->a);
     free(I->oAcs);
@@ -3392,7 +3400,7 @@ askedKept:
     if (I->blobLen) {
       unsigned char oh[AC_HASH_MAX];
 
-      if (hashBuf(S, I->blob, I->blobLen, 0, 0, 0, 0, 0, 0, oh))
+      if (TESTCALL(V, AC_MEM_LAUNCH, 8, -1, hashBuf(S, I->blob, I->blobLen, oh)))
         goto launchMem;
       if (!memcmp(oh, V->cache->origHash, HashSz)) {
         I->own = V->cache;
@@ -3406,7 +3414,7 @@ askedKept:
     ownDrop(S, V->cache);
     V->cache = 0;
   }
-  if (!(I->own = calloc(1, OWN_SZ)))
+  if (!(I->own = TESTALLOC(V, AC_MEM_LAUNCH, 7, calloc(1, OWN_SZ))))
     goto launchMem;
   I->own->ref = 1;
   if (V->rotated && V->slot >> MlsS) {
@@ -3426,27 +3434,27 @@ askedKept:
    * seat holds it as made: a launch this seat's memory refuses here
    * makes it anew */
   if (!V->rotated) {
-    if (!(V->mlsNext.r = malloc(mlsPrSz(&V->mlsNext)))
-     || !(V->rwa = malloc(mlsWaSz(&V->mlsNext))))
+    if (!(V->mlsNext.r = TESTALLOC(V, AC_MEM_ROT, 0, malloc(mlsPrSz(&V->mlsNext))))
+     || !(V->rwa = TESTALLOC(V, AC_MEM_ROT, 1, malloc(mlsWaSz(&V->mlsNext)))))
       goto rotMem;
     V->cb->random(V->cb->ctx, V->mlsNext.r, mlsPrSz(&V->mlsNext));
-    if (!(rpub = mlsHash(&V->mlsNext, V->rwa)))
+    if (!(rpub = TESTCALL(V, AC_MEM_ROT, 3, 0, mlsHash(&V->mlsNext, V->rwa))))
       goto rotMem;
     memcpy(I->own->succ, rpub, HashSz);
     I->own->end = V->ended != 0;
-    if (apexBuf(S, V->cur, 0, I->own->succ, HashSz, EndMark, I->own->end, 0, 0, I->own->apex))
+    if (TESTCALL(V, AC_MEM_ROT, 4, -1, apexBuf(S, V->cur, 0, I->own->succ, HashSz, EndMark, I->own->end, 0, 0, I->own->apex)))
       goto rotMem;
-    if (TESTFAULT(V) == AC_FAULT_TWOFACE && !V->gen) {
-      /* -f 7: the successor made and never proposed; slot 0 is spent
-       * below, on the payload's apex */
+    if (AC_FAULT_SLOT0(TESTFAULT(V)) && !V->gen) {
+      /* -f 7, -f 15: the successor made and never proposed; slot 0 is
+       * spent below, on the payload's apex */
       memset(V->rwa, 0, mlsWaSz(&V->mlsNext));
       free(V->rwa);
       V->rwa = 0;
       V->rotated = 1;
-      trace(V, I->num, "two-faced: the successor made, slot 0 kept for the payload's apex");
+      trace(V, I->num, "the successor made, slot 0 kept for the payload's apex");
     } else {
-      if (!(I->own->sig = malloc(SigLen))
-       || !mlsSign(&V->mls, V->rwa, I->own->apex, I->own->sig, 0))
+      if (!(I->own->sig = TESTALLOC(V, AC_MEM_ROT, 2, malloc(SigLen)))
+       || !TESTCALL(V, AC_MEM_ROT, 5, 0, mlsSign(&V->mls, V->rwa, I->own->apex, I->own->sig, 0)))
         goto rotMem;
       memset(V->rwa, 0, mlsWaSz(&V->mlsNext));
       free(V->rwa);
@@ -3488,10 +3496,10 @@ askedSlot:
   if (!I->blobLen) {
     I->own->kind = AC_NOOP;
     I->own->end = V->ended != 0;
-    if (apexBuf(S, V->cur, I->own->off, EndMark, I->own->end, 0, 0, 0, 0, I->own->apex)
-     || !(I->own->sig = malloc(SigLen))
-     || !(V->rwa = malloc(mlsWaSz(&V->mls)))
-     || !mlsSign(&V->mls, V->rwa, I->own->apex, I->own->sig, I->own->off))
+    if (TESTCALL(V, AC_MEM_SIGN, 2, -1, apexBuf(S, V->cur, I->own->off, EndMark, I->own->end, 0, 0, 0, 0, I->own->apex))
+     || !(I->own->sig = TESTALLOC(V, AC_MEM_SIGN, 0, malloc(SigLen)))
+     || !(V->rwa = TESTALLOC(V, AC_MEM_SIGN, 1, malloc(mlsWaSz(&V->mls))))
+     || !TESTCALL(V, AC_MEM_SIGN, 3, 0, mlsSign(&V->mls, V->rwa, I->own->apex, I->own->sig, I->own->off)))
       goto signMem;
     memset(V->rwa, 0, mlsWaSz(&V->mls));
     free(V->rwa);
@@ -3546,27 +3554,31 @@ askedSlot:
     rr = N - 1;
     kk = Threshold;
     m = rr - kk;
+#ifdef AC_TEST
+  distAgain:                            /* -f 13's second value */
+#endif
     failed = 0;
     comp = ivBuf = shareBuf = sssw = rsecw = wa = 0;
     V->cb->random(V->cb->ctx, seed, SEED_LEN);
     geometry(S, seed, N, pts);
-    if (hashBuf(S, I->blob, I->blobLen, 0, 0, 0, 0, 0, 0, o->origHash))
+    if (TESTCALL(V, AC_MEM_DIST, 12, -1, hashBuf(S, I->blob, I->blobLen, o->origHash)))
       goto distFail;
     cap = I->blobLen + 1024;
-    if (!(comp = malloc(cap)))
+    if (!(comp = TESTALLOC(V, AC_MEM_DIST, 0, malloc(cap))))
       goto distFail;
-    if (!(clen = hufEncode(comp, cap, I->blob, I->blobLen)))
-      goto distFail;
+    /* hufEncode is never 0 (huf.h) */
+    clen = hufEncode(comp, cap, I->blob, I->blobLen);
+    TESTASSERT(clen);
     if (clen > cap) {
       free(comp);
       cap = clen;
-      if (!(comp = malloc(cap)))
+      if (!(comp = TESTALLOC(V, AC_MEM_DIST, 1, malloc(cap))))
         goto distFail;
-      if (!(clen = hufEncode(comp, cap, I->blob, I->blobLen)))
-        goto distFail;
+      clen = hufEncode(comp, cap, I->blob, I->blobLen);
+      TESTASSERT(clen);
     }
     /* dealt randomness: K, then the t pad values Shamir needs */
-    if (!(ivBuf = malloc(kk * KEY_LEN)))
+    if (!(ivBuf = TESTALLOC(V, AC_MEM_DIST, 2, malloc(kk * KEY_LEN))))
       goto distFail;
     V->cb->random(V->cb->ctx, ivBuf, kk * KEY_LEN);
     ip[0] = pts[0];
@@ -3582,7 +3594,7 @@ askedSlot:
     }
     for (j = 0; j < kk; ++j)
       ivp[j] = ivBuf + j * KEY_LEN;
-    if (!(shareBuf = malloc(rr * KEY_LEN)))
+    if (!(shareBuf = TESTALLOC(V, AC_MEM_DIST, 3, malloc(rr * KEY_LEN))))
       goto distFail;
     for (i = 0; i < rr; ++i)
       sharePtr[i] = shareBuf + i * KEY_LEN;
@@ -3616,18 +3628,18 @@ askedSlot:
       pts[1] = pts[2];
       pts[2] = x;
     }
-    if (!(sssw = malloc(sssMkWaSz(SignH, rr)))
-     || !(p = sssMkHash(&SssPlug, pts[0], pts + 1, leafPtr, MVAL_LEN, rr, sssw)))
+    if (!(sssw = TESTALLOC(V, AC_MEM_DIST, 4, malloc(sssMkWaSz(SignH, rr))))
+     || !(p = TESTCALL(V, AC_MEM_DIST, 13, 0, sssMkHash(&SssPlug, pts[0], pts + 1, leafPtr, MVAL_LEN, rr, sssw))))
       goto distFail;
     memcpy(o->sssRoot, p, HashSz);
     for (i = 0; i < rr; ++i)
-      if (!sssMkProof(&SssPlug, rr, i, sssw, OWN_SSSPF(o, i)))
+      if (!TESTCALL(V, AC_MEM_DIST, 14, 0, sssMkProof(&SssPlug, rr, i, sssw, OWN_SSSPF(o, i))))
         goto distFail;
     o->shardLen = (clen + kk - 1) / kk;
     if (fault == AC_FAULT_PAD)             /* -f 6: at least one padding byte */
       o->shardLen = clen / kk + 1;
     if (o->shardLen > ShardMax
-     || !(o->shards = malloc(rr * o->shardLen)))
+     || !(o->shards = TESTALLOC(V, AC_MEM_DIST, 5, malloc(rr * o->shardLen))))
       goto distFail;
     memcpy(o->shards, comp, clen);
     memset(o->shards + clen, 0, kk * o->shardLen - clen);
@@ -3658,39 +3670,58 @@ askedSlot:
      * parity and before the tree: every subset reproduces the message */
     if (fault == AC_FAULT_PAD)
       o->shards[kk * o->shardLen - 1] ^= 0x01;
-    if (!(rsecw = malloc(rsecMkWaSz(SignH, rr))))
+    if (!(rsecw = TESTALLOC(V, AC_MEM_DIST, 6, malloc(rsecMkWaSz(SignH, rr)))))
       goto distFail;
-    if (!(p = rsecMkHash(&RsecPlug, shardPtr, o->shardLen, rr, rsecw)))
+    if (!(p = TESTCALL(V, AC_MEM_DIST, 15, 0, rsecMkHash(&RsecPlug, shardPtr, o->shardLen, rr, rsecw))))
       goto distFail;
     memcpy(o->rsecRoot, p, HashSz);
     for (i = 0; i < rr; ++i)
-      if (!rsecMkProof(&RsecPlug, rr, i, rsecw, OWN_RSECPF(o, i)))
+      if (!TESTCALL(V, AC_MEM_DIST, 16, 0, rsecMkProof(&RsecPlug, rr, i, rsecw, OWN_RSECPF(o, i))))
         goto distFail;
-    if (apexBuf(S, V->cur, o->off, o->origHash, HashSz, o->rsecRoot, HashSz, o->sssRoot, HashSz,
-                o->apex)
-     || !(o->sig = malloc(SigLen))
-     || !(wa = malloc(mlsWaSz(&V->mls)))
-     || !mlsSign(&V->mls, wa, o->apex, o->sig, o->off))
+    if (TESTCALL(V, AC_MEM_DIST, 17, -1, apexBuf(S, V->cur, o->off, o->origHash, HashSz, o->rsecRoot, HashSz, o->sssRoot, HashSz,
+                o->apex))
+     || !(o->sig = TESTALLOC(V, AC_MEM_DIST, 7, malloc(SigLen)))
+     || !(wa = TESTALLOC(V, AC_MEM_DIST, 8, malloc(mlsWaSz(&V->mls))))
+     || !TESTCALL(V, AC_MEM_DIST, 18, 0, mlsSign(&V->mls, wa, o->apex, o->sig, o->off)))
       goto distFail;
     /* -f 7: the apex signed again at slot 0, the rotation's, for seat 0
      * (unitPut deals it there in a rotation's shape) */
     if (fault == AC_FAULT_TWOFACE && !V->gen && o->off == SLOT_PAY
-     && (!(o->sig0 = malloc(SigLen)) || !mlsSign(&V->mls, wa, o->apex, o->sig0, 0)))
+     && (!(o->sig0 = TESTALLOC(V, AC_MEM_DIST, 9, malloc(SigLen))) || !mlsSign(&V->mls, wa, o->apex, o->sig0, 0)))
+      goto distFail;
+    /* -f 15: the apex signed again at slot 0, for seat 0 (unitPut deals
+     * it there in the payload's shape) */
+    if (fault == AC_FAULT_SLOTZERO && !V->gen && o->off == SLOT_PAY
+     && (!(o->sig1 = TESTALLOC(V, AC_MEM_DIST, 23, malloc(SigLen))) || !mlsSign(&V->mls, wa, o->apex, o->sig1, 0)))
       goto distFail;
     /* -f 8: the apex, hashed under the current key, signed again by the
      * installed successor at its first payload slot, for seat 0
      * (unitPut deals it there in the payload's shape) */
     if (fault == AC_FAULT_SPLIT && !V->gen && V->mlsNext.r && o->off == SLOT_PAY + 1
-     && (!(o->sig1 = malloc(SigLen)) || !mlsSign(&V->mlsNext, wa, o->apex, o->sig1, SLOT_PAY)))
+     && (!(o->sig1 = TESTALLOC(V, AC_MEM_DIST, 10, malloc(SigLen))) || !mlsSign(&V->mlsNext, wa, o->apex, o->sig1, SLOT_PAY)))
+      goto distFail;
+    /* -f 14: the same header hashed under the installed successor's key
+     * at the same slot, and that value signed by the successor there,
+     * for seat 0 (unitPut masks its leaf under that value): under the
+     * current key the header is the value agreed and the signature
+     * extracts to the successor, under the successor it is another */
+    if (fault == AC_FAULT_TWOKEY && !V->gen && V->mlsNext.r && (V->hasNext[V->self] & 1) && o->off == SLOT_PAY + 1
+     && (!(o->sig1 = TESTALLOC(V, AC_MEM_DIST, 20, malloc(SigLen)))
+      || !(o->apex1 = TESTALLOC(V, AC_MEM_DIST, 21, malloc(HashSz)))
+      || TESTCALL(V, AC_MEM_DIST, 22, -1, apexBuf(S, PUBNEXT(V, V->self), o->off, o->origHash, HashSz, o->rsecRoot, HashSz,
+                                                  o->sssRoot, HashSz, o->apex1))
+      || !mlsSign(&V->mlsNext, wa, o->apex1, o->sig1, o->off)))
       goto distFail;
     /* the same apex signed again at the next slot, spent here so this
      * seat never signs another value there */
     if (fault == AC_FAULT_TWOSLOT && !V->gen && o->off == SLOT_PAY
-     && (!(o->sig1 = malloc(SigLen)) || !mlsSign(&V->mls, wa, o->apex, o->sig1, o->off + 1)))
+     && (!(o->sig1 = TESTALLOC(V, AC_MEM_DIST, 11, malloc(SigLen))) || !mlsSign(&V->mls, wa, o->apex, o->sig1, o->off + 1)))
       goto distFail;
 #ifdef AC_TEST
-    if (o->sig0 || o->sig1)
+    if (o->sig0 || o->sig1) {
       ++V->test->dealt;
+      V->test->dealtAt = I->num;
+    }
 #endif
     trace(V, I->num, "distributed apex %02x%02x.. at slot %u, unit %u bytes%s",
           o->apex[0], o->apex[1], o->off, UnitFixed + o->shardLen,
@@ -3702,7 +3733,11 @@ askedSlot:
           : fault == AC_FAULT_BOTH ? " (a shard and a share flipped, two leaves)"
           : o->sig0 ? " (the apex signed at slot 0 too, to seat 0 in a rotation's shape)"
           : o->sig1 && fault == AC_FAULT_TWOSLOT ? " (the apex signed at the next slot too, to seat 0)"
-          : o->sig1 ? " (the apex signed under the successor too, to seat 0)" : "");
+          : o->sig1 && fault == AC_FAULT_SLOTZERO ? " (the apex signed at slot 0 too, to seat 0 in the payload's shape)"
+          : o->apex1 ? " (the header signed by the successor too, at its slot, over its value: to seat 0)"
+          : o->sig1 ? " (the apex signed under the successor too, to seat 0)"
+          : o != I->own ? " (a second value, the blob's first byte flipped: its INITIAL to seats 0..t-1, its sign part to seat t)"
+          : "");
     goto distFree;
 
   distFail:
@@ -3729,12 +3764,33 @@ askedSlot:
     free(sssw);
     free(rsecw);
     free(wa);
+#ifdef AC_TEST
+    /* -f 13: a second value for the position, the blob with its first
+     * byte flipped, distributed the same way and signed at the next
+     * slot; the egress deals it */
+    if (!failed && fault == AC_FAULT_POOLS && o == I->own && !V->gen && o->off == SLOT_PAY && I->blobLen) {
+      if (!(o->alt = TESTALLOC(V, AC_MEM_DIST, 19, calloc(1, OWN_SZ))))
+        goto launchMem;
+      o->alt->ref = 1;
+      o->alt->off = o->off + 1;
+      o->alt->underNext = o->underNext;
+      I->blob[0] ^= 0x01;
+      o = o->alt;
+      goto distAgain;
+    }
+    if (o != I->own) {
+      I->blob[0] ^= 0x01;
+      o = I->own;
+      if (!failed)
+        ++V->test->dealt;
+    }
+#endif
     if (failed)
       goto launchMem;
     /* the slot spent, its signature made, and the next under the
-     * two-slot fault, spent on the same apex */
+     * two-slot fault, spent on the same apex, or on -f 13's second value */
     if (o->off == V->slot)
-      V->slot += 1 + (fault == AC_FAULT_TWOSLOT && o->sig1);
+      V->slot += 1 + ((fault == AC_FAULT_TWOSLOT && o->sig1) || o->alt);
   }
   goto proposed;
 
@@ -3785,13 +3841,17 @@ ask:
    * and a payload a subset left out goes */
   if (!I->asked && !V->ended) {
     I->asked = 1;
-    if ((I->blobLen = V->cb->propose(V->cb->ctx, I->blob, MsgMax))
-     && (I->blobLen > MsgMax
-      || !(j = hufEncode(V->pbuf, ShardMax * Threshold, I->blob, I->blobLen))
-      || j > ShardMax * Threshold)) {
-      ++V->c.proposeLong;
-      memset(I->blob, 0, MsgMax);
-      I->blobLen = 0;
+    if ((I->blobLen = V->cb->propose(V->cb->ctx, I->blob, MsgMax))) {
+      if (I->blobLen > MsgMax)
+        goto tooLong;
+      j = hufEncode(V->pbuf, ShardMax * Threshold, I->blob, I->blobLen);
+      TESTASSERT(j);                    /* never 0 (huf.h) */
+      if (j > ShardMax * Threshold) {
+      tooLong:
+        ++V->c.proposeLong;
+        memset(I->blob, 0, MsgMax);
+        I->blobLen = 0;
+      }
     }
   }
   if (askSite == 1)
@@ -3859,9 +3919,9 @@ proposed:
    * the ABAP README has a caller that gives no count do.  Before the
    * subset nothing is forgotten, so nothing is said twice under a tag */
   memset(I->a, 0, bkr94acsSz(N - 1, HashSz - 1, Rounds));
-  if (bkr94acsInit(I->a, N - 1, MaxByz, HashSz - 1, V->self, Rounds, Patience, 0,
-                   coinFn, V, 1))
-    goto exit;
+  pr = bkr94acsInit(I->a, N - 1, MaxByz, HashSz - 1, V->self, Rounds, Patience, 0,
+                    coinFn, V, 1);
+  TESTASSERT(!pr);                      /* its refusals are parameters derive validated */
   memset(I->oAcs, 0, N * N * (Rounds + 1) * sizeof (*I->oAcs));
   if (UnitFixed + I->own->shardLen > V->c.unitMax)
     V->c.unitMax = UnitFixed + I->own->shardLen;
@@ -3930,7 +3990,11 @@ pass:
 heldPutPassDone:
   if (V->quiet)
     return;
-  if (V->swPhase == SW_IDLE && us - V->lastTickUs >= (unsigned long)TickMs * 1000) {
+  if (V->swPhase == SW_IDLE && us - V->lastTickUs >= (unsigned long)TickMs * 1000
+#ifdef AC_TEST
+   && !(V->test && V->test->tickHeld)
+#endif
+  ) {
     if (us - V->lastTickUs - (unsigned long)TickMs * 1000 > V->c.overUs)
       V->c.overUs = us - V->lastTickUs - (unsigned long)TickMs * 1000;
     V->lastTickUs = us;
@@ -3948,12 +4012,6 @@ heldPutPassDone:
     if (V->recvNow > V->c.recvTickMost)
       V->c.recvTickMost = V->recvNow;
     V->recvNow = 0;
-    /* each link's sweep: due once the least round trip it has witnessed
-     * has passed since it was last due; a link with none witnessed is
-     * swept at every tick */
-    for (i = 0; i < N; ++i)
-      if ((V->swDue[i] = !SEATC(V, i).rtts || us - V->swUs[i] >= SEATC(V, i).rttLeast))
-        V->swUs[i] = us;
     /* a search this seat's memory refused is owed, and taken again at
      * every tick until its memory serves it */
     for (wi = 0; wi < V->nLive + V->nKept; ++wi) {
@@ -3992,8 +4050,9 @@ input:
   evAuth = 0;                           /* a datagram: nothing proved */
   adr[0] = 1;
   adr[1] = 0;
-  if (!rsecFrmIgrPut(&V->igr, adr, dgram, dlen))
-    ++V->c.igrBusy;
+  /* the arrivals drain the framer before the work, the only way out */
+  pr = rsecFrmIgrPut(&V->igr, adr, dgram, dlen);
+  TESTASSERT(pr);
 drain:
 #ifdef AC_TEST
   /* what the framer's question would have refused moved nothing here */
@@ -4033,9 +4092,9 @@ drain:
       evWin = WIN_NONE;
       evNum = 0;
       evKept = 0;
-      /* ingress: [addrlen][addr][tag][rm][um][payload][hmac] */
-      if (ml < 1 || ml < 1u + mb[0] + TagSz + 2u)
-        goto malformed;
+      /* ingress: [addrlen][addr][tag][rm][um][payload][hmac], the
+       * framer's Get carrying the prefix to every message and loss */
+      TESTASSERT(ml >= 1 && ml >= 1u + mb[0] + TagSz + 2u);
       al = mb[0];
       tg = mb + 1 + al;
       evTag = tg;
@@ -4157,8 +4216,6 @@ drain:
         if ((evKind == BRACHA87_INITIAL || evKind == BRACHA87_BESIDE) && evFrom != evS)
           goto notInitiator;
         break;
-      default:
-        goto malformed;
       }
       /* the position, by its name: the chain hash before it, which this
        * seat minted at the fold before it [Bracha87 Section 3: all
@@ -4285,13 +4342,13 @@ drain:
             if (V->nKept == V->keptCap) {
               struct inst **grown;
 
-              if (!(grown = realloc(V->kept, (V->keptCap ? 2 * V->keptCap : 8) * sizeof (*grown))))
+              if (!(grown = TESTALLOC(V, AC_MEM_ROW, 0, realloc(V->kept, (V->keptCap ? 2 * V->keptCap : 8) * sizeof (*grown)))))
                 goto rowMem;
               V->kept = grown;
               V->keptCap = V->keptCap ? 2 * V->keptCap : 8;
             }
             kt = 0;
-            if (!(k = calloc(1, sizeof (*k))) || !(kt = calloc(1, INST_TAB_SZ))) {
+            if (!(k = TESTALLOC(V, AC_MEM_ROW, 1, calloc(1, sizeof (*k)))) || !(kt = TESTALLOC(V, AC_MEM_ROW, 2, calloc(1, INST_TAB_SZ)))) {
               free(k);
               goto rowMem;
             }
@@ -4342,7 +4399,7 @@ drain:
                 d->shardLen = shl;
                 d->sign = d->held = 1;
               } else if (!d->sig) {
-                if (!(d->sig = malloc(SigLen)) || (!mp[RM_KIND] && shl && !(d->shard = malloc(shl)))) {
+                if (!(d->sig = TESTALLOC(V, AC_MEM_ROW, 3, malloc(SigLen))) || (!mp[RM_KIND] && shl && !(d->shard = TESTALLOC(V, AC_MEM_ROW, 4, malloc(shl))))) {
                   /* the members loaded so far stay; the next row loads
                    * the rest */
                   free(d->sig);
@@ -4496,7 +4553,7 @@ rowMem:
           free(blob);
           goto drain;
         }
-        if (!(ah = malloc(sizeof (*ah)))) {
+        if (!(ah = TESTALLOC(V, AC_MEM_AHEAD, 0, malloc(sizeof (*ah))))) {
           ++V->c.aheadMem;              /* this seat's memory: its sender re-sends it */
           V->aheadNew = 1;
           free(blob);
@@ -4575,10 +4632,9 @@ arrivalDone:
      * description, the subset and every member's agreed value.  It is
      * the exchange carried to one seat, with what the agreement decided
      * beside it; X's own value goes to no recover leg to X, which dealt
-     * it.  A leg at its abandon count is made anew, a send the talk had
-     * begun of it being that machine's; the same v and the same bytes
-     * beside it, so the fresh one says what the first did.  Back to the
-     * row.
+     * it.  A leg at its abandon count, silent, is made anew: the same v
+     * and the same bytes beside it, so the fresh one says what the first
+     * did.  Back to the row.
      */
   rcvLaunch:
     rcvMade = 0;
@@ -4588,16 +4644,13 @@ arrivalDone:
         continue;
       g = &ROUT(I, i, evFrom);
       if (g->f) {
-        if (V->eActive && V->eGate && V->eI == I && V->eG == g)
-          V->eActive = 0;
-        if (g->owed)
-          --I->gOwed;
+        TESTASSERT(!g->owed && !(V->eActive && V->eGate && V->eG == g));
         free(g->f);
         memset(g, 0, sizeof (*g));
         --I->legCnt;
         --I->legGone;
       }
-      if (!(g->f = calloc(1, bracha87Fig1Sz(1, HashSz - 1, 1)))
+      if (!(g->f = TESTALLOC(V, AC_MEM_ROW, 5, calloc(1, bracha87Fig1Sz(1, HashSz - 1, 1))))
        || bracha87Fig1Init(g->f, 1, 0, HashSz - 1, 1, 0, 0, Abandon, 1)
        || bracha87Fig1Initiator(g->f, VAL(I, i))) {
         /* this seat's memory: no leg toward it for this member, the
@@ -4741,7 +4794,7 @@ handbackDone:
              && (i == V->self || !I->dist[i].held || !I->hasVal[i]
               || !VALMATCH(VAL(I, i), &I->dist[i])))
               continue;
-            if (!(gg->f = calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1)))) {
+            if (!(gg->f = TESTALLOC(V, AC_MEM_OWN, 0, calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1))))) {
               /* this seat's memory refused it: the legs made stand, and
                * the rest wait for the seat's next call */
               I->subsetDue = 1;
@@ -4749,13 +4802,13 @@ handbackDone:
               lMem = 1;
               goto legsMem;
             }
-            if (bracha87Fig1Init(gg->f, N - 1, MaxByz, HashSz - 1, MaxByz + 1, j, V->self, Abandon, 1))
-              goto exit;
+            pr = bracha87Fig1Init(gg->f, N - 1, MaxByz, HashSz - 1, MaxByz + 1, j, V->self, Abandon, 1);
+            TESTASSERT(!pr);            /* its refusals are parameters derive validated */
             ++I->legCnt;
             if (j != V->self)
               continue;
-            if (bracha87Fig1Initiator(gg->f, VAL(I, i)))
-              goto exit;
+            pr = bracha87Fig1Initiator(gg->f, VAL(I, i));
+            TESTASSERT(!pr);            /* the initiator, once, at its start */
             memcpy(gg->v, VAL(I, i), HashSz);
             gg->fed = FED_INITIAL | FED_BESIDE;
             trace(V, I->num, "leg (X=%u S=%u) launched", i, j);
@@ -4805,12 +4858,9 @@ legsMem:
      * message, its leaves off the re-encode named beside it.  No
      * message is a report too, each its own word: every subset tried at
      * threshold, or the try budget spent, which has shown nothing
-     * either way, or under threshold when the retention lets the
-     * position's record go.  A last pass this seat's memory refuses is
-     * owed: the assembly goes with the record as one under threshold
-     * does, the pass taken again at every tick, and is reported with no
-     * verdict only where the memory still refuses it when the retention
-     * lets the record go.
+     * either way.  A last pass this seat's memory refuses is owed: the
+     * assembly goes with the record as one under threshold does, the
+     * pass taken again at every tick, and its report waits on it.
      */
     for (i = 0; i < N; ++i) {
       struct dist *d;
@@ -4929,8 +4979,8 @@ legsMem:
       if (!s->triedK) {
         s->kcap = rr;
         if (TESTREFUSE(V, x, s, 1)
-         || !(s->shareLeaf = malloc(2 * rr))
-         || !(s->triedK = malloc(s->kcap * (KEY_LEN + kk + 1)))) {
+         || !(s->shareLeaf = TESTALLOC(V, AC_MEM_ASM, 0, malloc(2 * rr)))
+         || !(s->triedK = TESTALLOC(V, AC_MEM_ASM, 1, malloc(s->kcap * (KEY_LEN + kk + 1))))) {
           free(s->shareLeaf);
           s->shareLeaf = 0;
           ++V->c.asmAlloc;              /* this seat's memory, not the
@@ -4985,13 +5035,8 @@ legsMem:
           s->owed = 0;                  /* no search is owed under threshold */
           /* under threshold: the next part tries again.  The position
            * leaving the live window ends nothing here: a part still in
-           * flight is received all the same, and the record places it.
-           * The retention letting the record go is the end: nothing
-           * more lands */
-          if (s->final && I->gone) {
-            I->verdict[x] = AC_UNDER;
-            trace(V, I->num, "the record let go with %u under threshold: %u shares, %u shards", x, s->cs, s->cd);
-          } else if (s->final) {
+           * flight is received all the same, and the record places it */
+          if (s->final) {
             /* kept already where its last pass was owed: the pass, had,
              * found it under threshold, and the record places the rest */
             if (!s->kept)
@@ -5049,16 +5094,16 @@ legsMem:
       }
       recovered = 0;
       recCap = 0;
-      outBuf = malloc(rr * KEY_LEN);
-      dbuf = malloc(kk * shardLen);
-      ptbuf = malloc(kk * shardLen);
-      ks = malloc(kk * shardLen);
-      parity = malloc((m ? m : 1) * shardLen);
-      reShare = malloc(rr * KEY_LEN);
-      reLeaf = malloc(rr * MVAL_LEN);
-      rswork = malloc(RS_WORK_SIZE(kk));
-      sssw = malloc(sssMkWaSz(SignH, rr));
-      rsecw = malloc(rsecMkWaSz(SignH, rr));
+      outBuf = TESTALLOC(V, AC_MEM_ASM, 2, malloc(rr * KEY_LEN));
+      dbuf = TESTALLOC(V, AC_MEM_ASM, 3, malloc(kk * shardLen));
+      ptbuf = TESTALLOC(V, AC_MEM_ASM, 4, malloc(kk * shardLen));
+      ks = TESTALLOC(V, AC_MEM_ASM, 5, malloc(kk * shardLen));
+      parity = TESTALLOC(V, AC_MEM_ASM, 6, malloc((m ? m : 1) * shardLen));
+      reShare = TESTALLOC(V, AC_MEM_ASM, 7, malloc(rr * KEY_LEN));
+      reLeaf = TESTALLOC(V, AC_MEM_ASM, 8, malloc(rr * MVAL_LEN));
+      rswork = TESTALLOC(V, AC_MEM_ASM, 9, malloc(RS_WORK_SIZE(kk)));
+      sssw = TESTALLOC(V, AC_MEM_ASM, 10, malloc(sssMkWaSz(SignH, rr)));
+      rsecw = TESTALLOC(V, AC_MEM_ASM, 11, malloc(rsecMkWaSz(SignH, rr)));
       if (TESTREFUSE(V, x, s, 0) || !outBuf || !dbuf || !ptbuf || !ks || !parity || !reShare || !reLeaf
        || !rswork || !sssw || !rsecw) {
         ++V->c.asmAlloc;                /* this seat's memory, not the
@@ -5137,7 +5182,7 @@ legsMem:
           unsigned int cap2;
 
           cap2 = 2 * s->kcap;
-          if (!(grownK = malloc(cap2 * (KEY_LEN + kk + 1)))) {
+          if (!(grownK = TESTALLOC(V, AC_MEM_ASM, 12, malloc(cap2 * (KEY_LEN + kk + 1))))) {
             ++V->c.asmAlloc;            /* this seat's memory: owed, tried again */
             s->owed = 1;
             goto asmFree;
@@ -5196,7 +5241,7 @@ legsMem:
           if (declen > MsgMax)
             continue;
           if (declen > recCap) {
-            if (!(grown = realloc(recovered, declen))) {
+            if (!(grown = TESTALLOC(V, AC_MEM_ASM, 13, realloc(recovered, declen)))) {
               ++V->c.asmAlloc;          /* this seat's memory: the subset is owed, not spent */
               s->owed = 1;
               goto asmFree;
@@ -5204,9 +5249,11 @@ legsMem:
             recovered = grown;
             recCap = declen;
           }
-          if (declen && hufDecode(recovered, declen, ptbuf, kk * shardLen) != declen)
-            continue;
-          if (hashBuf(S, recovered, declen, 0, 0, 0, 0, 0, 0, h)) {
+          if (declen) {
+            j = hufDecode(recovered, declen, ptbuf, kk * shardLen);
+            TESTASSERT(j == declen);    /* olen gates hufDecode's writes, never its count */
+          }
+          if (TESTCALL(V, AC_MEM_ASM, 14, -1, hashBuf(S, recovered, declen, h))) {
             ++V->c.asmAlloc;            /* this seat's memory: the subset is owed, not spent */
             s->owed = 1;
             goto asmFree;
@@ -5291,8 +5338,9 @@ legsMem:
         ptSel[j] = sharePt[ssel[j]];
       }
       memset(dbuf, 0, kk * shardLen);
-      if (!(q = hufEncode(dbuf, kk * shardLen, I->msgLen[x] ? I->msg[x] : &probe, I->msgLen[x]))
-       || q > kk * shardLen)
+      q = hufEncode(dbuf, kk * shardLen, I->msgLen[x] ? I->msg[x] : &probe, I->msgLen[x]);
+      TESTASSERT(q);                    /* never 0 (huf.h) */
+      if (q > kk * shardLen)
         s->inconsistent = 1;            /* the committed stream is not
                                          * the message's at this length */
       else {
@@ -5304,7 +5352,7 @@ legsMem:
       }
       reOk = 0;
       if (!s->inconsistent && !rsecEncode(rePtr, pptr, shardLen, kk, m)) {
-        if (!(p = rsecMkHash(&RsecPlug, rePtr, shardLen, rr, rsecw)))
+        if (!(p = TESTCALL(V, AC_MEM_ASM, 15, 0, rsecMkHash(&RsecPlug, rePtr, shardLen, rr, rsecw))))
           goto foundMem;
         if (memcmp(p, rsecRoot, HashSz))
           s->inconsistent = 1;
@@ -5319,7 +5367,7 @@ legsMem:
         memcpy(reLeaf + j * MVAL_LEN + SEED_LEN, reSharePtr[j], KEY_LEN);
         leafPtr[j] = reLeaf + j * MVAL_LEN;
       }
-      if (!(p = sssMkHash(&SssPlug, pool[0], pool + 1, leafPtr, MVAL_LEN, rr, sssw)))
+      if (!(p = TESTCALL(V, AC_MEM_ASM, 16, 0, sssMkHash(&SssPlug, pool[0], pool + 1, leafPtr, MVAL_LEN, rr, sssw))))
         goto foundMem;
       if (memcmp(p, sssRoot, HashSz))
         s->inconsistent = 1;
@@ -5416,8 +5464,7 @@ legsMem:
 
         if (!BKR94ACS_BIT_TST(I->subset, i) || i == V->self)
           continue;
-        if (!I->hasVal[i])
-          break;
+        TESTASSERT(I->hasVal[i]);       /* a subset gives its members values */
         ap = VAL(I, i);
         if (I->dist[i].sign && VALMATCH(ap, &I->dist[i])) {
           fRot[i] = I->dist[i].kind == AC_ROTATION;
@@ -5668,10 +5715,8 @@ legsMem:
         unsigned int k;
 
         s = &I->srch[i];
-        /* at X's verdict; at the record let go with none, where this
-         * seat's memory still refuses the search: owed, and reported so */
-        if (!BKR94ACS_BIT_TST(I->subset, i) || i == V->self || s->reported
-         || !(I->verdict[i] || (I->gone && s->owed)))
+        /* at X's verdict */
+        if (!BKR94ACS_BIT_TST(I->subset, i) || i == V->self || s->reported || !I->verdict[i])
           continue;
         memset(RT_BITS(V, 0), 0, 4 * BITS(N));
         rm.prev = I->prev;
@@ -5721,8 +5766,6 @@ legsMem:
          * position's leaving refused by this seat's memory, is not one */
         if (s->kept && wi >= V->nLive && I->verdict[i] == AC_PASS)
           ++V->c.keptPassed;
-        else if (s->kept && wi >= V->nLive && I->verdict[i] == AC_UNDER)
-          ++V->c.keptUnder;
         trace(V, I->num, "report: %u's %s", i, verdictName(I->verdict[i]));
         V->cb->message(V->cb->ctx, &rm);
         if (I->msg[i]) {
@@ -5780,18 +5823,13 @@ legsMem:
         unsigned long h;
         unsigned long t;
         unsigned long need;
-        unsigned int c;
         int own;
 
-        for (h = V->recHead, t = V->recTail, c = V->recCount, own = 0; !own; h = 0) {
+        for (h = V->recHead, t = V->recTail, own = 0; !own; h = 0) {
           need = h + recLen <= Retention ? recLen : Retention - h;
-          while (c && t >= h && t < h + need) {
+          while (t >= h && t < h + need) {
             if (t == I->rx->anchor) {
               own = 1;
-              break;
-            }
-            if (!--c) {
-              h = 0;
               break;
             }
             t += GET32(V->rec + t + REC_LEN);
@@ -5811,11 +5849,7 @@ legsMem:
       recSite = 1;
       goto recRoom;
 recCopyRoomDone:
-      /* its first let go making the room: the position forgotten */
-      if (!I->rx) {
-        V->c.recUnits += recMemb;
-        continue;
-      }
+      TESTASSERT(I->rx);
       {
         const unsigned char *o;
         const unsigned char *mp;
@@ -6039,7 +6073,7 @@ recCopyRoomDone:
           if (i < N && V->nKept == V->keptCap) {
             struct inst **grown;
 
-            if (!(grown = realloc(V->kept, (V->keptCap ? 2 * V->keptCap : 8) * sizeof (*grown)))) {
+            if (!(grown = TESTALLOC(V, AC_MEM_OWN, 1, realloc(V->kept, (V->keptCap ? 2 * V->keptCap : 8) * sizeof (*grown))))) {
               ++V->c.ownMem;
               lMem = 1;
               goto leaveMem;
@@ -6047,8 +6081,8 @@ recCopyRoomDone:
             V->kept = grown;
             V->keptCap = V->keptCap ? 2 * V->keptCap : 8;
           }
-          if (!(rx = calloc(1, sizeof (*rx) + 3 * BITS(N)))
-           || (i < N && (!(keptI = malloc(sizeof (*keptI))) || !(keptTab = calloc(1, INST_TAB_SZ))))) {
+          if (!(rx = TESTALLOC(V, AC_MEM_OWN, 2, calloc(1, sizeof (*rx) + 3 * BITS(N))))
+           || (i < N && (!(keptI = TESTALLOC(V, AC_MEM_OWN, 3, malloc(sizeof (*keptI)))) || !(keptTab = TESTALLOC(V, AC_MEM_OWN, 4, calloc(1, INST_TAB_SZ)))))) {
             free(rx);
             free(keptI);
             rx = 0;
@@ -6153,6 +6187,10 @@ recRoomDone:
           V->c.retained = V->recCount;
           if ((V->c.retainedBytes += len) > V->c.retainedMost)
             V->c.retainedMost = V->c.retainedBytes;
+#ifdef AC_TEST
+          if (V->test)
+            ++V->test->left;
+#endif
           /* the current step moves over the link the position minted:
            * the live window's walk starts past it */
           memcpy(kInfo, in->link, HashSz);
@@ -6283,24 +6321,22 @@ leaveMem:
 ownAlone:
       g = &LEG(I, V->self, V->self);
       if (g->f) {
-        if (V->eActive && V->eGate && V->eI == I && V->eG == g)
-          V->eActive = 0;
-        if (g->owed)
-          --I->gOwed;
+        TESTASSERT(!g->owed && !(V->eActive && V->eGate && V->eG == g));
         free(g->f);
         memset(g, 0, sizeof (*g));
         --I->legCnt;
         --I->legGone;
       }
-      if (!(g->f = calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1)))) {
+      if (!(g->f = TESTALLOC(V, AC_MEM_OWN, 5, calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1))))) {
         /* this seat's memory refused it: the next call tries again */
         ++V->c.ownMem;
         lMem = 1;
         goto launchNone;
       }
-      if (bracha87Fig1Init(g->f, N - 1, MaxByz, HashSz - 1, MaxByz + 1, V->self, V->self, Abandon, 1)
-       || bracha87Fig1Initiator(g->f, I->own->apex))
-        goto exit;
+      pr = bracha87Fig1Init(g->f, N - 1, MaxByz, HashSz - 1, MaxByz + 1, V->self, V->self, Abandon, 1);
+      TESTASSERT(!pr);                  /* its refusals are parameters derive validated */
+      pr = bracha87Fig1Initiator(g->f, I->own->apex);
+      TESTASSERT(!pr);                  /* the initiator, once, at its start */
       ++I->legCnt;
       memcpy(g->v, I->own->apex, HashSz);
       g->fed = FED_INITIAL | FED_BESIDE;
@@ -6412,6 +6448,7 @@ launchNone:
      */
     while (!V->held && !V->quiet) {
       const unsigned char *cv;
+      const unsigned char *cj;          /* the INITIAL's v to rj */
       const struct bracha87Fig1 *inst;
       unsigned char ann;
       int heardOk;
@@ -6419,18 +6456,21 @@ launchNone:
       if (V->eActive && V->eI->gone) {
         V->eActive = 0;                   /* its record let go mid-send:
                                            * the position is abandoned here */
+#ifdef AC_TEST
+        if (V->test)
+          ++V->test->heldGone;
+#endif
         continue;
       }
       if (V->eActive) {
         /* the instance the send is of: an ACS row's, the value
          * broadcast's (class 1 is ACS round 0), or the leg's */
         inst = V->eGate ? V->eG->f : bkr94acsInstance(V->eI->a, V->eX, V->eS, V->eK);
-        if (!inst)
-          V->eJ = N;
+        TESTASSERT(inst);
         /* an INITIAL goes to the seats not recorded as holding it when
          * its send begins: one recorded since still gets it; a first
          * INITIAL to every other seat */
-        if (!V->eJ && !V->eU && inst) {
+        if (!V->eJ && !V->eU) {
           heardOk = V->eKind == BRACHA87_INITIAL;
           if ((V->eHeardOk = heardOk)) {
             memset(V->eHeard, 0, BITS(N));
@@ -6440,13 +6480,11 @@ launchNone:
                 V->eHeard[rj >> 3] |= 1 << (rj & 7);
           }
         }
-        cv = 0;
-        if (V->eCls != AC_CLS_ACS && inst) {
-          if (!(cv = V->eCls >= AC_CLS_LEG && V->eKind == BRACHA87_INITIAL ? V->eG->v
-                   : bracha87Fig1Value(inst, V->eKind == BRACHA87_INITIAL ? BRACHA87_INITIAL_ALL
-                                           : V->eKind == BRACHA87_ECHO ? BRACHA87_ECHO_ALL : BRACHA87_READY_ALL)))
-            V->eJ = N;
-        }
+        cv = V->eCls == AC_CLS_ACS ? 0
+           : V->eCls >= AC_CLS_LEG && V->eKind == BRACHA87_INITIAL ? V->eG->v
+           : bracha87Fig1Value(inst, V->eKind == BRACHA87_INITIAL ? BRACHA87_INITIAL_ALL
+                                   : V->eKind == BRACHA87_ECHO ? BRACHA87_ECHO_ALL : BRACHA87_READY_ALL);
+        TESTASSERT(cv || V->eCls == AC_CLS_ACS);
         while (V->eJ < N && !V->held) {
           rj = V->eJ;
           /* the unit, beside the INITIAL that just left for this seat:
@@ -6473,7 +6511,7 @@ launchNone:
               ++V->eJ;
               continue;
             }
-            if (V->eU == 1) {
+            if (V->eU == 1 || V->eU == 4) {
               /* the sign part masks under this position's key with rj */
               kI = V->eI;
               kJ = rj;
@@ -6484,7 +6522,7 @@ keyWalkTalkDone:
             }
             /* the part's source: this seat's own distribution, or its
              * held unit of X */
-            pu.sig0 = pu.sig1 = 0;
+            pu.sig0 = pu.sig1 = pu.apex1 = 0;
             if ((pu.own = V->eX == V->self) && V->eI->rx && !V->eI->own) {
               const unsigned char *rp;
               const unsigned char *mp;
@@ -6514,9 +6552,14 @@ keyWalkTalkDone:
               const struct own *o;
 
               o = V->eI->own;
+#ifdef AC_TEST
+              if (V->eU == 4)
+                o = o->alt;             /* -f 13: the second value's sign part */
+#endif
               pu.sig = o->sig;
               pu.sig0 = o->sig0;
               pu.sig1 = o->sig1;
+              pu.apex1 = o->apex1;
               pu.apex = o->apex;
               pu.succ = o->succ;
               pu.origHash = o->origHash;
@@ -6547,13 +6590,20 @@ keyWalkTalkDone:
               pu.kind = d->kind;
               pu.end = d->end;
             }
-            emit(V, V->eI->num, V->eI->prev, rj, AC_TAG_BYTE(V->eCls, BRACHA87_BESIDE, V->eU == 1 ? AC_PART_SIGN : AC_PART_DATA), V->eX, V->eR, V->eS,
-                 V->ubuf, unitPut(S, &pu, V->self, V->eX, rj, kIkm, V->eU == 1 ? AC_PART_SIGN : AC_PART_DATA, V->ubuf), &V->held);
+            emit(V, V->eI->num, V->eI->prev, rj, AC_TAG_BYTE(V->eCls, BRACHA87_BESIDE, V->eU == 2 ? AC_PART_DATA : AC_PART_SIGN), V->eX, V->eR, V->eS,
+                 V->ubuf, unitPut(S, &pu, V->self, V->eX, rj, kIkm, V->eU == 2 ? AC_PART_DATA : AC_PART_SIGN, V->ubuf), &V->held);
             memset(kIkm, 0, sizeof (kIkm));
             V->heldUnit = V->held != 0;
             /* the data part follows a payload's sign part, none rides
              * beside a rotation or a noop; on a recover leg the
              * description follows */
+#ifdef AC_TEST
+            if (V->eU == 4) {           /* -f 13: that part alone, this send */
+              V->eU = 0;
+              ++V->eJ;
+              continue;
+            }
+#endif
             if (V->eU == 1 && !pu.kind)
               V->eU = 2;
             else if (V->eCls == AC_CLS_RCV)
@@ -6578,16 +6628,18 @@ keyWalkTalkDone:
             ++V->eJ;
             continue;
           }
-          /* the sweep's re-send to rj held while its sweep is not due:
-           * rj's word on what was sent at its last could not be here
-           * yet; an agreement's INITIAL may be its round's first, and
-           * goes */
-          if (V->eSweep && rj != V->self && !V->swDue[rj]
-           && (V->eCls != AC_CLS_ACS || V->eKind != BRACHA87_INITIAL)) {
-            ++SEATC(V, rj).sweptHeld;
-            ++V->eJ;
+#ifdef AC_TEST
+          /* -f 13: to seat t, the second value's sign part alone, at the
+           * first send: held there with no (initial, v) to judge it by,
+           * and seat t, holding no INITIAL, is sent the first's with its
+           * unit at the next sweep */
+          if (rj == S->t && V->eCls == AC_CLS_DIST && V->eX == V->self && V->eKind == BRACHA87_INITIAL
+           && V->eI->own && V->eI->own->alt && !V->eI->own->altDealt) {
+            V->eI->own->altDealt = 1;
+            V->eU = 4;
             continue;
           }
+#endif
           /* the sweep's row to rj: what rj has not said it holds, or a
            * turn the step fired, which the library returns the same way */
           if (V->eSweep && rj != V->self) {
@@ -6595,13 +6647,13 @@ keyWalkTalkDone:
             if (V->swPhase == SW_ACS && !V->sMore && V->eCls == AC_CLS_ACS && V->eKind == BRACHA87_INITIAL)
               ++SEATC(V, rj).sweptTurn;
             else
-              ++V->c.sweepAge[us - V->eI->launchUs < (unsigned long)TickMs * 1000 ? 0
-                            : us - V->eI->launchUs < 2UL * TickMs * 1000 ? 1
-                            : us - V->eI->launchUs < 4UL * TickMs * 1000 ? 2 : 3];
+              ++V->c.sweepAge[(us - V->eI->launchUs) / 1000 < TickMs ? 0
+                            : (us - V->eI->launchUs) / 1000 < 2UL * TickMs ? 1
+                            : (us - V->eI->launchUs) / 1000 < 4UL * TickMs ? 2 : 3];
           }
-          /* the first INITIAL of this seat's value broadcast to rj: its
-           * round trip starts */
-          if (V->eCls == AC_CLS_DIST && !V->eGate && V->eKind == BRACHA87_INITIAL && V->eX == V->self
+          /* the first INITIAL of this seat's value broadcast to rj, the
+           * step's and no sweep's: its round trip starts */
+          if (V->eCls == AC_CLS_DIST && !V->eGate && !V->eSweep && V->eKind == BRACHA87_INITIAL && V->eX == V->self
            && rj != V->self && V->rttNum[rj] != V->eI->num) {
             V->rttNum[rj] = V->eI->num;
             V->rttUs[rj] = us;
@@ -6623,7 +6675,14 @@ keyWalkTalkDone:
               ++V->eJ;
             else
               V->eU = 1;
-            emit(V, V->eI->num, V->eI->prev, rj, AC_TAG_BYTE(V->eCls, BRACHA87_INITIAL, 0), V->eX, V->eR, V->eS, cv, HashSz, &V->held);
+            cj = cv;
+#ifdef AC_TEST
+            /* -f 13: to seats 0..t-1, the second value's (initial, v)
+             * beside the first's unit */
+            if (V->eCls == AC_CLS_DIST && V->eX == V->self && rj < S->t && V->eI->own && V->eI->own->alt)
+              cj = V->eI->own->alt->apex;
+#endif
+            emit(V, V->eI->num, V->eI->prev, rj, AC_TAG_BYTE(V->eCls, BRACHA87_INITIAL, 0), V->eX, V->eR, V->eS, cj, HashSz, &V->held);
             continue;
           }
           ++V->eJ;
@@ -6881,8 +6940,8 @@ acsNamed:
         for (sx = 0; sx < V->sN; ++sx) {
           if (V->sActs[sx].act != BKR94ACS_SEND_READY && V->sActs[sx].act != BKR94ACS_SEND_ECHO)
             continue;
-          if (!(inst = bkr94acsInstance(V->eI->a, V->sActs[sx].ba, V->sActs[sx].q, V->sActs[sx].k)))
-            continue;
+          inst = bkr94acsInstance(V->eI->a, V->sActs[sx].ba, V->sActs[sx].q, V->sActs[sx].k);
+          TESTASSERT(inst);
           if (V->sActs[sx].act == BKR94ACS_SEND_READY && !V->sRecipOk) {
             memset(V->sRecip, 0, BITS(N));
             for (rj = 0; rj < N; ++rj)
@@ -6969,7 +7028,11 @@ runAcsSweepDone:
         fS = V->sS;
         if ((nout = bracha87Fig1Input(g->f, BRACHA87_SWEEP, 0, 0, 0, f1out)) == 1 && f1out[0] == BRACHA87_ABANDON) {
           /* a record's leg at its abandon count re-sends nothing more;
-           * a row naming the record starts it again */
+           * a row naming the record starts it again.  An abandoned seat
+           * is silence (bracha87Fig1.h); the sweep runs only between
+           * sends and once nothing is owed, so the leg owes nothing and
+           * no send of it is in hand */
+          TESTASSERT(!g->owed);
           ++I->legGone;
           trace(V, I->num, "leg (X=%u S=%u) abandoned at its count", fX, fS);
           nout = 0;
@@ -7044,6 +7107,15 @@ ownBroadcastTalkDone:
    * caller calls.
    */
 heldPut:
+#ifdef AC_TEST
+  /* -8: the framer full while the send in hand is a kept assembly's whose
+   * record is the retention's oldest, another kept beside it */
+  if (V->test && V->test->holdKept) {
+    if ((V->test->holding = !V->test->holdOff && V->eActive && V->heldI == V->eI && V->eI->rx
+                            && V->eI->rx->anchor == V->recTail && V->nKept > 1))
+      goto heldPutKept;
+  }
+#endif
   if ((pr = rsecFrmEgrPut(&V->egr, V->obuf, V->held, us))) {
     if (pr < 0)
       ++V->c.frmRefused;
@@ -7058,9 +7130,8 @@ heldPut:
         ++V->heldI->puts;
       if (V->heldUnit)
         ++V->c.unitSent;
-      if (!(pw = (V->held - 7 - TagSz + Shard - 1) / Shard))
-        pw = 1;
-      pw = (pw + V->obuf[2 + TagSz]) * GET32(V->obuf + 3 + TagSz);
+      pw = ((V->held - 7 - TagSz + Shard - 1) / Shard + V->obuf[2 + TagSz]) * GET32(V->obuf + 3 + TagSz);
+      TESTASSERT(pw >= 1);
       if (V->egrEndUs - us > ~0UL / 2)
         V->egrEndUs = us;
       V->egrEndUs += pw;
@@ -7069,6 +7140,9 @@ heldPut:
     V->held = 0;
     V->heldUnit = 0;
   }
+#ifdef AC_TEST
+heldPutKept:
+#endif
   if (!putSite)
     goto heldPutPassDone;
   if (!V->held && !V->quiet && (V->egrEndUs - us > ~0UL / 2 || V->egrEndUs - us < V->talkUs))
@@ -7210,15 +7284,30 @@ rowGateDist:
      * INITIAL, which no seat can tell from a re-send, would hold it live
      * for good; then for a member whose assembly its record keeps.  An
      * exchange leg's abandon is final, as every instance's is */
+#ifdef AC_TEST
+    if (V->test && evCls == AC_CLS_RCV && evS != V->self && g->f && evKind == BRACHA87_INITIAL && evFrom == evS
+     && !I->rx && (bracha87Fig1State(g->f) & BRACHA87_F1_ABANDONED)) {
+      ++V->test->rcvAgain;
+      V->test->rcvAgainFrom[evS >> 3] |= 1 << (evS & 7);
+      if (I->stepped && I->acsAbandoned)
+        ++V->test->rcvAgainLate;
+    }
+#endif
     if (evCls == AC_CLS_RCV && evS != V->self && g->f && evKind == BRACHA87_INITIAL && evFrom == evS
      && (bracha87Fig1State(g->f) & BRACHA87_F1_ABANDONED)
      && (I->rx ? I->srch[evX].kept && !I->srch[evX].reported : !I->stepped || !I->acsAbandoned)) {
-      if (!AUTHED())
+      if (!AUTHED()) {
+#ifdef AC_TEST
+        if (V->test)
+          V->test->unprovedAt |= 8;
+#endif
         goto dispatchReturn;
-      if (V->eActive && V->eGate && V->eI == I && V->eG == g)
-        V->eActive = 0;
-      if (g->owed)
-        --I->gOwed;
+      }
+#ifdef AC_TEST
+      if (V->test && !I->rx)
+        ++V->test->rcvAgainLive;
+#endif
+      TESTASSERT(!g->owed && !(V->eActive && V->eGate && V->eG == g));
       free(g->f);
       memset(g, 0, sizeof (*g));
       --I->legCnt;
@@ -7239,9 +7328,9 @@ rowGateDist:
       if (!AUTHED())
         goto dispatchReturn;
       if (evCls == AC_CLS_RCV
-          ? !(g->f = calloc(1, bracha87Fig1Sz(1, HashSz - 1, 1)))
+          ? !(g->f = TESTALLOC(V, AC_MEM_ROW, 6, calloc(1, bracha87Fig1Sz(1, HashSz - 1, 1))))
             || bracha87Fig1Init(g->f, 1, 0, HashSz - 1, 1, 0, 1, Abandon, 1)
-          : !(g->f = calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1)))
+          : !(g->f = TESTALLOC(V, AC_MEM_ROW, 7, calloc(1, bracha87Fig1Sz(N - 1, HashSz - 1, MaxByz + 1))))
             || bracha87Fig1Init(g->f, N - 1, MaxByz, HashSz - 1, MaxByz + 1, evS, V->self, Abandon, 1)) {
         /* this seat's memory: the INITIAL is not taken, S's sweep
          * bringing it again */
@@ -7301,9 +7390,17 @@ rowGateLeg:
          * records nothing of it and replies its echo to S; and what
          * rode beside it, whole here since the first was fed alone -- a
          * recover leg's description held off another of S's legs -- is
-         * fed now, the one thing here a re-send moves */
-        if (whole && !(g->fed & FED_BESIDE) && hv && !memcmp(hv, g->v, HashSz) && !AUTHED())
+         * fed now, the one thing here a re-send moves.  An exchange leg
+         * is whole at its unit and INITIAL, each feeding BESIDE where it
+         * finds the other under its v */
+        TESTASSERT(evCls == AC_CLS_RCV || !whole || (g->fed & FED_BESIDE) || !hv || memcmp(hv, g->v, HashSz));
+        if (whole && !(g->fed & FED_BESIDE) && hv && !memcmp(hv, g->v, HashSz) && !AUTHED()) {
+#ifdef AC_TEST
+          if (V->test)
+            V->test->unprovedAt |= 1;
+#endif
           goto dispatchReturn;
+        }
         nout = bracha87Fig1Input(g->f, BRACHA87_INITIAL, evIdx, evPl, 0, f1out);
         if (whole && !(g->fed & FED_BESIDE) && hv && !memcmp(hv, g->v, HashSz)) {
           g->fed |= FED_BESIDE;
@@ -7325,6 +7422,10 @@ rowGateLeg:
       }
       memcpy(g->v, evPl, HashSz);
       g->fed |= FED_INITIAL;
+#ifdef AC_TEST
+      if (V->test && V->test->seen && evName && evCls == AC_CLS_RCV)
+        V->test->seen(V->test->ctx, evName, evS, evX, 1);
+#endif
       nout = bracha87Fig1Input(g->f, BRACHA87_INITIAL, evIdx, evPl, 0, f1out);
       if (whole) {
         g->fed |= FED_BESIDE;
@@ -7519,7 +7620,7 @@ unitIn:
         }
         if (!AUTHED())
           goto dispatchReturn;
-        if (!(*stash = malloc(evLen))) {
+        if (!(*stash = TESTALLOC(V, AC_MEM_UNIT, 2, malloc(evLen)))) {
           ++V->c.unitBad[AC_UNIT_MEM];
           goto dispatchReturn;
         }
@@ -7556,7 +7657,7 @@ unitIn:
         const unsigned char *hk;
 
         hk = (uDist ? d->underNext : e->underNext) ? ROOTNEXT(I, evX) : ROOT(I, evX);
-        if (SHAPE_APEX(hk, po, pl, evLen, apex))
+        if (TESTCALL(V, AC_MEM_UNIT, 12, -1, SHAPE_APEX(hk, po, pl, evLen, apex)))
           rc = AC_UNIT_MEM;
         else if (!memcmp(heldApex, apex, HashSz))
           goto dupPart;
@@ -7580,7 +7681,7 @@ unitIn:
           want = g->f && (g->fed & FED_INITIAL) ? g->v : 0;
         tgt = I->hasVal[evX] ? VAL(I, evX) : want;
         for (ri = 0; tgt && ri < 2 && (hk = !ri ? ROOT(I, evX) : I->hasNext[evX] ? ROOTNEXT(I, evX) : 0); ++ri)
-          if (SHAPE_APEX(hk, po, pl, evLen, apex)) {
+          if (TESTCALL(V, AC_MEM_UNIT, 13, -1, SHAPE_APEX(hk, po, pl, evLen, apex))) {
             rc = AC_UNIT_MEM;
             break;
           } else if (!memcmp(apex, tgt, HashSz)) {
@@ -7616,7 +7717,7 @@ unitIn:
           if (gen > V->hwGen[evX] || (gen == V->hwGen[evX] && po > V->hwOff[evX]))
             break;
           if (gen == V->hwGen[evX] && po == V->hwOff[evX]) {
-            if (SHAPE_APEX(hk, po, pl, evLen, apex)) {
+            if (TESTCALL(V, AC_MEM_UNIT, 14, -1, SHAPE_APEX(hk, po, pl, evLen, apex))) {
               rc = AC_UNIT_MEM;
               break;
             }
@@ -7681,21 +7782,30 @@ keyWalkUnitDone:
         replay = 1;
       }
     }
-    /* once this seat has accepted X's value, a unit is of X only under
-     * it; before that, the first verified sign part is held -- and a
-     * second verified one under the (initial, v) the instance holds
-     * replaces a held one under another apex: the caller validates what
-     * rode beside against the v the instance holds (bracha87Fig1.h), so
-     * the part under that v is the unit, and a first-held rule would
-     * let a faulty X lock this seat out with one stray sign part.  With
-     * no v held yet, or neither under it, the first stays and the
-     * second is refused, since nothing can be judged.  A second
-     * rotation of a context whose successor the book has installed is
-     * refused from the book, which moved at an agreement */
+    /* once this seat has accepted X's value, that value alone judges a
+     * unit of X: under it the unit is held, whatever (initial, v) this
+     * seat holds, and exchanged, since under unbounded latency any valid
+     * unit may be the only piece that can form T at another seat; under
+     * another it is refused.  Before that, the first verified sign part
+     * is held -- and a second verified one under the (initial, v) the
+     * instance holds replaces a held one under another apex: the caller
+     * validates what rode beside against the v the instance holds
+     * (bracha87Fig1.h), so the part under that v is the unit, and a
+     * first-held rule would let a faulty X lock this seat out with one
+     * stray sign part.  With no v held yet, or neither under it, the
+     * first stays and the second is refused, since nothing can be
+     * judged.  A second rotation of a context whose successor the book
+     * has installed is refused from the book, which moved at an
+     * agreement */
     og = 0;
     book = 0;
-    if (!rc && !replay && I->hasVal[evX] && !VALMATCH(VAL(I, evX), &tmp))
+    if (!rc && !replay && I->hasVal[evX] && !VALMATCH(VAL(I, evX), &tmp)) {
       og = 1;
+#ifdef AC_TEST
+      if (V->test)
+        ++V->test->valOther;
+#endif
+    }
     if (!rc && !replay && !og && tmp.kind == AC_ROTATION && !tmp.underNext && I->hasNext[evX]
      && memcmp(ROOTNEXT(I, evX), tmp.succ, HashSz))
       book = 1;
@@ -7703,7 +7813,9 @@ keyWalkUnitDone:
     if (!rc && !replay && !og && !book) {
       const unsigned char *want;
 
-      if (fCls == AC_CLS_DIST)
+      if (I->hasVal[evX])
+        want = VAL(I, evX);             /* the part is under it: past og */
+      else if (fCls == AC_CLS_DIST)
         want = I->a && (inst0 = bkr94acsInstance(I->a, evX, evX, 0)) ? bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL) : 0;
       else
         want = g->f && (g->fed & FED_INITIAL) ? g->v : 0;
@@ -7722,6 +7834,10 @@ keyWalkUnitDone:
           d->stashLen = 0;
           d->sign = d->held = 0;
         } else {
+#ifdef AC_TEST
+          if (V->test)
+            ++V->test->legReplaced;
+#endif
           memset(e->unit, 0, MVAL_LEN);
           free(e->buf);
           free(e->stash);
@@ -7760,7 +7876,7 @@ keyWalkUnitDone:
       goto dispatchReturn;
     }
     if (uDist) {
-      if (!(d->sig = malloc(SigLen))) {
+      if (!(d->sig = TESTALLOC(V, AC_MEM_UNIT, 3, malloc(SigLen)))) {
         ++V->c.unitBad[AC_UNIT_MEM];
         memset(tmp.unit, 0, MVAL_LEN);
         goto dispatchReturn;
@@ -7783,7 +7899,7 @@ keyWalkUnitDone:
       d->end = tmp.end;
       d->sign = 1;
     } else {
-      if (!(e->buf = malloc(4 * HashSz))) {
+      if (!(e->buf = TESTALLOC(V, AC_MEM_UNIT, 4, malloc(4 * HashSz)))) {
         ++V->c.unitBad[AC_UNIT_MEM];
         memset(tmp.unit, 0, MVAL_LEN);
         goto dispatchReturn;
@@ -7839,9 +7955,9 @@ keyWalkUnitDone:
     /* the shard under the held sign part's root, by the proof it
      * carried, at the shard's own length */
   shardGate:
-    if (!(vf = malloc(rsecMkVfSz(SignH)))
-     || !(p = rsecMkExtract(&RsecPlug, sh, shl, leaf, N - 1,
-                            uDist ? d->rsecProof : e->rsecProof, vf))) {
+    if (!(vf = TESTALLOC(V, AC_MEM_UNIT, 5, malloc(rsecMkVfSz(SignH))))
+     || !(p = TESTCALL(V, AC_MEM_UNIT, 11, 0, rsecMkExtract(&RsecPlug, sh, shl, leaf, N - 1,
+                            uDist ? d->rsecProof : e->rsecProof, vf)))) {
       /* this seat's memory, not the sender's: the work area, or the
        * hash allocator in the extractor, whose arguments are this
        * seat's and well formed, the shard's length checked on arrival;
@@ -7864,7 +7980,7 @@ keyWalkUnitDone:
     }
     if (uDist) {
       if (!shOwn) {
-        if (!(shOwn = malloc(shl))) {
+        if (!(shOwn = TESTALLOC(V, AC_MEM_UNIT, 6, malloc(shl)))) {
           ++V->c.unitBad[AC_UNIT_MEM];
           goto dispatchReturn;
         }
@@ -7877,7 +7993,7 @@ keyWalkUnitDone:
     } else {
       unsigned char *grown;
 
-      if (!(grown = realloc(e->buf, 4 * HashSz + shl))) {
+      if (!(grown = TESTALLOC(V, AC_MEM_UNIT, 7, realloc(e->buf, 4 * HashSz + shl)))) {
         ++V->c.unitBad[AC_UNIT_MEM];
         free(shOwn);
         goto dispatchReturn;
@@ -7914,10 +8030,20 @@ keyWalkUnitDone:
      * steps"] */
     if (uDist && I->haveSubset)
       I->subsetDue = 1;
+#ifdef AC_TEST
+    /* -f 13: held under the value accepted, another (initial, v) held */
+    if (uDist && V->test && fCls == AC_CLS_DIST && I->hasVal[evX] && I->a && (inst0 = bkr94acsInstance(I->a, evX, evX, 0))
+     && (cv0 = bracha87Fig1Value(inst0, BRACHA87_INITIAL_ALL)) && !VALMATCH(cv0, d))
+      ++V->test->heldOther;
+#endif
     if (uDist)
       trace(V, I->num, "unit of %u held (offset %u)", evX, d->off);
     else
       trace(V, I->num, "exchange unit of %u from %u held (offset %u)", evX, evS, e->off);
+#ifdef AC_TEST
+    if (V->test && V->test->seen && evName)
+      V->test->seen(V->test->ctx, evName, uDist ? evX : evS, evX, 2);
+#endif
     if (fCls == AC_CLS_DIST)
       goto distAfter;
     /* the leg's BESIDE, once the unit is whole under its v and, on a
@@ -7950,13 +8076,22 @@ keyWalkUnitDone:
       }
     } else {
       ++V->c.dupXunit;
-      /* fed again, or fed now where the leg became whole since its
-       * INITIAL was fed alone */
+      /* fed again, or fed now where a recover leg became whole since its
+       * INITIAL was fed alone: S's description held off another of S's
+       * legs.  An exchange leg is whole at its unit and INITIAL, each
+       * feeding BESIDE where it finds the other under its v */
+      TESTASSERT(fCls == AC_CLS_RCV || !e->held || !g->f || (g->fed & FED_BESIDE) || !(g->fed & FED_INITIAL)
+                 || memcmp(g->v, EX_APEX(e), HashSz));
       if ((uDist ? d->held : e->held) && g->f && (g->fed & FED_INITIAL)
        && ((g->fed & FED_BESIDE)
-        || ((fCls != AC_CLS_RCV || I->dHeld[evS]) && !memcmp(g->v, uDist ? d->apex : EX_APEX(e), HashSz)))) {
-        if ((g->fed & FED_BESIDE) ? !copyBudget(V, I, evFrom, 2 * (g - I->leg)) : !AUTHED())
+        || (fCls == AC_CLS_RCV && I->dHeld[evS] && !memcmp(g->v, uDist ? d->apex : EX_APEX(e), HashSz)))) {
+        if ((g->fed & FED_BESIDE) ? !copyBudget(V, I, evFrom, 2 * (g - I->leg)) : !AUTHED()) {
+#ifdef AC_TEST
+          if (V->test && !(g->fed & FED_BESIDE))
+            V->test->unprovedAt |= 2;
+#endif
           goto dispatchReturn;
+        }
         g->fed |= FED_BESIDE;
         nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
         f1site = SITE_DISPATCH;
@@ -8034,10 +8169,14 @@ descIn:
     }
     if (!AUTHED())
       goto dispatchReturn;
-    if (hashBuf(S, evPl, evLen, 0, 0, 0, 0, 0, 0, dh))
+    if (TESTCALL(V, AC_MEM_ROW, 8, -1, hashBuf(S, evPl, evLen, dh)))
       goto dispatchReturn;              /* this seat's memory: not judged, S re-sends it */
     memcpy(I->dHash + evS * HashSz, dh, HashSz);
     I->dHeld[evS] = 1;
+#ifdef AC_TEST
+    if (V->test && V->test->seen && evName)
+      V->test->seen(V->test->ctx, evName, evS, 0, 4);
+#endif
     trace(V, I->num, "description of %u held, %u members, %02x%02x..", evS, c, dh[0], dh[1]);
     if (!I->haveSubset) {
       for (m = c = 0; m < N; ++m)
@@ -8068,8 +8207,13 @@ descIn:
     if (g->f && (g->fed & FED_INITIAL) && !(g->fed & FED_BESIDE)
      && (evX == evS ? I->dist[evX].held && VALMATCH(g->v, &I->dist[evX])
                     : EXCH(I, evX, LEAF(evX, evS)).held && VALMATCHX(g->v, &EXCH(I, evX, LEAF(evX, evS))))) {
-      if (!AUTHED())
+      if (!AUTHED()) {
+#ifdef AC_TEST
+        if (V->test)
+          V->test->unprovedAt |= 4;
+#endif
         goto dispatchReturn;
+      }
       g->fed |= FED_BESIDE;
       nout = bracha87Fig1Input(g->f, BRACHA87_BESIDE, evIdx, 0, 0, f1out);
       f1site = SITE_DISPATCH;
@@ -8355,18 +8499,19 @@ recRoom:
             if (V->descTo[dt] == tn->own)
               V->descTo[dt] = 0;
           tDel(&V->recName, tn);    /* by its node: rx may be another record's */
-          /* its kept assembly: nothing more lands, the last pass over
-           * what is held and the reports */
+          /* its kept assembly, every member reported: the launch gate
+           * holds a seat at a member unreported, so its record is the
+           * newest and needs no room; nothing more lands, and its
+           * machines go */
           if ((k = ((struct recIx *)tn->own)->kept)) {
+#ifdef AC_TEST
+            for (dt = 0; dt < N; ++dt)
+              TESTASSERT(!BKR94ACS_BIT_TST(k->subset, dt) || dt == V->self || k->srch[dt].reported);
+#endif
             k->rx = 0;
             k->gone = 1;
             memset(k->kc, 0, N * PSK_MASK_SIZE);  /* the floor steps over its key */
             memset(k->kcOk, 0, N);
-            for (i = 0; i < N; ++i)
-              if (k->srch[i].kept && !k->srch[i].reported) {
-                k->srch[i].final = 1;
-                k->asmDue[i] = 1;
-              }
           }
           free(tn->own);
         }
@@ -8399,8 +8544,9 @@ recRoom:
    * The mask key of the position kI with seat kJ, into kIkm.  A live
    * one's: the current step, the oldest live position's key, walked
    * forward by HKDF(key, link || 'R') over the link of every older live
-   * position that has folded, in the window's order.  One whose
-   * assembly a record keeps: the floor, over the records before it.
+   * position, in the window's order: each folded before the next
+   * launched under its link.  One whose assembly a record keeps: the
+   * floor, over the records before it.
    * Either walk gives the dealt key stepped over every link before the
    * position, so once it reached the position over links all minted it
    * is the position's for good: held in the position's kc, wiped when
@@ -8412,66 +8558,43 @@ keyWalk:
     memcpy(kIkm, kI->kc + kJ * PSK_MASK_SIZE, PSK_MASK_SIZE);
     goto keyWalked;
   }
-  kKeep = 0;
   if (kI->rx) {
     /* machines or an assembly its record keeps: the floor, walked over
      * the links of the records before its first, copies passed over */
     memcpy(kIkm, FLOORIKM(V, kJ), PSK_MASK_SIZE);
-    for (ko = V->recTail, kw = 0; kw < V->recCount; ++kw) {
+    for (ko = V->recTail;; ko += GET32(V->rec + ko + REC_LEN)) {
       if (ko > Retention - REC_HDR || !GET32(V->rec + ko + REC_LEN))
         ko = 0;
-      if (ko == kI->rx->anchor) {
-        kKeep = 1;
+      TESTASSERT(GET32(V->rec + ko + REC_LEN));
+      if (ko == kI->rx->anchor)
         break;
-      }
       if (!V->rec[ko + REC_COPY]) {
         memcpy(kInfo, V->rec + ko + REC_LINK, HashSz);
         kInfo[HashSz] = DOM_RAT;
         Kdf->hkdf(kIkm, PSK_MASK_SIZE, kInfo, HashSz + 1, kNk, PSK_MASK_SIZE);
         memcpy(kIkm, kNk, PSK_MASK_SIZE);
       }
-      ko += GET32(V->rec + ko + REC_LEN);
     }
   } else {
     memcpy(kIkm, CURIKM(V, kJ), PSK_MASK_SIZE);
-    for (kKeep = 1, kw = 0; kw < V->nLive && V->live[kw] != kI; ++kw)
-      if (V->live[kw]->stepped) {
-        memcpy(kInfo, V->live[kw]->link, HashSz);
-        kInfo[HashSz] = DOM_RAT;
-        Kdf->hkdf(kIkm, PSK_MASK_SIZE, kInfo, HashSz + 1, kNk, PSK_MASK_SIZE);
-        memcpy(kIkm, kNk, PSK_MASK_SIZE);
-      } else
-        kKeep = 0;
-    if (kw == V->nLive)
-      kKeep = 0;
+    for (kw = 0; V->live[kw] != kI; ++kw) {
+      TESTASSERT(kw + 1 < V->nLive && V->live[kw]->stepped);
+      memcpy(kInfo, V->live[kw]->link, HashSz);
+      kInfo[HashSz] = DOM_RAT;
+      Kdf->hkdf(kIkm, PSK_MASK_SIZE, kInfo, HashSz + 1, kNk, PSK_MASK_SIZE);
+      memcpy(kIkm, kNk, PSK_MASK_SIZE);
+    }
   }
   memset(kNk, 0, sizeof (kNk));
   /* every link before the position stepped: its key with kJ is that
    * walk from here on, held until the position is let go */
-  if (kKeep) {
-    memcpy(kI->kc + kJ * PSK_MASK_SIZE, kIkm, PSK_MASK_SIZE);
-    kI->kcOk[kJ] = 1;
-  }
+  memcpy(kI->kc + kJ * PSK_MASK_SIZE, kIkm, PSK_MASK_SIZE);
+  kI->kcOk[kJ] = 1;
 keyWalked:
   switch (kSite) {
   case 0:  goto keyWalkTalkDone;
   default: goto keyWalkUnitDone;
   }
-
-  /*
-   * A library whose only refusal is a parameter, refusing one derive
-   * validated: the agreement library's at an instance's start.  No
-   * deployment reaches it, short of a fault in this tree.  The seat
-   * goes no further, and says so by going quiet; the caller sees acWork
-   * return none and frees it.  Memory refused is never this: a row is
-   * refused and its sender's sweep brings it again (rowMem), a step of
-   * this seat's own waits for its next call (ownMem), and so does one a
-   * library refused that may have been the library's memory, a
-   * signature or a coding through the suite's allocator.
-   */
-exit:
-  V->failed = 1;
-  trace(V, 0, "a parameter refused: the seat stops");
 }
 
 /*
@@ -8492,6 +8615,7 @@ derive(
 ){
   mlsHsh_t pl;
   mlsCtx_t v;
+  unsigned long train;
 
   /* a zero takes the default: the datagram 1232 bytes (IPv6's least
    * MTU less its headers), 16 MiB of retention, 4 signings a context */
@@ -8513,12 +8637,20 @@ derive(
     Rounds = 3 * DEF_PHASES;
   /* the configuration and the suites as ac.h states them: the sign role
    * a power-of-two width, h its exponent, the kdf role any width,
-   * neither past AC_HASH_MAX, each with the functions this seat calls */
+   * neither past AC_HASH_MAX, each with the functions this seat calls,
+   * the kdf role's keyed HMAC some bytes, AC_SEATS of them within what
+   * an unsigned int counts */
   if (N < 3 || N > AC_SEATS || N <= 3 * MaxByz || S->self >= N || !BwLimit || S->lossPct >= 100
    || MlsS > 8 || Rounds > 255
    || !Sign || !Sign->alloc || !Sign->tsize || !Sign->init || !Sign->update || !Sign->final
    || !Sign->h || Sign->h >= 8 * sizeof (Sign->size) || Sign->size != 1U << Sign->h || Sign->size > AC_HASH_MAX
-   || !Kdf || !Kdf->hmac || !Kdf->hkdf || !Kdf->size || Kdf->size > AC_HASH_MAX)
+   || !Kdf || !Kdf->ktsize || !Kdf->kinit || !Kdf->khmac || !Kdf->hkdf || !Kdf->size
+   || Kdf->size > AC_HASH_MAX || !Kdf->ktsize() || Kdf->ktsize() > (unsigned int)-1 / AC_SEATS)
+    return (-1);
+  /* a test's pacing of 0, which leaves a send no wire time to reckon
+   * the framer by, or past the four bytes the framer takes it in, which
+   * the tick's products hold too */
+  if (!ShardDelayUs || ShardDelayUs / 65536 > 65535)
     return (-1);
   Threshold = MaxByz > 1 ? MaxByz + 1 : 2;      /* T > t and T > 1 */
   HashSz = Sign->size;
@@ -8547,12 +8679,15 @@ derive(
    * distribute past it refuses and a shard implying more is refused at
    * ingress; the message is the one whose ciphertext at distribute's
    * huffman cap (the message plus 1024) is exactly that.  The longest
-   * message any seat makes is that data part or the sign part */
+   * message any seat makes is that data part, the sign part or, with a
+   * narrow sign role and many seats, a description */
   UnitFixed = 3 * HashSz + SigLen + MVAL_LEN + 2 * PfSz;
   if (UnitFixed > MSG_MAX)
     return (-1);
   ShardMax = MSG_MAX / Threshold;
   PartMax = UnitFixed > ShardMax ? UnitFixed : ShardMax;
+  if (PartMax < DESC_MAX)
+    PartMax = DESC_MAX;
   if (ShardMax * Threshold <= 1024)
     return (-1);
   MsgMax = ShardMax * Threshold - 1024;
@@ -8569,14 +8704,44 @@ derive(
   if (!(Shard = rsecFrmShard(DgramMax, TagSz, GATE_SIZE))
    || rsecFrmMax(DgramMax, TagSz, GATE_SIZE, 0) < MSG_MAX + HmacSz)
     return (-1);
+  /* a datagram whose wire time pace's microsecond bits would wrap (none
+   * where a long is 64 bits, past 508 bytes where it is 32), or whose
+   * pace at the bandwidth is past the framer's four bytes */
+  if (ShardDelayUs < 0
+   && ((unsigned long)-1 / (IPUDP_HDR + DgramMax) < 8000000
+    || ((IPUDP_HDR + DgramMax) * 8000000UL - 1) / BwLimit >= 0xffffffffUL))
+    return (-1);
+  /* the longest train, a message's k + m datagrams at its pace, past
+   * the quarter of a long the framer paces a message within: none where
+   * a long is 64 bits, a train past about 18 minutes where it is 32.  A
+   * datagram's pace follows its message's own shard, so the longest is
+   * the longest message's or, its k + m no fewer, the one of full
+   * shards a datagram short of it */
+  {
+    unsigned int k;
+    unsigned int m;
+    unsigned long d;
+
+    k = (PartMax + HmacSz + Shard - 1) / Shard;
+    pace(S, PartMax, &m, &d);
+    if (d && k + m > (unsigned long)-1 / 4 / d)
+      return (-1);
+    train = (k + m) * d;
+    if (k > 1) {
+      pace(S, (k - 1) * Shard - HmacSz, &m, &d);
+      if (d && k - 1 + m > (unsigned long)-1 / 4 / d)
+        return (-1);
+      if (train < (k - 1 + m) * d)
+        train = (k - 1 + m) * d;
+    }
+  }
   if (!TickMs) {
     unsigned int m;
     unsigned int mVal;
     unsigned long d;
     unsigned long dVal;
     unsigned long unit;
-    unsigned long burst;
-    unsigned long reply;
+    unsigned long val;
     unsigned long tick;
 
     /* One feedback cycle at the declared physics: what this seat says
@@ -8593,17 +8758,35 @@ derive(
      * starts when it ends (passLong counts them), which is how the tick
      * follows the load without a declaration of it.  Patience and the
      * abandon, counted in sweeps, stretch with it.  A tick past what
-     * TickMs holds is the longest it holds. */
+     * TickMs holds is the longest it holds.  The datagrams, the unit's
+     * and the value's, each paced at its d, summed in milliseconds by
+     * d's quotient and remainder, so no product passes what a long
+     * holds where it is 32 bits */
     pace(S, UnitFixed, &m, &d);
-    unit = ((UnitFixed + HmacSz + Shard - 1) / Shard + m) * d;
+    unit = (unsigned long)(N - 1) * ((UnitFixed + HmacSz + Shard - 1) / Shard + m);
     pace(S, HashSz, &mVal, &dVal);
-    burst = (unsigned long)(N - 1) * (unit + (1 + mVal) * dVal) / 1000;
-    reply = (unsigned long)(N - 1) * (1 + mVal) * dVal / 1000;
-    tick = burst + reply + 2 * S->delayMs;
-    TickMs = tick > (unsigned int)-1 ? (unsigned int)-1 : tick;
+    val = (unsigned long)(N - 1) * (1 + mVal);
+    tick = (unit * (d % 1000) + val * (dVal % 1000)) / 1000 + val * (dVal % 1000) / 1000;
+    TickMs = (unsigned int)-1;
+    if (d / 1000 && unit > (TickMs - tick) / (d / 1000))
+      goto longest;
+    tick += unit * (d / 1000);
+    if (dVal / 1000 && val > (TickMs - tick) / 2 / (dVal / 1000))
+      goto longest;
+    tick += 2 * val * (dVal / 1000);
+    if (S->delayMs > (TickMs - tick) / 2)
+      goto longest;
+    TickMs = tick + 2UL * S->delayMs;
+longest:
     if (TickMs < 50)
       TickMs = 50;
   }
+  /* a tick whose microseconds, with the longest train the talk's last
+   * Put leaves ahead of it, pass half the seat's clock, which its
+   * differences would read as already due: none where a long is 64
+   * bits, past about 35 minutes where it is 32 */
+  if (((unsigned long)-1 / 2 - train) / 1000 < TickMs)
+    return (-1);
   /* the patience, in sweeps, a seat waits for all n before it goes on
    * at n - t, so as not to spend the Byzantine budget against an honest
    * laggard: an honest seat's row of a round arrives here within one
@@ -8641,7 +8824,13 @@ derive(
           break;
       }
     }
-    Patience += (S->burstMs + TickMs - 1) / TickMs;
+    /* a patience past what an unsigned int holds, no abandon passes */
+    if (S->burstMs) {
+      j = (S->burstMs - 1) / TickMs + 1;
+      if (j > (unsigned int)-1 - Patience)
+        return (-1);
+      Patience += j;
+    }
   }
   /* the abandon, the deployment's: the sweeps an instance runs before
    * it stops, how long the deployment holds its memory, past the
@@ -8651,8 +8840,10 @@ derive(
    * three rounds each waiting its patience, step 2's patience, and the
    * first phase of those that decide 0, whose SUBSET the pass that
    * reaches the abandon still returns.  An abandon inside that stops
-   * every position at its agreement whenever one seat is silent */
-  if (Abandon < (S->t ? 1 + 7 * Patience : Patience + 1))
+   * every position at its agreement whenever one seat is silent.  Said
+   * in quotients, so a patience a test sets past a seventh of the
+   * counts wraps no product */
+  if (Abandon <= Patience || (S->t && (Abandon - 1) / 7 < Patience))
     return (-1);
   return (0);
 }
@@ -8697,6 +8888,18 @@ acTestPace(
 #endif
 
 /*
+ * realloc as the framers take it, their size an unsigned long, which is
+ * another type than size_t where a long is 32 bits
+ */
+static void *
+frmRealloc(
+  void *p
+ ,unsigned long n
+){
+  return (realloc(p, n));
+}
+
+/*
  * A seat, its parameters derived: the plugs from the sign suite, the
  * signing identity minted, its public key the caller's to publish
  * (acPub), the tables and the retention allocated.  The seat, or 0 with
@@ -8718,19 +8921,18 @@ make(
   MlsPlug.d = SssPlug.d = RsecPlug.d = free;
   MlsPlug.h = SssPlug.h = RsecPlug.h = SignH;
   V->qCap = 64 * N;
-  if (!(V->ubuf = malloc(PartMax > DESC_MAX ? PartMax : DESC_MAX))
+  if (!(V->ubuf = malloc(PartMax))
    || !(V->pbuf = malloc(ShardMax * Threshold))
    || !(V->hLink = malloc(Sign->tsize()))
    || !(V->q = malloc(V->qCap * sizeof (*V->q)))
    || !(V->rec = malloc(Retention))
    || !(V->tab = calloc(1, CTX_TAB_SZ))
+   || !(V->kmac = calloc(N, V->kmacSz = Kdf->ktsize()))
    || !(V->sc = calloc(N, sizeof (*V->sc)))
    || !(V->rttUs = calloc(N, sizeof (*V->rttUs)))
    || !(V->tickNow = calloc(2 * N, sizeof (*V->tickNow)))
    || !(V->rttNum = calloc(N, sizeof (*V->rttNum)))
    || !(V->rttOpen = calloc(N, 1))
-   || !(V->swUs = calloc(N, sizeof (*V->swUs)))
-   || !(V->swDue = calloc(N, 1))
    || !(V->rtab = malloc(RT_SZ(V)))
    || !(V->rowTick = calloc(3 * N, sizeof (*V->rowTick)))
    || !(V->descTo = calloc(N, sizeof (*V->descTo)))
@@ -8791,7 +8993,7 @@ make(
   V->ahName.len = V->recName.len = HashSz - 1;
   V->ahShape.len = AC_TAG_NAME - 1 + HashSz;
   V->swPhase = SW_IDLE;
-  V->talkUs = (unsigned long)(TickMs > 2 * S->delayMs ? TickMs - 2 * S->delayMs : TickMs) * 1000;
+  V->talkUs = (S->delayMs <= (TickMs - 1) / 2 ? TickMs - 2 * S->delayMs : TickMs) * 1000UL;
   return (V);
 
 fail:
@@ -8882,7 +9084,8 @@ acDeal(
   S = &V->p;
   if (V->went || seat >= N || seat == V->self || V->hasNext[seat] & 2)
     return (-1);
-  memcpy(PSKROW(V, seat), psk, PSK_SIZE);
+  memcpy(PSKROW(V, seat) + PSK_HASH_OFF, psk + PSK_HASH_OFF, PSK_HASH_SIZE);
+  Kdf->kinit(KMAC(V, seat), psk + PSK_HMAC_OFF, PSK_HMAC_SIZE);
   memcpy(CURIKM(V, seat), psk + PSK_MASK_OFF, PSK_MASK_SIZE);
   memcpy(FLOORIKM(V, seat), psk + PSK_MASK_OFF, PSK_MASK_SIZE);
   memcpy(PUB(V, seat), pub, HashSz);
@@ -8895,8 +9098,8 @@ acDeal(
  * every seat folds from, HashSz bytes -- and the caller's clock in
  * microseconds, which acInput and acWork then carry.  The framers are
  * keyed from the rows and position 1 launches.  0, or -1 with a seat
- * undealt, a go already made, the framers refused (memory, the seat as
- * the call found it), or the seat failed at the launch.
+ * undealt, a go already made, or the framers refused (memory, the seat
+ * as the call found it).
  */
 int
 acGo(
@@ -8915,7 +9118,7 @@ acGo(
       return (-1);
   V->egrTab->self = V->igrTab->self = V->self;
   V->egrTab->p = V->igrTab->p = &V->p;
-  V->egr.realloc = V->igr.realloc = realloc;
+  V->egr.realloc = V->igr.realloc = frmRealloc;
   V->egr.free = V->igr.free = free;
   V->egr.dgramMax = V->igr.dgramMax = DgramMax;
   V->egr.tagSize = V->igr.tagSize = TagSz;
@@ -8944,19 +9147,20 @@ acGo(
     memcpy(V->egrTab->psk + e * PSK_HASH_SIZE, PSKROW(V, e) + PSK_HASH_OFF, PSK_HASH_SIZE);
     memcpy(V->igrTab->psk + e * PSK_HASH_SIZE, PSKROW(V, e) + PSK_HASH_OFF, PSK_HASH_SIZE);
   }
+  memset(V->psk, 0, N * PSK_SIZE);
   memcpy(V->chain, genesis, HashSz);
   V->lastTickUs = nowUs;
   V->went = 1;
   seat(V, EV_GO, 0, 0, nowUs);
-  return (V->failed ? -1 : 0);
+  return (0);
 }
 
 /*
  * A datagram from the wire, the bytes the transport delivered, and the
  * clock: identity is the in-tag sender a message's HMAC verifies, never
  * where it came from.  What it completes is read, and the work
- * that leaves is done.  0, or -1 for a null seat or datagram, one not
- * started, or one that failed before the call.
+ * that leaves is done.  0, or -1 for a null seat or datagram, or one not
+ * started.
  */
 int
 acInput(
@@ -8965,19 +9169,10 @@ acInput(
  ,unsigned int len
  ,unsigned long nowUs
 ){
-  if (!V || !dgram || !V->went || V->failed)
+  if (!V || !dgram || !V->went)
     return (-1);
   seat(V, EV_INPUT, dgram, len, nowUs);
   return (0);
-}
-
-/* non-zero once the seat has stopped on a parameter derive validated,
- * refused by a library beneath: no deployment reaches it */
-int
-acFailed(
-  const struct ac *V
-){
-  return (V ? V->failed : 1);
 }
 
 /*
@@ -8986,7 +9181,7 @@ acFailed(
  * until the seat next has something due -- a datagram the framer paces,
  * or the tick, when no pass is in hand -- 0 when a send was refused or
  * something is due now, and -1 when nothing is: a quiet seat with
- * nothing left in its framer, or one that failed.  The caller calls at
+ * nothing left in its framer, or one not started.  The caller calls at
  * least every tick.
  */
 long
@@ -9002,8 +9197,6 @@ acWork(
     return (-1);
   S = &V->p;
   seat(V, EV_WORK, 0, 0, nowUs);
-  if (V->failed)
-    return (-1);
   if (V->aheadMore)
     return (0);
   /* the tick is due only when no pass is in hand: a tick that falls
@@ -9074,7 +9267,7 @@ int
 acAvailable(
   struct ac *V
 ){
-  if (!V || V->ended || V->lastLink || V->quiet || V->failed)
+  if (!V || V->ended || V->lastLink || V->quiet)
     return (-1);
   if (!V->went || V->launchDue || V->folded != V->launched)
     return (1);
@@ -9212,6 +9405,9 @@ acFree(
   free(V->rwa);
   if (V->psk)
     memset(V->psk, 0, N * PSK_SIZE);
+  if (V->kmac)
+    memset(V->kmac, 0, N * V->kmacSz);
+  free(V->kmac);
   if (V->curIkm)
     memset(V->curIkm, 0, N * PSK_MASK_SIZE);
   if (V->floorIkm)
@@ -9284,8 +9480,6 @@ acFree(
   free(V->tickNow);
   free(V->rttNum);
   free(V->rttOpen);
-  free(V->swUs);
-  free(V->swDue);
   free(V);
 }
 

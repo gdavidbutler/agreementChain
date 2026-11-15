@@ -207,13 +207,24 @@ struct rsecFrmIgrCtrs {
                        * sender among them */
   unsigned int shape; /* fragments of a geometry no egress derives, or past msgMax */
   unsigned int dup;   /* duplicate fragments */
-  unsigned int late;  /* fragments after their message was delivered */
-  unsigned int refused;    /* fragments the caller refused from their tag (tagOk) */
-  unsigned int refusedMsg; /* of those, first fragments: a message each */
+  unsigned int late;  /* fragments after their message was delivered: its
+                       * stragglers and their copies, not asked */
+  unsigned int refused;    /* fragments refused from their tag: the caller's
+                            * answer (tagOk), or its train's mark */
+  unsigned int refusedMsg; /* of those, the caller's answers: one a train,
+                            * and one more each time an unmarked train
+                            * is asked again */
   unsigned int msg;   /* messages delivered */
   unsigned int dcd;   /* of those, by Reed-Solomon decode */
   unsigned int evict; /* incomplete messages evicted: a loss each */
   unsigned int evictFull; /* of those, by a new tag on a full table */
+  unsigned int unmarked;  /* refusals left without a mark: none made, the
+                           * table full of trains in flight or delivered with
+                           * fragments still to come, or no memory; or a
+                           * mark given up before its train's fragments had
+                           * all come: the next of them is asked again */
+  unsigned int markAgain; /* fragments a mark refused at an index it holds:
+                           * a copy, or a re-send while the mark stands */
 };
 
 struct rsecFrmIgr {
@@ -224,9 +235,13 @@ struct rsecFrmIgr {
    * every fragment's bytes; non-zero accepts */
   int (*dtgHashVrfy)(void *dtgHashCtx, const unsigned char *adr, const unsigned char *mac, const unsigned char *src, unsigned int len);
   void *tagOkCtx;
-  /* 0 or: a fragment past the gate and its geometry, of no train in flight
-   * here, its tag and its index in the train; 0 refuses it before any entry
-   * or decode, the caller's say that its message would move nothing */
+  /* 0, or asked once a train, of the first of its fragments past the
+   * gate and its geometry with no train under its tag here, its tag and
+   * that fragment's index; 0 refuses it before any entry or decode, the
+   * caller's say that its message would move nothing, and the train's
+   * other fragments with it, unasked, whatever the caller would say of
+   * them by then, in whatever order they come: one answer a train,
+   * while its mark stands (unmarked) */
   int (*tagOk)(void *tagOkCtx, const unsigned char *tag, unsigned int si);
   void *opaque;       /* private: Init sets it, Fini clears it */
   unsigned int dgramMax;
@@ -235,14 +250,22 @@ struct rsecFrmIgr {
    * is refused before any entry */
   unsigned int msgMax;
   /*
-   * Reassemblies in flight.  A new tag on a full table evicts the one
+   * Reassemblies in flight, and the marks of trains refused.  A
+   * delivered entry stays to eat its train's stragglers, and a mark to
+   * refuse them, until k + m distinct fragments of the train have
+   * come, a copy counting toward nothing; the next fragment under its
+   * tag is a new train, so a re-send under the same tag is asked and
+   * delivered again.  A new tag on a full table evicts first an entry
+   * whose train's fragments have all come, delivered or refused, which
+   * holds nothing, then the mark least recently fed, then the entry
    * least recently fed, a delivered one first, which costs nothing,
    * then one in flight; a fragment whose k, m, shard size or padding
-   * differ from its tag's entry evicts that entry.  An evicted entry
-   * not yet delivered is a loss.  A delivered entry stays to eat its
-   * train's stragglers until k + m of its fragments have arrived; the
-   * next fragment under its tag starts a new reassembly, so a re-send
-   * under the same tag is delivered again.  No clock enters.
+   * differ from its tag's entry evicts that entry.  An evicted entry not
+   * yet delivered is a loss; an evicted mark whose train has fragments
+   * to come is unmarked.  A mark takes the room of an entry whose
+   * train's fragments have all come, or of another mark, never of a
+   * train that can still use its entry, and a train of one fragment
+   * needs none.  No clock enters.
    */
   unsigned int tableSize;
   /*
@@ -251,8 +274,9 @@ struct rsecFrmIgr {
    * datagram must name the first's, and a new tag on a full table
    * evicts the entry least recently fed of the sender holding the most
    * entries, its own where it ties for the most, a delivered one first
-   * as above.  A sender that opens reassemblies faster than it
-   * completes them takes the table from nobody but itself.
+   * as above; a mark is charged to no sender.  A sender that opens
+   * reassemblies faster than it completes them takes the table from
+   * nobody but itself.
    */
   unsigned int tagOwner;
   unsigned int dtgHashSize;

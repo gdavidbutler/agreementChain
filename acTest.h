@@ -75,11 +75,42 @@
 #define AC_FAULT_TWOSLOT 10         /* one apex signed at two slots */
 #define AC_FAULT_REUSE   11         /* the second payload signed at the first's slot */
 #define AC_FAULT_BELOW   12         /* the third payload signed at the first's slot, below the second's */
-/* the three signing faults, dealt to seat 0 alone */
-#define AC_FAULT_SIGNING(f) ((f) == AC_FAULT_TWOFACE || (f) == AC_FAULT_SPLIT || (f) == AC_FAULT_TWOSLOT)
+#define AC_FAULT_POOLS   13         /* a second value for the first payload's position, at the next slot:
+                                     * its (initial, v) to seats 0..t-1 beside the first's unit, its sign
+                                     * part to seat t ahead of the first's (initial, v) */
+#define AC_FAULT_TWOKEY  14         /* the second payload's header signed by the successor too, at its
+                                     * slot, over the value under the successor's key: to seat 0 */
+#define AC_FAULT_SLOTZERO 15        /* the payload's apex signed at slot 0 too, the rotation's: to seat
+                                     * 0 in the payload's shape, its (initial, v) kept from seat 0 */
+/* the five signing faults, dealt to seat 0 alone */
+#define AC_FAULT_SIGNING(f) ((f) == AC_FAULT_TWOFACE || (f) == AC_FAULT_SPLIT || (f) == AC_FAULT_TWOSLOT \
+                          || (f) == AC_FAULT_TWOKEY || (f) == AC_FAULT_SLOTZERO)
+/* the two that spend slot 0 on the payload's apex and never rotate */
+#define AC_FAULT_SLOT0(f) ((f) == AC_FAULT_TWOFACE || (f) == AC_FAULT_SLOTZERO)
+/* the two whose second apex is counted to the dealer past its signature */
+#define AC_FAULT_OWNAPEX(f) ((f) == AC_FAULT_POOLS || (f) == AC_FAULT_TWOKEY)
 /* the two spent-slot faults: every unit the dealer deals is good, one
  * payload is signed at a slot its subsets already took */
 #define AC_FAULT_SPENT(f) ((f) == AC_FAULT_REUSE || (f) == AC_FAULT_BELOW)
+
+/* the paths this seat's memory refusing takes, once the seat has gone,
+ * each its sites numbered in source order (TESTCALL, ac.c): an
+ * allocation, or a library's call this seat takes the failure of as its
+ * memory's, whatever refused below.  Under memOnce the test build fails
+ * each site the first time it is reached, as the call failing would,
+ * and each path's recovery runs */
+#define AC_MEM_COPY    0                /* a position's reply budget: the reply lost, asked again */
+#define AC_MEM_Q       1                /* the hand-back queue: what the seat says itself */
+#define AC_MEM_UNIT    2                /* a unit's part held or checked: refused, re-sent */
+#define AC_MEM_LAUNCH  3                /* a launch: taken again at the next call */
+#define AC_MEM_ROT     4                /* the successor's tree at a rotation */
+#define AC_MEM_SIGN    5                /* a noop's signature */
+#define AC_MEM_DIST    6                /* a payload's distribution */
+#define AC_MEM_ROW     7                /* a row's kept position or leg: its sender brings it again */
+#define AC_MEM_AHEAD   8                /* a row held ahead of its name */
+#define AC_MEM_OWN     9                /* this seat's own legs, its record, its value alone */
+#define AC_MEM_ASM     10               /* a member's search: owed, tried again */
+#define AC_MEM_PATHS   11
 
 /* the parameters by name, S the struct acPar in hand, as ac.c and the
  * harness both read them */
@@ -127,24 +158,35 @@
  * to drop it, and may rewrite the tag and the payload's bytes, which
  * are then authenticated as the seat's own word -- a Byzantine seat
  * says what it likes under its own key, while what it feeds itself never
- * crosses the hook; badMac, every message of this seat's under a proof
- * that fails; a dealer's fault and a laggard's hold act
- * inside the seat.  A knob set stands where the derivation would: the
- * parity (-1 derives it per message), the inter-shard pacing (-1
- * derives it), the tick, the patience and the round ceiling (0 derives
- * each).
+ * crosses the hook; badMac, while set, every message of this seat's
+ * under a proof that fails, and noMac with none, each the egress
+ * filter's to set per message; seen is told what the seat holds of a
+ * recover leg as it comes to hold it; tickHeld, while set, holds the
+ * seat's tick, and with it every count, its egress and arrivals going
+ * on; a
+ * dealer's fault, a laggard's hold, the memory's refusals and -8's full
+ * framer act inside the seat.  A knob set stands where
+ * the derivation would: the parity (-1 derives it per message), the
+ * inter-shard pacing (-1 derives it, 0 is refused), the tick, the patience and the
+ * round ceiling (0 derives each).
  */
 struct acTest {
   void *ctx;
   int (*egress)(void *, unsigned int inst, unsigned char dest, unsigned char *tag, unsigned char *payload, unsigned int len);
   int (*ingress)(void *, const unsigned char *tag, const unsigned char *payload, unsigned int len);
+  /* what this seat holds of a recover leg of s's, under the position's
+   * name: 1 the leg's INITIAL of x fed, 2 x's unit held at s's leaf
+   * (s's own when x is s), 4 s's description held */
+  void (*seen)(void *, const unsigned char *name, unsigned int s, unsigned int x, unsigned int what);
   long shardDelayUs;
+  unsigned long memDone[AC_MEM_PATHS];  /* -O m: the sites refused, a bit a site, by path */
   int parity;
   unsigned int tickMs;
   unsigned int patience;
   unsigned int rounds;
   unsigned int fault;
   unsigned int badMac;
+  unsigned int noMac;
   unsigned int lag;
   unsigned int refuse;                  /* 1 + the member whose search this seat's memory refuses
                                          * until its position's end keeps it, or 0 */
@@ -155,9 +197,42 @@ struct acTest {
   int tagMoved;                         /* and it drew a reply here */
   unsigned int tagPred;                 /* -l: arrivals it would have refused */
   unsigned int tagBad;                  /* of those, ones proved or replied to here */
-  unsigned int dealtAt;                 /* -f 11, 12: the instance it was dealt at */
-  unsigned int dealt;                   /* -f 7, 8, 10, 11, 12: the fault's second
-                                         * signature was made and dealt */
+  unsigned int memOnce;                 /* -O m: each memory site refused at its first reach */
+  unsigned int left;                    /* positions whose machines this seat let go,
+                                         * each to its record, in order */
+  unsigned int holdKept;                /* -8: the framer full while the send in hand is
+                                         * a kept assembly's, its record the retention's
+                                         * oldest, and another is kept */
+  unsigned int holdOff;                 /* -8: the harness's end of the hold */
+  unsigned int tickHeld;                /* while set, no tick: no sweep, no count; the egress and arrivals go on */
+  unsigned int holding;                 /* -8: the framer held so now */
+  unsigned int heldGone;                /* -8: sends in hand dropped, their record let go */
+  unsigned int dealtAt;                 /* -f 11, 12, 15: the instance it was dealt at */
+  unsigned int dealt;                   /* -f 7, 8, 10, 11, 12, 13, 14, 15: the fault's
+                                         * second signature was made and dealt */
+  unsigned int slotKind;                /* -f 15: sign parts refused as a kind its slot
+                                         * is not, slot 0 the rotation's and no other's */
+  unsigned int unprovedAt;              /* the re-sends met unproved where a proved one
+                                         * would move the leg, a bit a site: 1 a recover
+                                         * leg's INITIAL, 2 its unit's part, 4 its
+                                         * description, each where the leg is whole and
+                                         * its BESIDE unfed; 8 a recover leg's INITIAL
+                                         * at the leg's abandon count */
+  unsigned int rcvAgain;                /* a recover leg's INITIAL from its initiator at
+                                         * this seat's machine of it at its count, at a
+                                         * live position, proved or not */
+  unsigned int rcvAgainLive;            /* of those, proved and the machine started
+                                         * again: the position unfolded here or its
+                                         * agreement not let go */
+  unsigned int rcvAgainLate;            /* of those, at a position folded with its
+                                         * agreement let go: the count final */
+  unsigned int valOther;                /* -f 14: verified sign parts refused as not
+                                         * the value accepted for their signer */
+  unsigned int legReplaced;             /* sign parts on a leg under its (initial, v)
+                                         * that replaced one held under another apex */
+  unsigned int heldOther;               /* -f 13: units held under the value accepted
+                                         * for their signer, another (initial, v) held */
+  unsigned char rcvAgainFrom[AC_SEATS / 8]; /* rcvAgain's initiators, a bit a seat */
 };
 
 /* acDerive, the knobs standing where they are set */

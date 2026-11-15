@@ -59,6 +59,11 @@ check: rsecFrmTest acTest
 	./rsecFrmTest
 # four seats, t = 1: every seat's rotation, then the end
 	./acTest -W 2500000 4 1
+# every other kdf suite the harness takes, its keyed HMAC on every message
+	./acTest -W 2500000 -k rmd128 4 1
+	./acTest -W 2500000 -k sha256 4 1
+	./acTest -W 2500000 -k sha3256 4 1
+	./acTest -W 2500000 -k sha3512 4 1
 # ten positions and the end: seven messages a seat, the rotations its signing context is due between them
 	./acTest -W 2500000 -n 10 4 1
 # the smallest signing context: a rotation every other slot, switching contexts
@@ -80,6 +85,11 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -D 10 -n 30 -A 45 -M 250000 -F 508 4 1
 # loss in bursts, at -F 508 so a burst leaves trains part arrived
 	./acTest -W 2500000 -D 5 -B 200 -F 508 -n 10 4 1
+# a socket that pushes back every seventh send: the datagram stays due, the same one sent next
+	./acTest -W 2500000 -9 7 4 1
+# every datagram held up to 20 ms, a train's fragments reordered: the framer asks once a train and a train refused is
+# refused whole, so nothing is left in reassembly and the lossless run reconciles message for message
+	./acTest -W 2500000 -L 20 -n 4 4 1
 # the whole network dark from the go
 	./acTest -W 2500000 -Y -x 12 4 1
 # the whole network dark from the first tick after the go
@@ -87,7 +97,7 @@ check: rsecFrmTest acTest
 # the whole network dark past the abandon: agreements outlast their count
 	./acTest -W 2500000 -Y -y 0 -x 100 -A 22 -n 3 4 1
 # one seat dark past the abandon while the others go on
-	./acTest -W 2500000 -y 0 -x 100 -A 22 -n 6 4 1
+	./acTest -W 2500000 -y 0 -x 100 -7 -A 22 -n 6 4 1
 # a dealer that sends one seat nothing of its own, the exchange toward that seat dark
 	./acTest -W 2500000 -C -U 40 -n 2 -A 1200 4 1
 # one seat's exchange dark past the abandon: what it was not dealt comes by the others' legs
@@ -98,16 +108,25 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -b 2 -n 10 4 1
 # a Byzantine seat's own INITIAL under position 1's name: an initial of another value than the one held, refused
 	./acTest -W 2500000 -b 4 -n 4 4 1
-# the sign parts it forwards a byte off: refused at the signature
+# the sign parts it forwards a byte off, in turn anywhere and in the count the signature's structure is read from: refused at the signature and at its structure
 	./acTest -W 2500000 -b 8 -n 4 4 1
 # the data parts it forwards a byte off: refused at the rsecMk leaf
 	./acTest -W 2500000 -b 16 -n 4 4 1
 # the parts it forwards a byte short: refused at the length
 	./acTest -W 2500000 -b 32 -n 4 4 1
-# its description a byte off, beside its recover legs to a returner, the one seat that asks for one: refused
-	./acTest -W 2857142 -b 64 -2 -x 60 -n 4 -A 22 7 2
+# a noop's or a rotation's sign part it forwards sent as a data part: a shard beside a unit that carries none, refused held past its sign part and ahead of it, and a second ahead unlike the first
+	./acTest -W 2500000 -b 8192 -n 4 4 1
+# its frames under the receiver's own index or a sender past N, refused at the gate before a key is read, and a message the gate passes shorter than its proof
+	./acTest -W 2500000 -b 16384 -n 4 4 1
+# its description beside its recover legs to a returner, the one seat that asks for one, in turn a byte off, bits set past N, a member's bit off and a member left out with its hash: refused at the value, the bitmap, the count and the subset
+	./acTest -W 2857142 -b 64 -2 -x 60 -7 -n 4 -A 22 7 2
 # a unit landing under a seat's word that it was owed nothing: the word lapses, and that unit brings the returner to threshold
 	./acTest -W 2500000 -u 60000 -n 3 -A 60 -o 480 6 1
+# and every allocation of the seat's own, the libraries' through the allocator it gives them, refused once, at its first reach: each taken again, the chain and every message as at the others
+	./acTest -W 2500000 -O m -u 60000 -n 3 -A 60 -o 480 6 1
+# beside it a Byzantine seat whose first copy of each row is under its proof and every later one under a proof that fails: its recover legs toward seats 0 and 1, its parts withheld there,
+# run to their count with the member kept short, and its INITIAL again is refused unproved where a proved one would start the leg again; its echo is not counted on, so 8 1
+	./acTest -W 2500000 -b 2048 -2 -u 60000 -n 3 -A 60 -o 480 8 1
 # a payload signed at its first payload's slot, the dealer in the subsets of the first two by the hold:
 # refused unverified where its value is held, past a signature at seat 0, sent no value of it
 	./acTest -W 2500000 -f 11 -6 2 -n 6 4 1
@@ -137,6 +156,15 @@ check: rsecFrmTest acTest
 	./acTest -W 2500000 -f 8 -n 3 4 1
 # a dealer signing one apex at two slots: the second refused at seat 0, the message from the legs
 	./acTest -W 2500000 -f 10 -n 3 4 1
+# a dealer with two values for one position: the second's sign part held at seat 1 ahead of any INITIAL and the
+# first's replacing it; seat 0, holding the second's INITIAL, echoes nothing, and once the first is accepted holds its unit and exchanges it
+	./acTest -W 2500000 -f 13 -n 6 4 1
+# a dealer signing one header under both its keys at one slot: the successor's value refused at seat 0, past its
+# signature, as not the value accepted, the message from the legs
+	./acTest -W 2500000 -f 14 -n 3 4 1
+# a dealer signing its payload's apex at slot 0 too, dealt to seat 0 in the payload's shape with no INITIAL: refused
+# at seat 0 by its slot, ahead of every root, the message from the legs
+	./acTest -W 2500000 -f 15 -n 3 4 1
 # the end called by t seats alone: no end
 	./acTest -W 2500000 -E 1 -n 2 4 1
 # the end called at a different link by every seat: one end, one final hash
@@ -152,17 +180,34 @@ check: rsecFrmTest acTest
 # the same on a chain idling at a folded head, where nothing names past it and only a seat's own HOLDING says it is owed nothing
 	./acTest -W 2500000 -I 2 -i -Z 40:300 -n 8 -A 22 4 1
 # a returner under a recording of recover legs' INITIALs, which no tag refuses: the copies hold no position past its fold and let-go, so it ends
-	./acTest -W 2500000 -I 64 -h -x 120 -n 8 -A 22 4 1
+	./acTest -W 2500000 -I 64 -h -x 120 -7 -n 8 -A 22 4 1
+# a returner whose recover descriptions are held off until every holder's leg has met its machine there at its count: the
+# machines started again at the position it has not folded, so its HOLDING retires each holder's leg
+	./acTest -W 2500000 -x 120 -7 -1 2 -n 12 -A 22 4 1
 # a faulty dealer's consistent wrong bytes reach a seat at threshold under its record, and the rest are never dealt: an abandon on, its last pass, and it launches
 	./acTest -W 2500000 -f 4 -N 60 -n 3 -A 22 4 1
 # a seat with every word on its own broadcasts heard and nothing to fold on owes no re-send: it says its value again at its abandon, and the others' recover legs carry it
 	./acTest -W 2500000 -3 60 -n 14 -A 22 4 1
-# a seat that folded with no unit to carry is a returner's second description: it says it alone, with no leg, whenever that seat asks
+# a seat that folded with no unit to carry is a returner's second description: it says it alone, with no leg, and again when its first is lost and that seat asks again
 	./acTest -W 2500000 -4 100 -n 12 -A 22 4 1
 # a dealer past a position, still re-sending its unit, reaches a seat whose machines of it are gone: the record takes it, and only that brings a seat a member short to T
 	./acTest -W 2500000 -5 -n 3 -A 60 -u 60000 6 1
-# a seat holding the gate's key whose every proof fails: each a counted discard
-	./acTest -W 2500000 -b 128 -n 4 4 1
+# a seat holding the gate's key whose every proof fails: each a counted discard, at the live machines, at the rows held ahead and at a record, one of two faulty seats beside a seat cut until the others let go
+	./acTest -W 2857142 -b 128 -2 -x 60 -7 -n 4 -A 22 7 2
+# the same seat's tags of shapes no correct seat sends, each check of the parse in turn: malformed or not its initiator's
+	./acTest -W 2500000 -b 256 -n 4 4 1
+# the same seat's rows of its broadcasts and legs under a value a bit off, and a recover leg no seat asked for: an INITIAL under another value, at the live machines and at a record; and rows of broadcasts their receivers have not begun, one of two faulty seats beside a laggard
+	./acTest -W 2857142 -b 1536 -2 -z 22 -n 4 7 2
+# the same seat's first copy of each row under its proof and every later one under a proof that fails: a copy refused wherever it would move what the first opened or held
+	./acTest -W 2857142 -b 2048 -2 -x 60 -7 -n 4 -A 22 7 2
+# the same seat's recover legs' data parts and descriptions under a proof that fails, all else under its own: each refused where it would complete what the rest began
+	./acTest -W 2857142 -b 4096 -2 -x 60 -7 -n 4 -A 22 7 2
+# the same seat's recover legs to the returning seat, each whole there with its INITIAL fed while the description it waits on is
+# held back: once held, the legs' copies, but the one that carried it, unproved, each refused where a proved one would feed it
+	./acTest -W 2857142 -b 34816 -2 -x 60 -7 -n 4 -A 22 7 2
+# its recover leg of X to the returning seat at position 1, where that seat has no high water yet: X's noop of position 2 first in the place of
+# the leg's sign part, held, its descriptions there held off until then; then the leg's INITIAL and its own part, which replaces the one held
+	./acTest -W 2857142 -b 65536 -2 -x 60 -7 -n 1 -A 22 7 2
 # a seat that hears no agreement holds every unit and still lacks the description: it is carried
 	./acTest -W 2500000 -q 90 -n 6 -A 22 4 1
 # a member reaches two seats and misses a third, stops while they go on, and returns: its unit, late, in that seat's record
@@ -175,7 +220,7 @@ check: rsecFrmTest acTest
 # the loopback, then ones that pin defects fixed here
 check_abandon: acTest
 # a seat cut past the others' machines, carried back by their recover legs and DISCOVER
-	./acTest -W 2500000 -r 950 -x 90 -n 4 -A 64 4 1
+	./acTest -W 2500000 -r 950 -x 90 -7 -n 4 -A 64 4 1
 # a seat healed on ingress first, completing on the others' re-sends alone
 	./acTest -W 2500000 -r 950 -x 80 -X 100 -n 2 -A 64 4 1
 # a seat frozen as a stopped process, with a small host's socket buffer
@@ -183,7 +228,7 @@ check_abandon: acTest
 # the frozen seat at seven seats
 	./acTest -W 2857142 -r 3530 -y 0 -Q 6 -G 42080 -n 18 7 1
 # a seat recovering across the retention's wrap, at -F 508 as above
-	./acTest -W 2500000 -D 10 -x 320 -n 30 -A 152 -M 250000 -F 508 4 1
+	./acTest -W 2500000 -D 10 -x 320 -7 -n 30 -A 152 -M 250000 -F 508 4 1
 # a seat cut past the retention itself: partitioned, read from the reports
 	./acTest -W 2500000 -r 950 -x 250 -n 18 -A 22 -M 234743 -u 2000 -c 400 4 1
 # a seat dead for the whole run at seven seats
@@ -195,9 +240,13 @@ check_abandon: acTest
 # three seats that hear each other, the fourth dark, then hearing and not heard, then heard
 	./acTest -W 2500000 -r 950 -A 22 -n 10 -T '0=010210122021/90000=010210122021031323/130000=*' 4 1
 # a seat cut past the others' machines over a longer chain
-	./acTest -W 2500000 -r 950 -x 90 -n 10 -A 43 4 1
+	./acTest -W 2500000 -r 950 -x 90 -7 -n 10 -A 43 4 1
 # a member's own shard landing after its position left the live window, at a one-record retention
 	./acTest -W 2500000 -u 60000 -U 200 -V -n 6 -A 64 -M 214410 4 1
+# and every allocation of the seat's own refused once, its record's and its kept assembly's among them
+	./acTest -W 2500000 -O m -u 60000 -U 200 -V -n 6 -A 64 -M 214410 4 1
+# a send in hand of machines started again from the oldest record, the framer full, as a newer copy's room lets that record go
+	./acTest -W 2500000 -u 60000 -x 1 -8 -n 4 -A 64 -M 640000 -c 4000 6 1
 # this seat's memory refusing a member's search, the member kept with the record
 	./acTest -W 2500000 -O s:2 -n 6 4 1
 # the memory refused at the search's pool, the shard landing late

@@ -443,6 +443,8 @@ struct igrEnt {
   unsigned int received;
   unsigned int age;
   unsigned int prefix;     /* 1 + addrlen + tagSize + 2 */
+  unsigned char mark;      /* a train refused from its tag: no blob, no parity,
+                            * the tag alone in mem, charged to no sender */
   unsigned char present[256];
   unsigned char mem[1];
 };
@@ -525,6 +527,8 @@ rsecFrmIgrPut(
   unsigned int pos;
   unsigned int slot;
   unsigned int i;
+  unsigned int lru;
+  unsigned int back;
   int full;
 
   g = x->opaque;
@@ -633,17 +637,6 @@ rsecFrmIgrPut(
       slot = lo;
     }
 
-    /* no train in flight under this tag: the caller may know already that
-     * its message would move nothing, ahead of an entry, which could evict
-     * one in flight, and a decode.  A train begun is carried to its end */
-    if (x->tagOk && (!found || !g->tab[slot]->blob) && !x->tagOk(x->tagOkCtx, buf + pos, si)) {
-      ++x->c.refused;
-      if (!si)
-        ++x->c.refusedMsg;
-      pos = fragEnd;
-      continue;
-    }
-
     /* a mismatch evicts: padding counts, since it sets the delivered
      * length, and two same-tag payloads fewer than k bytes apart agree
      * on k, m and shard size */
@@ -653,14 +646,16 @@ rsecFrmIgrPut(
       i = slot;
       found = 0;
       full = 0;
+      back = 0;
       goto evict;
     }
+mismatched:
 
-    /* a delivered entry whose train is spent, k + m arrivals: the next
-     * fragment under its tag can only be a re-send, a new reassembly */
+    /* a train delivered or refused whose k + m fragments have come: the
+     * next fragment under its tag can only be a re-send's, a new train */
     if (found && !g->tab[slot]->blob
      && g->tab[slot]->received >= g->tab[slot]->k + g->tab[slot]->m) {
-      if (x->tagOwner)
+      if (x->tagOwner && !g->tab[slot]->mark)
         --g->held[g->tab[slot]->tag[x->tagOwner - 1]];
       x->free(g->tab[slot]);
       if (slot < --g->used)
@@ -668,32 +663,100 @@ rsecFrmIgrPut(
       found = 0;
     }
 
-    /* a new tag on a full table evicts the least recently fed, of the
-     * sender holding the most where the tag names its sender: one
-     * delivered first, which costs nothing, then one in flight, a loss */
-    if (!found && g->used >= x->tableSize) {
-      unsigned int lru;
-      unsigned int own;
-
-      own = 0;
-      if (x->tagOwner) {
-        own = buf[pos + x->tagOwner - 1];
-        for (i = 0; i < 256; ++i)
-          if (g->held[i] > g->held[own])
-            own = i;
+    /* a train refused: the rest of it is refused unasked, whatever the
+     * caller would say now, and a copy counts nothing toward its end */
+    if (found && g->tab[slot]->mark) {
+      ent = g->tab[slot];
+      ++x->c.refused;
+      if (ent->present[si])
+        ++x->c.markAgain;
+      else {
+        ent->present[si] = 1;
+        ++ent->received;
+        ent->age = g->age;
       }
+      pos = fragEnd;
+      continue;
+    }
+
+    /* no train under this tag: the caller may know already that its
+     * message would move nothing, ahead of an entry, which could evict
+     * one in flight, and a decode.  It is asked once a train: a train
+     * begun is carried to its end, one delivered eats its stragglers,
+     * and one refused is marked, so its other fragments are refused
+     * unasked in whatever order they come.  A mark takes the room of an
+     * entry whose train's fragments have all come, which holds nothing,
+     * else of the mark least recently fed, whose train is then unmarked,
+     * and is charged to no sender: the refusal gives up no train that can
+     * still use its entry.  With no such room it is not kept, and the
+     * train's next fragment is asked again, a new train if taken */
+    if (!found && x->tagOk && !x->tagOk(x->tagOkCtx, buf + pos, si)) {
+      ++x->c.refused;
+      ++x->c.refusedMsg;
+      if (k + m < 2) {
+        pos = fragEnd;
+        continue;
+      }
+      if (g->used < x->tableSize)
+        goto mark;
       for (lru = g->used, i = 0; i < g->used; ++i)
-        if ((!x->tagOwner || g->tab[i]->tag[x->tagOwner - 1] == own) && !g->tab[i]->blob
+        if (!g->tab[i]->blob && g->tab[i]->received >= g->tab[i]->k + g->tab[i]->m
          && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
           lru = i;
       if (lru == g->used)
         for (i = 0; i < g->used; ++i)
-          if ((!x->tagOwner || g->tab[i]->tag[x->tagOwner - 1] == own)
+          if (g->tab[i]->mark && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
+            lru = i;
+      if (lru == g->used) {
+        ++x->c.unmarked;
+        pos = fragEnd;
+        continue;
+      }
+      if ((i = lru) < slot)
+        --slot;
+      full = 0;
+      back = 2;
+      goto evict;
+    }
+
+    /* a new tag on a full table evicts an entry whose train's fragments
+     * have all come first, which holds nothing, then a mark, which costs
+     * a refusal's memory, unmarked, then the least recently fed, of the
+     * sender holding the most where the tag names its sender: one
+     * delivered first, which costs nothing, then one in flight, a loss */
+    if (!found && g->used >= x->tableSize) {
+      unsigned int own;
+
+      for (lru = g->used, i = 0; i < g->used; ++i)
+        if (!g->tab[i]->blob && g->tab[i]->received >= g->tab[i]->k + g->tab[i]->m
+         && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
+          lru = i;
+      if (lru == g->used)
+        for (i = 0; i < g->used; ++i)
+          if (g->tab[i]->mark && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
+            lru = i;
+      if (lru == g->used) {
+        own = 0;
+        if (x->tagOwner) {
+          own = buf[pos + x->tagOwner - 1];
+          for (i = 0; i < 256; ++i)
+            if (g->held[i] > g->held[own])
+              own = i;
+        }
+        for (i = 0; i < g->used; ++i)
+          if ((!x->tagOwner || g->tab[i]->tag[x->tagOwner - 1] == own) && !g->tab[i]->blob
            && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
             lru = i;
+        if (lru == g->used)
+          for (i = 0; i < g->used; ++i)
+            if ((!x->tagOwner || g->tab[i]->tag[x->tagOwner - 1] == own)
+             && (lru == g->used || g->tab[i]->age < g->tab[lru]->age))
+              lru = i;
+      }
       if ((i = lru) < slot)
         --slot;
       full = 1;
+      back = 1;
       goto evict;
     }
 evicted:
@@ -707,6 +770,7 @@ evicted:
       ent->m = m;
       ent->shardSize = sz;
       ent->padding = padding;
+      ent->mark = 0;
       ent->received = 0;
       ent->age = g->age;
       ent->prefix = wp + tagSize + 2;
@@ -729,10 +793,14 @@ evicted:
     }
     ent = g->tab[slot];
 
-    /* delivered: a straggler, counted against the train */
+    /* delivered: a straggler, counted against the train, a copy
+     * toward nothing */
     if (!ent->blob) {
       ++x->c.late;
-      ++ent->received;
+      if (!ent->present[si]) {
+        ent->present[si] = 1;
+        ++ent->received;
+      }
       pos = fragEnd;
       continue;
     }
@@ -804,8 +872,37 @@ drop:
       memmove(g->tab + slot, g->tab + slot + 1, (g->used - slot) * sizeof (*g->tab));
     continue;
 
-    /* the entry at i evicted, a loss when not yet delivered; slot is
-     * the new entry's place once it is gone */
+    /* a refused train's mark at slot, its first fragment's index held */
+mark:
+    if (!(ent = x->realloc(0, sizeof (*ent) + tagSize))) {
+      ++x->c.unmarked;
+      pos = fragEnd;
+      continue;
+    }
+    ent->blob = 0;
+    ent->parity = 0;
+    ent->tag = ent->mem;
+    ent->k = k;
+    ent->m = m;
+    ent->shardSize = sz;
+    ent->padding = padding;
+    ent->mark = 1;
+    ent->received = 1;
+    ent->age = g->age;
+    ent->prefix = 0;
+    memcpy(ent->tag, buf + pos, tagSize);
+    memset(ent->present, 0, sizeof (ent->present));
+    ent->present[si] = 1;
+    if (slot < g->used)
+      memmove(g->tab + slot + 1, g->tab + slot, (g->used - slot) * sizeof (*g->tab));
+    g->tab[slot] = ent;
+    ++g->used;
+    pos = fragEnd;
+    continue;
+
+    /* the entry at i evicted, a loss when not yet delivered, unmarked
+     * when a mark with fragments to come; slot is the new entry's place
+     * once it is gone */
 evict:
     ent = g->tab[i];
     if (ent->blob) {
@@ -817,11 +914,17 @@ evict:
       g->dlv[g->dlvCnt].b = ent->blob;
       g->dlv[g->dlvCnt++].l = ent->prefix;
     }
-    if (x->tagOwner)
+    if (ent->mark && ent->received < ent->k + ent->m)
+      ++x->c.unmarked;
+    if (x->tagOwner && !ent->mark)
       --g->held[ent->tag[x->tagOwner - 1]];
     x->free(ent);
     if (i < --g->used)
       memmove(g->tab + i, g->tab + i + 1, (g->used - i) * sizeof (*g->tab));
+    if (!back)
+      goto mismatched;
+    if (back == 2)
+      goto mark;
     goto evicted;
   }
   return (1);

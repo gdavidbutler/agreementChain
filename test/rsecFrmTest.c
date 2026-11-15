@@ -158,6 +158,38 @@ refuseTag(
   return (TagAsked <= TagYes);
 }
 
+/* refuses the first TagNo asks and takes the rest: the caller's answer
+ * turning, as a reply's budget does at a tick */
+static unsigned int TagNo;
+
+static int
+laterTag(
+  void *v
+ ,const unsigned char *tag
+ ,unsigned int si
+){
+  (void)v;
+  (void)tag;
+  (void)si;
+  ++TagAsked;
+  return (TagAsked > TagNo);
+}
+
+/* refuses every train of one sequence, the tag's third byte */
+static unsigned int TagSeq;
+
+static int
+seqTag(
+  void *v
+ ,const unsigned char *tag
+ ,unsigned int si
+){
+  (void)v;
+  (void)si;
+  ++TagAsked;
+  return (tag[2] != TagSeq);
+}
+
 /* datagrams or deliveries: [addrlen][addr][...] */
 struct item {
   unsigned char *b;
@@ -1026,8 +1058,9 @@ main(
     rsecFrmIgrFini(&y);
     drop(&d);
 
-    /* the caller is asked of a train not begun and of one delivered, never of
-     * one in flight, which it carries to its end whatever it would say now */
+    /* the caller is asked of a train not begun, never of one in flight,
+     * which it carries to its end whatever it would say now, nor of one
+     * delivered, whose fragments are its stragglers */
     setIgr(&y, c, 4);
     TagYes = 1;
     TagAsked = 0;
@@ -1040,10 +1073,329 @@ main(
     }
     check(d.n == 1 && TagAsked == 1 && !y.c.refused, "tagOk: asked once, of the first, the train carried to its end");
     rsecFrmIgrPut(&y, s.i[0].b, s.i[0].b + DLEN, s.i[0].l - DLEN);
-    check(TagAsked == 2 && y.c.refused == 1 && y.c.refusedMsg == 1 && !y.c.late
-       , "tagOk: a copy of the delivered train asked and refused");
+    check(TagAsked == 1 && !y.c.refused && y.c.late == 1
+       , "tagOk: a copy of the delivered train its straggler, not asked");
     rsecFrmIgrFini(&y);
     drop(&d);
+
+    /* one answer a train: k 4 m 0, whatever order its fragments come in */
+    {
+      struct list t;
+      struct list u;
+      struct list v;
+      struct list w;
+
+      memset(&t, 0, sizeof (t));
+      memset(&u, 0, sizeof (u));
+      setEgr(&x, c, 4);
+      rsecFrmEgrInit(&x);
+      ml = mkMsg(b, c, 0, 0, 7, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 0, 8, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 0, 10, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      now = 0;
+      while (drainOne(&x, &now, &t));
+      rsecFrmEgrFini(&x);
+      check(t.n == 12, "one answer: three trains of four, got %u datagrams", t.n);
+      memset(&v, 0, sizeof (v));
+      for (i = 0; i < 4; ++i) {
+        take(&u, t.i[4 + i].b, t.i[4 + i].l);
+        take(&v, t.i[8 + i].b, t.i[8 + i].l);
+      }
+      t.n = 4;
+      /* under u's tag, a train of two: another geometry */
+      memset(&w, 0, sizeof (w));
+      setEgr(&x, c, 4);
+      rsecFrmEgrInit(&x);
+      ml = mkMsg(b, c, 0, 0, 8, 0, 0, 2 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      now = 0;
+      while (drainOne(&x, &now, &w));
+      rsecFrmEgrFini(&x);
+      check(w.n == 2, "one answer: u's tag, a train of two, got %u datagrams", w.n);
+      /* refused at a later fragment: fragment 0 is not asked */
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, t.i[1].b, t.i[1].b + DLEN, t.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[2].b, t.i[2].b + DLEN, t.i[2].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[3].b, t.i[3].b + DLEN, t.i[3].l - DLEN);
+      check(TagAsked == 1 && y.c.refused == 4 && y.c.refusedMsg == 1 && !y.c.msg && !rsecFrmIgrGet(&y, &l)
+         , "one answer: refused at a later fragment, fragment 0 not asked (asked %u, refused %u)", TagAsked, y.c.refused);
+      /* the mark spent at k + m: the next train is asked anew */
+      for (i = 0; i < 4; ++i) {
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 2 && y.c.msg == 1 && d.n == 1, "one answer: a spent mark, the next train asked and taken");
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      /* refused at fragment 0 in order: the rest are not asked, though the
+       * caller would take them now */
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      for (i = 0; i < 4; ++i)
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+      check(TagAsked == 1 && y.c.refused == 4 && y.c.refusedMsg == 1 && !y.c.msg && !rsecFrmIgrGet(&y, &l)
+         , "one answer: refused at fragment 0, the rest not asked (asked %u)", TagAsked);
+      rsecFrmIgrFini(&y);
+      /* a copy does not end a mark */
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, t.i[1].b, t.i[1].b + DLEN, t.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[1].b, t.i[1].b + DLEN, t.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[2].b, t.i[2].b + DLEN, t.i[2].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[3].b, t.i[3].b + DLEN, t.i[3].l - DLEN);
+      check(TagAsked == 1 && y.c.refused == 5 && y.c.markAgain == 1
+         , "one answer: a copy refused against the mark, not ending it (asked %u, again %u)", TagAsked, y.c.markAgain);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      check(TagAsked == 2, "one answer: k + m distinct, the mark spent");
+      rsecFrmIgrFini(&y);
+      /* a train of one fragment leaves no mark: its answer is had */
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      ml = mkMsg(b, c, 0, 0, 9, 0, 0, 10);
+      rsecFrmIgrPut(&y, b, b + DLEN, ml - DLEN);
+      rsecFrmIgrPut(&y, b, b + DLEN, ml - DLEN);
+      check(TagAsked == 2 && y.c.refusedMsg == 1 && y.c.msg == 1 && !y.c.unmarked
+         , "one answer: a train of one fragment leaves no mark");
+      if ((m = rsecFrmIgrGet(&y, &l)))
+        free(m);
+      rsecFrmIgrFini(&y);
+      /* and wants none: on a table full of a train in flight, nothing unmarked */
+      setIgr(&y, c, 1);
+      TagAsked = 0;
+      TagNo = 0;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      TagNo = 2;
+      rsecFrmIgrPut(&y, b, b + DLEN, ml - DLEN);
+      check(TagAsked == 2 && y.c.refusedMsg == 1 && !y.c.unmarked && !y.c.evict
+         , "one answer: a train of one fragment wants no mark, on a full table none unmarked");
+      rsecFrmIgrFini(&y);
+      /* a mark takes no room from a train in flight */
+      setIgr(&y, c, 1);
+      TagAsked = 0;
+      TagNo = 0;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      TagNo = 2;
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      for (i = 1; i < 4; ++i) {
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 2 && y.c.unmarked == 1 && y.c.msg == 1 && !y.c.evict && d.n == 1
+         , "one answer: no room but a train in flight's, the refusal unmarked and the train delivered");
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      /* a mark takes the room of a train delivered and spent */
+      setIgr(&y, c, 1);
+      TagAsked = 0;
+      TagNo = 0;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      for (i = 0; i < 4; ++i) {
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      TagNo = 2;
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, u.i[0].b, u.i[0].b + DLEN, u.i[0].l - DLEN);
+      check(d.n == 1 && TagAsked == 2 && !y.c.unmarked && y.c.refused == 2 && !y.c.evict
+         , "one answer: a mark in a spent train's room, the next fragment refused unasked (asked %u, unmarked %u)", TagAsked, y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      /* and a mark is the first room a train takes, no loss */
+      setIgr(&y, c, 1);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      for (i = 0; i < 4; ++i) {
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 2 && y.c.unmarked == 1 && y.c.msg == 1 && !y.c.evict && d.n == 1
+         , "one answer: a mark gives its room to a train, no loss, the refusal it held unmarked (%u)", y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      /* a spent mark is room before a live one: u marked first, then t
+       * refused to its end, then v taken on the full table */
+      setIgr(&y, c, 2);
+      TagAsked = 0;
+      TagNo = 2;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      for (i = 0; i < 4; ++i)
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+      rsecFrmIgrPut(&y, v.i[0].b, v.i[0].b + DLEN, v.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, u.i[0].b, u.i[0].b + DLEN, u.i[0].l - DLEN);
+      check(TagAsked == 3 && !y.c.unmarked && y.c.refused == 6 && !y.c.evict
+         , "one answer: a spent mark the first room, the live one kept (asked %u, unmarked %u)", TagAsked, y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      /* and for a mark: v refused there too */
+      setIgr(&y, c, 2);
+      TagAsked = 0;
+      TagNo = 3;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      for (i = 0; i < 4; ++i)
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+      rsecFrmIgrPut(&y, v.i[0].b, v.i[0].b + DLEN, v.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, u.i[0].b, u.i[0].b + DLEN, u.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, v.i[1].b, v.i[1].b + DLEN, v.i[1].l - DLEN);
+      check(TagAsked == 3 && !y.c.unmarked && y.c.refused == 8 && y.c.refusedMsg == 3
+         , "one answer: a spent mark a refusal's first room, the live one kept (asked %u, unmarked %u)", TagAsked, y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      /* a copy feeds no mark: u's, copied after t's, is still the
+       * oldest fed when v needs the room */
+      setIgr(&y, c, 2);
+      TagAsked = 0;
+      TagNo = 2;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[1].b, t.i[1].b + DLEN, t.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      rsecFrmIgrPut(&y, v.i[0].b, v.i[0].b + DLEN, v.i[0].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      check(TagAsked == 3 && y.c.markAgain == 1 && y.c.unmarked == 1 && !y.c.evict
+         , "one answer: a copy feeds no mark, the oldest fed gives its room (asked %u, unmarked %u)", TagAsked, y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      /* a mark evicted by another geometry under its tag: unmarked */
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagNo = 1;
+      y.tagOk = laterTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, u.i[1].b, u.i[1].b + DLEN, u.i[1].l - DLEN);
+      for (i = 0; i < 2; ++i) {
+        rsecFrmIgrPut(&y, w.i[i].b, w.i[i].b + DLEN, w.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 2 && y.c.unmarked == 1 && y.c.msg == 1 && d.n == 1 && !y.c.evict
+         , "one answer: a mark given up to another geometry, unmarked (%u)", y.c.unmarked);
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      drop(&t);
+      drop(&u);
+      drop(&v);
+      drop(&w);
+    }
+
+    /* a delivered train's copies count nothing toward its end: k 1 m 1,
+     * delivered from fragment 0, that fragment copied, then fragment 1 a
+     * straggler, not a second delivery */
+    {
+      struct list t;
+
+      memset(&t, 0, sizeof (t));
+      setEgr(&x, c, 4);
+      rsecFrmEgrInit(&x);
+      ml = mkMsg(b, c, 0, 0, 11, 1, 0, 10);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      now = 0;
+      while (drainOne(&x, &now, &t));
+      rsecFrmEgrFini(&x);
+      check(t.n == 2, "straggler: a train of one and one, got %u datagrams", t.n);
+      setIgr(&y, c, 4);
+      TagAsked = 0;
+      TagYes = 8;
+      y.tagOk = refuseTag;
+      rsecFrmIgrInit(&y);
+      for (i = 0; i < 3; ++i) {
+        rsecFrmIgrPut(&y, t.i[i / 2].b, t.i[i / 2].b + DLEN, t.i[i / 2].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 1 && y.c.msg == 1 && d.n == 1 && y.c.late == 2
+         , "straggler: a copy does not spend the delivered train, one delivery (asked %u, msg %u)", TagAsked, y.c.msg);
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      drop(&t);
+    }
+
+    /* a mark is charged to no sender: under tagOwner, sender 5's train
+     * refused to its end and refused again (its spent mark freed), that
+     * mark given up to sender 6's, so sender 5 holds its two trains in
+     * flight, the most, and a new train evicts one of them, not sender
+     * 3's, which is then delivered */
+    {
+      struct list t;
+
+      memset(&t, 0, sizeof (t));
+      setEgr(&x, c, 8);
+      rsecFrmEgrInit(&x);
+      ml = mkMsg(b, c, 0, 5, 20, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 5, 21, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 5, 22, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 3, 23, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 6, 24, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      ml = mkMsg(b, c, 0, 4, 25, 0, 0, 4 * shard);
+      rsecFrmEgrPut(&x, b, ml, 0);
+      now = 0;
+      while (drainOne(&x, &now, &t));
+      rsecFrmEgrFini(&x);
+      check(t.n == 24, "owner: six trains of four, got %u datagrams", t.n);
+      setIgr(&y, c, 4);
+      y.tagOwner = 1;
+      TagAsked = 0;
+      TagSeq = 20;
+      y.tagOk = seqTag;
+      rsecFrmIgrInit(&y);
+      rsecFrmIgrPut(&y, t.i[4].b, t.i[4].b + DLEN, t.i[4].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[8].b, t.i[8].b + DLEN, t.i[8].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[12].b, t.i[12].b + DLEN, t.i[12].l - DLEN);
+      for (i = 0; i < 4; ++i)
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[0].b, t.i[0].b + DLEN, t.i[0].l - DLEN);
+      TagSeq = 0;
+      rsecFrmIgrPut(&y, t.i[16].b, t.i[16].b + DLEN, t.i[16].l - DLEN);
+      rsecFrmIgrPut(&y, t.i[20].b, t.i[20].b + DLEN, t.i[20].l - DLEN);
+      while ((m = rsecFrmIgrGet(&y, &l)))
+        take(&d, m, l);
+      for (i = 13; i < 16; ++i) {
+        rsecFrmIgrPut(&y, t.i[i].b, t.i[i].b + DLEN, t.i[i].l - DLEN);
+        while ((m = rsecFrmIgrGet(&y, &l)))
+          take(&d, m, l);
+      }
+      check(TagAsked == 7 && y.c.refusedMsg == 2 && y.c.unmarked == 1 && y.c.evict == 1 && y.c.msg == 1 && d.n == 2
+         , "owner: a mark charged to no sender, the most-holding sender's train evicted (evict %u, msg %u)", y.c.evict, y.c.msg);
+      rsecFrmIgrFini(&y);
+      drop(&d);
+      drop(&t);
+    }
 
     /* a loss: a table of 1, two of four shards, then another tag */
     setIgr(&y, c, 1);

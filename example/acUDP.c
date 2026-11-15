@@ -170,11 +170,15 @@ static void *rmd160Alloc(void) { return (malloc(rmd160tsize())); }
 static const struct acHash Sign = {
   "rmd128", rmd128Alloc, rmd128tsize, (void (*)(void *))rmd128init
 , (void (*)(void *, const unsigned char *, unsigned int))rmd128update
-, (void (*)(void *, unsigned char *))rmd128final, rmd128hmac, rmd128hkdf, RMD128_SZ, 4 };
+, (void (*)(void *, unsigned char *))rmd128final, rmd128ktsize
+, (void (*)(void *, const unsigned char *, unsigned int))rmd128kinit
+, (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd128khmac, rmd128hkdf, RMD128_SZ, 4 };
 static const struct acHash Kdf = {
   "rmd160", rmd160Alloc, rmd160tsize, (void (*)(void *))rmd160init
 , (void (*)(void *, const unsigned char *, unsigned int))rmd160update
-, (void (*)(void *, unsigned char *))rmd160final, rmd160hmac, rmd160hkdf, RMD160_SZ, 0 };
+, (void (*)(void *, unsigned char *))rmd160final, rmd160ktsize
+, (void (*)(void *, const unsigned char *, unsigned int))rmd160kinit
+, (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd160khmac, rmd160hkdf, RMD160_SZ, 0 };
 
 #define USEC(ts) ((unsigned long)(ts).tv_sec * 1000000UL + (ts).tv_nsec / 1000)
 /* a call this long is said when it returns; the counters are looked at
@@ -720,7 +724,7 @@ seatMain(
       look += LOOK_MS;
     }
     if (wait < 0)
-      break;                            /* the end run over, or failed, and nothing left to send */
+      break;                            /* the end run over and nothing left to send */
     for (got = 0, k = 3; k < s.nf; ++k)
       if ((n = recvfrom(s.pf[k].fd, ibuf, acPar(s.ac)->dgramMax + 1, 0, 0, 0)) >= 0) {
         clock_gettime(CLOCK_MONOTONIC, &now);
@@ -750,7 +754,7 @@ seatMain(
       s.pf[k].events = POLLIN;
     poll(s.pf, s.nf, s.blocked ? acPar(s.ac)->tickMs : wait > 1000000L ? 1000 : (wait + 999) / 1000);
   }
-  rc = acFailed(s.ac) ? 1 : 0;
+  rc = 0;
   {
     struct acCounters c;
 
@@ -770,11 +774,11 @@ seatMain(
            acPar(s.ac)->patience, acPar(s.ac)->abandon, c.subsetMost, c.noSubset, c.liveMost,
            c.loss, c.parityLast, c.igrGate, c.igrAuth, c.copy, c.authRun,
            c.future, c.aheadFull, c.recorded, c.recoverStarts, c.retained, c.released);
-    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; parts with no machine %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
+    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; parts with no machine %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u now,"
            " %u parts placed, at most %u ticks after their position left the window;"
            " parts refused %u; refused by this seat's memory %u; its own steps waiting on its memory %u;"
            " sends lost here for want of buffer %u, of carrier, route or host %u, otherwise %u\n",
-           c.repeated, c.descAlone, c.latePast, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
+           c.repeated, c.descAlone, c.latePast, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptNow, c.placed, c.placedAfter,
            c.unitBad[AC_UNIT_LEN] + c.unitBad[AC_UNIT_SIG] + c.unitBad[AC_UNIT_SSS] + c.unitBad[AC_UNIT_RSEC],
            c.aheadMem + c.rowMem + c.qDrop + c.asmAlloc + c.unitBad[AC_UNIT_MEM], c.ownMem,
            s.lostBuf, s.lostDown, s.lostOther);
@@ -808,11 +812,11 @@ seatMain(
 
       if (acSeatCounters(s.ac, k, &sc))
         continue;
-      fprintf(Out, "seat %u link %u: sent %lu bytes, most %lu bit/s in a tick, re-sends to it %u (turns or re-sends %u), held %u, replies to it %u;"
+      fprintf(Out, "seat %u link %u: sent %lu bytes, most %lu bit/s in a tick, re-sends to it %u (turns or re-sends %u), replies to it %u;"
               " received %lu bytes, most %lu bit/s in a tick, of what was held already %u;"
               " round trip least %lu ms, most %lu ms, mean %lu ms of %u; its values after n - t ones %u, at most %u sweeps, %lu ms;"
               " entered 0 %u\n",
-              s.self, k, sc.sentBytes, sc.sentTickMost * 8000UL / acPar(s.ac)->tickMs, sc.swept, sc.sweptTurn, sc.sweptHeld, sc.replied,
+              s.self, k, sc.sentBytes, sc.sentTickMost * 8000UL / acPar(s.ac)->tickMs, sc.swept, sc.sweptTurn, sc.replied,
               sc.recvBytes, sc.recvTickMost * 8000UL / acPar(s.ac)->tickMs, sc.resent,
               sc.rttLeast / 1000, sc.rttMost / 1000, sc.rtts ? sc.rttSum / sc.rtts / 1000 : 0, sc.rtts,
               sc.lates, sc.lateMost, sc.lateMostUs / 1000, sc.zeros);

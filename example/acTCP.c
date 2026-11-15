@@ -168,11 +168,15 @@ static void *rmd160Alloc(void) { return (malloc(rmd160tsize())); }
 static const struct acHash Sign = {
   "rmd128", rmd128Alloc, rmd128tsize, (void (*)(void *))rmd128init
 , (void (*)(void *, const unsigned char *, unsigned int))rmd128update
-, (void (*)(void *, unsigned char *))rmd128final, rmd128hmac, rmd128hkdf, RMD128_SZ, 4 };
+, (void (*)(void *, unsigned char *))rmd128final, rmd128ktsize
+, (void (*)(void *, const unsigned char *, unsigned int))rmd128kinit
+, (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd128khmac, rmd128hkdf, RMD128_SZ, 4 };
 static const struct acHash Kdf = {
   "rmd160", rmd160Alloc, rmd160tsize, (void (*)(void *))rmd160init
 , (void (*)(void *, const unsigned char *, unsigned int))rmd160update
-, (void (*)(void *, unsigned char *))rmd160final, rmd160hmac, rmd160hkdf, RMD160_SZ, 0 };
+, (void (*)(void *, unsigned char *))rmd160final, rmd160ktsize
+, (void (*)(void *, const unsigned char *, unsigned int))rmd160kinit
+, (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd160khmac, rmd160hkdf, RMD160_SZ, 0 };
 
 #define USEC(ts) ((unsigned long)(ts).tv_sec * 1000000UL + (ts).tv_nsec / 1000)
 /* a call this long is said when it returns; the counters are looked at
@@ -225,7 +229,7 @@ static char OutBuf[1 << 16];
 #define GK_LABEL   "acTCP gate"
 #define GK_LEN     HALFSIPHASH_KEY_SZ
 #define HK_LABEL   "acTCP handshake"
-#define HK_LEN     RMD160_SZ          /* Kdf's */
+#define HK_LEN     RMD160_SZ          /* a handshake key and a proof: Kdf's width */
 /* the unsent bytes past which a connection is not writable: about two
  * frames, or one where Linux counts half */
 #define LOWAT_BYTES 8192
@@ -275,7 +279,7 @@ struct seat {
   int                *lfd;            /* the listening sockets, nl of them */
   struct pollfd      *pf;             /* the listening sockets, then each connection */
   unsigned char      *gk;             /* [seat] x GK_LEN: the hellos' gate keys */
-  unsigned char      *hk;             /* [seat] x HK_LEN: the handshake keys */
+  unsigned char      *hk;             /* [seat] x hkSz: the handshake HMACs, keyed */
   unsigned long      *dialUs;         /* [seat]: when this seat last dialed it */
   unsigned int       *dialNext;       /* [seat]: the address its next dial tries */
   unsigned int       *hsLate;         /* [seat]: its connections closed at their deadline
@@ -287,6 +291,7 @@ struct seat {
   unsigned int        self;
   unsigned int        n;
   unsigned int        hashSz;
+  unsigned int        hkSz;           /* Kdf's keyed HMAC, ktsize */
   unsigned int        dgramMax;
   unsigned int        tickMs;
   unsigned int        messages;       /* messages left to propose */
@@ -719,7 +724,7 @@ seatMain(
    || !(list = calloc(s.n, sizeof (*list)))
    || !(s.at = calloc(s.n + 1, sizeof (*s.at)))
    || !(s.gk = calloc(s.n, GK_LEN))
-   || !(s.hk = calloc(s.n, HK_LEN))
+   || !(s.hk = calloc(s.n, s.hkSz = Kdf.ktsize()))
    || !(s.dialUs = calloc(s.n, sizeof (*s.dialUs)))
    || !(s.dialNext = calloc(s.n, sizeof (*s.dialNext)))
    || !(s.hsLate = calloc(s.n, sizeof (*s.hsLate))))
@@ -737,6 +742,7 @@ seatMain(
    * the genesis; the pair's gate and handshake keys derived from its
    * secret on the way to the library */
   for (k = 1; k < s.n; ++k) {
+    unsigned char hk[HK_LEN];
     unsigned int x;
     unsigned int l;
 
@@ -744,7 +750,9 @@ seatMain(
      || acDeal(s.ac, x, e + 1, e + 1 + AC_PSK))
       goto done;
     Kdf.hkdf(e + 1, AC_PSK, gkLabel, sizeof (gkLabel) - 1, s.gk + x * GK_LEN, GK_LEN);
-    Kdf.hkdf(e + 1, AC_PSK, hkLabel, sizeof (hkLabel) - 1, s.hk + x * HK_LEN, HK_LEN);
+    Kdf.hkdf(e + 1, AC_PSK, hkLabel, sizeof (hkLabel) - 1, hk, HK_LEN);
+    Kdf.kinit(s.hk + x * s.hkSz, hk, HK_LEN);
+    wipe(hk, sizeof (hk));
     l = GET16(e + 1 + AC_PSK + s.hashSz);
     if (!(list[x] = malloc(l + 1)) || !readAll(down, list[x], l))
       goto done;
@@ -883,7 +891,7 @@ seatMain(
       look += LOOK_MS;
     }
     if (wait < 0)
-      break;                            /* the end run over, or failed, and nothing left to send */
+      break;                            /* the end run over and nothing left to send */
     /* a connection not bound by its deadline closed, and counted late
      * for its seat where that is known; the poll set: the listening
      * sockets, then every open connection, the closed ones let go; a
@@ -1028,7 +1036,7 @@ seatMain(
             hs[2] = 0;
             memcpy(hs + 3, c->nonce, NONCE);
             memcpy(hs + 3 + NONCE, c->peerNonce, NONCE);
-            Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), fr + GATE);
+            Kdf.khmac(s.hk + c->peer * s.hkSz, hs, sizeof (hs), fr + GATE);
             n = put(&s, c, fr, GATE + HK_LEN);
           }
           if (n != 1) {
@@ -1065,7 +1073,7 @@ seatMain(
           hs[2] = !c->dialed;
           memcpy(hs + 3, c->peerNonce, NONCE);
           memcpy(hs + 3 + NONCE, c->nonce, NONCE);
-          Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), mac);
+          Kdf.khmac(s.hk + c->peer * s.hkSz, hs, sizeof (hs), mac);
           for (d = 0, k = 0; k < HK_LEN; ++k)
             d |= mac[k] ^ c->in[2 + (c->dialed ? GATE : 0) + k];
           if (d)
@@ -1076,7 +1084,7 @@ seatMain(
             hs[2] = 1;
             memcpy(hs + 3, c->nonce, NONCE);
             memcpy(hs + 3 + NONCE, c->peerNonce, NONCE);
-            Kdf.hmac(s.hk + c->peer * HK_LEN, HK_LEN, hs, sizeof (hs), mac);
+            Kdf.khmac(s.hk + c->peer * s.hkSz, hs, sizeof (hs), mac);
             if (put(&s, c, mac, HK_LEN) != 1) {
               if (c->fd >= 0)
                 CLOSE(&s, c);
@@ -1227,7 +1235,7 @@ refuse:
        && (!n || (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)))
         CLOSE(&s, s.c + i);
   }
-  rc = acFailed(s.ac) ? 1 : 0;
+  rc = 0;
   {
     struct acCounters c;
 
@@ -1247,11 +1255,11 @@ refuse:
            acPar(s.ac)->patience, acPar(s.ac)->abandon, c.subsetMost, c.noSubset, c.liveMost,
            c.loss, c.parityLast, c.igrGate, c.igrAuth, c.copy, c.authRun,
            c.future, c.aheadFull, c.recorded, c.recoverStarts, c.retained, c.released);
-    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; parts with no machine %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u under, %u now,"
+    fprintf(Out, " own value broadcasts alone %u; descriptions alone %u; parts with no machine %u; DISCOVERed %u; kept past the window %u positions, %u members, %u passed, %u now,"
            " %u parts placed, at most %u ticks after their position left the window;"
            " parts refused %u; refused by this seat's memory %u; its own steps waiting on its memory %u;"
            " datagrams lost here for want of a connection %u, behind a full one %u, otherwise %u\n",
-           c.repeated, c.descAlone, c.latePast, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptUnder, c.keptNow, c.placed, c.placedAfter,
+           c.repeated, c.descAlone, c.latePast, c.recovered, c.kept, c.keptMembers, c.keptPassed, c.keptNow, c.placed, c.placedAfter,
            c.unitBad[AC_UNIT_LEN] + c.unitBad[AC_UNIT_SIG] + c.unitBad[AC_UNIT_SSS] + c.unitBad[AC_UNIT_RSEC],
            c.aheadMem + c.rowMem + c.qDrop + c.asmAlloc + c.unitBad[AC_UNIT_MEM], c.ownMem,
            s.lostNone, s.lostFull, s.lostOther);
@@ -1289,11 +1297,11 @@ refuse:
 
       if (acSeatCounters(s.ac, k, &sc))
         continue;
-      fprintf(Out, "seat %u link %u: sent %lu bytes, most %lu bit/s in a tick, re-sends to it %u (turns or re-sends %u), held %u, replies to it %u;"
+      fprintf(Out, "seat %u link %u: sent %lu bytes, most %lu bit/s in a tick, re-sends to it %u (turns or re-sends %u), replies to it %u;"
               " received %lu bytes, most %lu bit/s in a tick, of what was held already %u;"
               " round trip least %lu ms, most %lu ms, mean %lu ms of %u; its values after n - t ones %u, at most %u sweeps, %lu ms;"
               " entered 0 %u\n",
-              s.self, k, sc.sentBytes, sc.sentTickMost * 8000UL / acPar(s.ac)->tickMs, sc.swept, sc.sweptTurn, sc.sweptHeld, sc.replied,
+              s.self, k, sc.sentBytes, sc.sentTickMost * 8000UL / acPar(s.ac)->tickMs, sc.swept, sc.sweptTurn, sc.replied,
               sc.recvBytes, sc.recvTickMost * 8000UL / acPar(s.ac)->tickMs, sc.resent,
               sc.rttLeast / 1000, sc.rttMost / 1000, sc.rtts ? sc.rttSum / sc.rtts / 1000 : 0, sc.rtts,
               sc.lates, sc.lateMost, sc.lateMostUs / 1000, sc.zeros);
@@ -1319,7 +1327,7 @@ done:
     wipe(s.gk, s.n * GK_LEN);
   free(s.gk);
   if (s.hk)
-    wipe(s.hk, s.n * HK_LEN);
+    wipe(s.hk, s.n * s.hkSz);
   free(s.hk);
   free(s.dialUs);
   free(s.dialNext);

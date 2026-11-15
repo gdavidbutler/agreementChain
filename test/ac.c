@@ -143,11 +143,13 @@
  *                    each, started again from its record by its own
  *                    rows naming it, carry it, units and all, a
  *                    position a round trip; its two reports then
- *                    equal theirs, and where it folded a link more than
- *                    the abandon and two ticks after the first other
- *                    seat did, the judge expects some seat's
- *                    machines started again from a record and some
- *                    position DISCOVERed at it
+ *                    equal theirs.  The cut ends at the harness's loop
+ *                    once its ticks are run, which drops what the
+ *                    socket holds then, and where seat N-1 folded a
+ *                    position every other correct seat had let go of
+ *                    the machines of before that, the judge expects some
+ *                    seat's machines started again from a record and
+ *                    some position DISCOVERed at it
  *                    (the lossless reconciliation is off: what the cut
  *                    dropped the framers never counted; the cut must
  *                    outlast the window's filling, and while a seat is
@@ -166,6 +168,37 @@
  *                    one, times patience, in ticks, their sweeps
  *                    re-sending it everything they owe until the live
  *                    window lets each position go
+ *     -7             the -x cut holds past its ticks until every other
+ *                    seat has let go of the machines of the position
+ *                    after the last seat N-1 folded, each to its record:
+ *                    no row of that position is live at any seat, the
+ *                    loopback queues a datagram at its send, so the
+ *                    cut's end drops every one said while it was, and
+ *                    seat N-1 folds it on T descriptions alike,
+ *                    DISCOVERed, by rule; the others all ending short of
+ *                    that is the arm not run.  Not with -Y, -X, -L, or
+ *                    -I without -h
+ *     -8             seat 0's framer is full while the send in hand is
+ *                    a kept assembly's whose record is the retention's
+ *                    oldest, another assembly kept beside it, and the
+ *                    -x cut holds until seat 0 keeps one.  Seat 0 gets
+ *                    no data part of seat 2's value under the third
+ *                    position to carry one, so it folds that position
+ *                    a member short, keeps its assembly with the
+ *                    record and holds its launch; seat 2, a few ticks
+ *                    past folding it, is frozen.  Back, seat N-1's rows
+ *                    name position 1, which seat 0 retains: its machines
+ *                    start again from the record, and their send is
+ *                    held.  Seat 2 thaws and the parts pass: the kept
+ *                    assembly takes seat 0's own, a newer copy of its
+ *                    record goes to the head, and with -M at least the
+ *                    four records and short of them and the copy (at
+ *                    -u 60000 and 6 1, 555152 to 739018) its room lets
+ *                    position 1's record go under the held send, which
+ *                    seat 0 drops.  None dropped is the arm not run.
+ *                    N > 4 + t, so seat 2's value has its echoes
+ *                    without seats 0 and N-1, and -n at least 3.  Not
+ *                    with -Y, -X, -7 or -R
  *     -X egressticks seat N-1's egress alone is cut for this many ticks
  *                    from the go: with -x shorter, the seat heals on
  *                    ingress first and can say nothing; the others' ACS
@@ -199,7 +232,9 @@
  *                    nothing to carry; seat 2 hears no agreement before
  *                    this tick and nothing of seat 3's recover legs, so
  *                    only seat 0's recover legs reach it with a description,
- *                    and T > 1 asks a second, which only seat 1 can say
+ *                    and T > 1 asks a second, which only seat 1 can say;
+ *                    seat 1's first is cut at seat 2, so seat 2 asks
+ *                    again and seat 1's record says it again
  *     -5             a dealer past a position, its unit late at a seat whose
  *                    machines of it are gone.  Seat 0 is dealt nothing by
  *                    seat N-1 until it is back, and under the first position
@@ -214,7 +249,7 @@
  *                    seat 1's word that it was owed nothing more.  Back, its
  *                    re-send is all of its unit that can reach seat 0, and
  *                    only that unit, carried on, brings seat 1 to T.  The
- *                    member needs its echoes without the two: 6 1
+ *                    member needs its echoes without the two, and T = 2: 6 1
  *     -N ticks       with -f 4, parts a faulty dealer never deals: under
  *                    the first position carrying one, seat 0 gets seat
  *                    N-1's data part from it never and from the others
@@ -232,7 +267,14 @@
  *                    there, until seat N-1's unit lands at seat 0: the
  *                    judge expects that word to lapse, and only that
  *                    unit, carried on, brings seat 1 to T = 2.  The
- *                    member needs its echoes without the two: 6 1
+ *                    member needs its echoes without the two, and T = 2: 6 1.
+ *                    With -b 2048 -2 its echoes without the Byzantine
+ *                    seat's too: 8 1.  That seat's recover legs toward
+ *                    the two, its parts of the member withheld there,
+ *                    run to their count with the member kept short, and
+ *                    its INITIAL again is a later copy, unproved: refused
+ *                    where a proved one would start the leg again, and
+ *                    the judge expects it
  *     -q agrticks    seat N-1's ingress of the agreement alone is cut
  *                    for this many ticks from the go: every class 0 row
  *                    dropped unread, the dealt units and the others'
@@ -241,6 +283,14 @@
  *                    it lacks is the description, which the exchange
  *                    never carried: the others' recover legs must still
  *                    run toward it, and the judge expects it to DISCOVER
+ *     -O m           seat N-1's memory refuses each allocation of its own,
+ *                    and each library call it takes the failure of as its
+ *                    memory's (the libraries allocate only through the
+ *                    suite's allocator it supplies them), once the seat
+ *                    has gone, the first time it is reached (AC_MEM_*,
+ *                    acTest.h): each path's recovery runs, its
+ *                    counters are seat N-1's alone, and the chain and every
+ *                    message are judged as at the others
  *     -O at:m        seat N-1's memory refuses its search of member m's
  *                    message, at = s at the search's buffers or p at
  *                    the pool's, until the position's end keeps m with
@@ -301,19 +351,42 @@
  *                    system's default: a smaller host's (FreeBSD gives a
  *                    UDP socket 42080), whose kernel drops what arrives
  *                    past it while the seat is not reading
+ *     -9 sends       seat N-1's socket pushes back every this many
+ *                    sends, as a full send buffer does (EAGAIN): the
+ *                    send answers 0 and the loop waits for POLLOUT.
+ *                    The datagram stays due (ac.h), so the next send
+ *                    is the same one; the judge expects that of every
+ *                    send any seat's socket pushed back, each seat's
+ *                    count of refused sends to be its socket's, and
+ *                    here some push back
+ *     -1 lift       with -x and -7, seat N-1's ingress drops every
+ *                    recover leg's description unread until an
+ *                    initiator's INITIAL meets its machine of the leg
+ *                    at its count, at a live position, lift 1 the
+ *                    first, 2 one from every seat whose description
+ *                    was dropped: without the
+ *                    description no HOLDING is said, so the others'
+ *                    legs and its machines of them run to their count,
+ *                    and the next row of its naming the position starts
+ *                    the legs again.  The judge expects that INITIAL,
+ *                    and at a position unfolded there, or its agreement
+ *                    not let go, its machine started again, so that its
+ *                    HOLDING retires S's leg; it prints the recover
+ *                    legs' traffic toward the seat and from it before
+ *                    and after the drop lifts
  *     -Q positions   seat N-1 is frozen, at its first pass at or after
- *                    the tick -y names, until every other seat
- *                    has folded this many positions past the ones it had
- *                    folded, or the whole chain:
+ *                    the tick -y names, until every other seat has let
+ *                    go of the machines of this many positions past the
+ *                    ones it had folded, each to its record, or the
+ *                    whole chain has ended:
  *                    its thread calls nothing of the seat and reads
  *                    nothing of its socket, as a process stopped by a
  *                    signal is, its ticks and its sweeps standing still
  *                    and its socket's queue filling and then losing; on
  *                    its return it reads what the kernel kept and
  *                    carries on.  The thaw is an event the harness sees
- *                    in the others' reports, never a time, so with more
- *                    positions than the live window the others are past
- *                    it at the thaw whatever the host, and the judge
+ *                    in the others' counts, never a time, so the others
+ *                    are past it at the thaw whatever the host, and the judge
  *                    expects machines started again from a record, as
  *                    for a cut; a chain too short for that is the arm not
  *                    run, and the judge says so; frozen past the
@@ -351,8 +424,8 @@
  *     -u bytes       each seat's blob (default 200; 0 is a message)
  *     -F bytes       the datagram (default 1232, IPv6's least MTU less
  *                    its headers)
- *     -H hash        the sign role: rmd128 (default), sha256, sha3256
- *                    or sha3512
+ *     -H hash        the sign role: rmd128 (default), sha256 or sha3256;
+ *                    sha3512 is refused, its signature past a message
  *     -k hash        the kdf and message-MAC role: rmd160 (default),
  *                    rmd128, sha256, sha3256 or sha3512
  *     -f fault       seat N-1 commits a fault in every payload it deals
@@ -429,10 +502,42 @@
  *                    under both the payload's INITIAL is kept from seat 0
  *                    and its unit is not, so seat 0, with no value to
  *                    place the part under one root, refuses it past a
- *                    signature, the others unverified.
+ *                    signature, the others unverified; 13 two values
+ *                    for its first payload's position: a second, the
+ *                    blob's first byte flipped, distributed the same way
+ *                    and signed at the next slot, its (initial, v) dealt
+ *                    to seats 0..t-1 beside the first's unit and its sign
+ *                    part to seat t ahead of the first's (initial, v):
+ *                    seat t holds that part with nothing to judge it by
+ *                    and the first's replaces it; seats 0..t-1, holding
+ *                    the second's (initial, v), echo nothing of the
+ *                    first's unit, so the dealer deals it again at every
+ *                    sweep, the others' readies carry them to the accept,
+ *                    and the value accepted alone judges the next copy:
+ *                    held, and exchanged on their own legs (needs -s 2,
+ *                    t >= 1 and R > T); 14 one header under both keys: its rotation
+ *                    folded everywhere, the header of its second payload
+ *                    hashed under the installed successor's key at the
+ *                    same slot and that value signed by the successor
+ *                    there, dealt to seat 0 with its leaf masked under
+ *                    that value: the header is the value agreed under the
+ *                    current key and the signature extracts to the
+ *                    successor, so seat 0 holds the value and never the
+ *                    unit, the dealer deals it again at every sweep, and
+ *                    past the accept each copy is refused, past its
+ *                    signature, as not the value accepted; needs -s 2 and
+ *                    -n 3, below the switch, as 8 does; 15 the payload
+ *                    at slot 0: as 7, no rotation at instance 1, and the
+ *                    payload's apex signed at slot 0 too, that copy dealt
+ *                    to seat 0 in the payload's shape and the payload's
+ *                    INITIAL kept from seat 0: holding no value and no
+ *                    part, seat 0 meets the copy at the slot rule, slot 0
+ *                    the rotation's and no payload's, before any root is
+ *                    tried, and the message comes from the legs as
+ *                    under 7.
  *                    Instance 1 is every seat's rotation: -n 2 is the
- *                    first run that deals a fault 1..6 or 9, 7 is dealt at
- *                    instance 1, 8 and 11 at instance 3, 12 at instance 4
+ *                    first run that deals a fault 1..6, 9 or 13, 7 is dealt at
+ *                    instance 1, 8, 11 and 14 at instance 3, 12 at instance 4
  *     -b mask        seat N-1 (N-2 under -2) is a Byzantine row sender,
  *                    its tags, and under bits 8..32 its exchange parts,
  *                    rewritten at its egress before they are
@@ -473,19 +578,119 @@
  *                    and 32 are hostile bytes from an authenticated
  *                    sender, cryptoMule's hostile arm at the exchange: one
  *                    byte of every exchange sign part it forwards
- *                    flipped (8), one byte of every exchange data part
- *                    (16), every exchange unit's part a byte short (32);
+ *                    flipped, in turn any byte and the first of its
+ *                    signature, the count its structure is read from
+ *                    (8), one byte of every exchange data part (16),
+ *                    every exchange unit's part a byte short (32);
  *                    the judge expects some part so sent refused at a
  *                    gate, every refusal counted to it, no honest seat's part
  *                    refused, and every message delivered from the
- *                    other legs.  Bit 64: one byte of the description
- *                    beside every recover leg it initiates flipped, a lie about
- *                    the subset or a member's value; the judge expects
+ *                    other legs.  Bit 64: the description beside every
+ *                    recover leg it initiates rewritten, in turn a byte
+ *                    flipped, the bitmap's bits past N set, a member's
+ *                    bit flipped, and a member left out with its hash
+ *                    where more than N - t are in, whole but naming
+ *                    another subset: a lie about the subset or a
+ *                    member's value; the judge expects
  *                    some refused, every refusal counted to it, and
  *                    every seat the same chain.  Bit 128: every message
  *                    it sends under a proof that fails, past the gate:
  *                    each is a counted discard,
- *                    and the judge expects its value in no subset
+ *                    and the judge expects its value in no subset.  Bit
+ *                    256: every fourth message it sends but a unit's
+ *                    part leaves under a tag of a shape no correct seat
+ *                    sends, each check of the parse in turn -- a member
+ *                    past N, an annotation on an INITIAL, an ECHO
+ *                    marked as a READY, per class a field out of its
+ *                    range, and per class an INITIAL from a seat that
+ *                    does not initiate it -- refused ahead of its HMAC;
+ *                    the judge expects both counts in its row and none
+ *                    in an honest row.  Bit 512: every row it sends of a
+ *                    value broadcast, a leg or a recover leg under a
+ *                    value a bit off beside the units it holds, and the
+ *                    first INITIAL of its own value to a seat at each
+ *                    position sent as a recover leg's INITIAL of it to
+ *                    that seat under position 1's name, so the own
+ *                    INITIAL the seat hears comes after the parts and
+ *                    the recover leg is one no row of the seat's asked
+ *                    for: an INITIAL under another value than the one
+ *                    held at the live value broadcast, the leg, the
+ *                    record and a kept record's machines; the judge
+ *                    expects the count in its row and its value in no
+ *                    subset after the first.  Bit 1024: every fourth
+ *                    ECHO it sends of an agreement, and every ECHO of a
+ *                    value broadcast, a row of a broadcast of its
+ *                    receiver's own that the receiver may not have
+ *                    begun: the agreement's at the round ceiling, which
+ *                    no seat makes without its own begun; in turn the
+ *                    exchange leg of this seat's value from the
+ *                    receiver, which under 512 no seat opens, and the
+ *                    receiver's own value broadcast, which a laggard
+ *                    (-z) holds; the judge expects rows with no
+ *                    instance counted to it.  Bit 2048: of each row it
+ *                    sends a seat -- its name, class, kind, agreement,
+ *                    round and initiator, whatever it carries -- the
+ *                    first copy under its own proof and every later one
+ *                    under a proof that fails: a copy is refused wherever
+ *                    it would move what the first opened or held, a row
+ *                    held ahead given an annotation, a part completing a
+ *                    unit, while one that only says again what is held
+ *                    passes unproved.  Bit 4096: every data part and
+ *                    description of its recover legs under a proof that
+ *                    fails, its sign parts, its rows and all else under
+ *                    its own, so it keeps its pace and holds records when
+ *                    a returner asks: a part refused
+ *                    where it would complete what the rest began, a
+ *                    shard past its held sign part, a description that
+ *                    checks against the receiver's state.  For each the
+ *                    judge expects some refused; neither runs with 128.
+ *                    Bit 8192: every other sign part of a noop or a
+ *                    rotation it forwards, a unit with no data part,
+ *                    sent as a data part of one byte or two in turn:
+ *                    refused as a shard beside a noop or a rotation
+ *                    where the sign part is held, and where it is held
+ *                    ahead of the sign part, when that lands, and a
+ *                    second ahead of it refused as another; the judge
+ *                    expects some refused, as for 8, 16 and 32.  Bit
+ *                    16384: every sixteenth message it sends a seat, in
+ *                    turn under the receiver's own index as its sender,
+ *                    under a sender past N, and as one byte of its
+ *                    payload with no HMAC: refused at the gate from the
+ *                    sender it names before a key is read, and, passed
+ *                    by the gate, refused as shorter than its proof
+ *                    before any sender is read; the judge expects both
+ *                    in the seat-wide counts, which name no sender.
+ *                    Bit 32768, with 2048: its recover legs to a seat
+ *                    at a position on a schedule read from what that
+ *                    seat holds of them: the first leg's description
+ *                    held back until every other leg there is whole,
+ *                    its INITIAL fed and its BESIDE waiting on the
+ *                    description, then sent proved; each other leg's
+ *                    copies held back until the seat holds it, then
+ *                    sent unproved: its INITIAL, its unit and its
+ *                    description, each refused where a proved one would
+ *                    feed BESIDE, and the judge expects all three.  A
+ *                    duplicate INITIAL reaches its leg on the row's one
+ *                    reply a tick alone, which a copy landing ahead of
+ *                    the description would spend.  While a copy waits
+ *                    on the seat, and from its chain's end until a
+ *                    recover leg starts, the Byzantine seat takes no
+ *                    tick, its egress and arrivals going on, so its
+ *                    legs' counts wait on the seat; the seat, from
+ *                    holding the description until those copies have
+ *                    met it, takes none either, so its legs' counts
+ *                    wait on them.  Bit 65536 (with -2, -x, -7 and
+ *                    -n 1): a noop of X's from position 2 as its legs
+ *                    carry it, signed under X's first context, sent on
+ *                    its recover leg of X to seat N-1 at position 1 in
+ *                    the place of the leg's sign part, where seat N-1
+ *                    has no high water yet and nothing judges it, so it
+ *                    is held; the leg's INITIAL once seat N-1 holds it,
+ *                    the rest once the INITIAL is fed, and seat N-1's
+ *                    descriptions of position 1 dropped until then, so
+ *                    nothing gives it X's value first: the leg's part
+ *                    under its (initial, v) replaces the one held, the
+ *                    count X's, the signer's, and the judge expects it
  *     -J copies      the network's copies: every datagram a seat sends
  *                    goes this many times more, outside the bandwidth,
  *                    as a recording played back.  A copy costs a seat
@@ -504,7 +709,8 @@
  *                    under a retained position costs a lookup, no HMAC and
  *                    no recover leg, a seat's own later word having said
  *                    it needs nothing there: the judge expects copies
- *                    refused, HMACs run no more than the messages said,
+ *                    refused, the HMACs that prove no more than the
+ *                    messages said,
  *                    and recover legs started no more than sets a pair
  *                    at the few positions a seat stopped at
  *     -h             -I's recording holds only the datagrams carrying a
@@ -512,7 +718,8 @@
  *                    back until a returner holds no position for it
  *     -2             the Byzantine seat of -b is N-2, not N-1, so that
  *                    seat N-1's cut (-x) and it make two faulty seats:
- *                    needs t >= 2
+ *                    needs t >= 2; or with -o, whose seat N-1 is a
+ *                    correct seat, the one
  *     -a             seat N-2 is the dealer's accomplice: with -f 5 at
  *                    7 2 its leaf is one of the T good ones, and it
  *                    sends its exchange parts, on its legs and its
@@ -526,6 +733,7 @@
  *                    seat, stamped with its tick
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -612,6 +820,17 @@ static unsigned int        Cut;                 /* -x: seat N-1's ingress is cut
                                                  * unless -X says otherwise */
 static unsigned int        CutEgr = ~0u;        /* -X: seat N-1's egress is cut for this
                                                  * many ticks from the go */
+static int                 CutPast;             /* -7: the -x cut holds past its ticks until
+                                                 * every other correct seat has let go of the
+                                                 * machines of the position after seat N-1's
+                                                 * last fold */
+static int                 HoldKept;            /* -8: seat 0's framer held under a kept
+                                                 * assembly's send, the -x cut holding until
+                                                 * seat 0 keeps one */
+static int                 KeptOn;              /* -8: seat 0 keeps an assembly, FoldMu */
+static int                 HoldOn;              /* -8: seat 0's framer has been held, FoldMu */
+static unsigned int        HeldGone;            /* -8: seat 0's sends dropped mid-send, their
+                                                 * record let go, FoldMu */
 static int                 LateDist;            /* -j: the judge expects a member's own re-send
                                                  * past its position's end at some seat */
 static unsigned int        OwnOnly;             /* -3: seat N-1 hears only its own broadcasts' rows
@@ -637,6 +856,8 @@ static int                 CutData;             /* -V: with -U, the dealt units'
 static unsigned int        Refuse;              /* -O: 1 + the member seat N-1's
                                                  * memory refuses the search of */
 static unsigned int        RefuseAt;            /* -O: 0 the search's buffers, 1 the pool's */
+static int                 MemOnce;             /* -O m: seat N-1's memory refuses each site of
+                                                 * a seat gone the first time it is reached */
 static unsigned int        CutFrom;             /* -y: the tick the cut begins at */
 static unsigned int        NLinks;              /* -T: the phases */
 static unsigned long       LinkAt[32];          /* -T: each phase's ms since the go */
@@ -658,11 +879,49 @@ static unsigned int        LinkAhead[10][32];
 static unsigned int        LinkFold[10][32];
 static unsigned int        RcvBuf;              /* -G: seat N-1's socket receive
                                                  * buffer, bytes, below the default */
+static unsigned int        PushEvery;           /* -9: seat N-1's socket pushes back
+                                                 * every this many sends */
+static int                 DescHold;            /* -1: seat N-1's recover descriptions dropped
+                                                 * until a leg's INITIAL meets its machine at
+                                                 * its count: 1 the first, 2 one from every
+                                                 * seat whose description was dropped */
+static int                 DescLift;            /* -1: the drop lifted (FoldMu) */
+static int                 DescNamed;           /* -1: DescName set (FoldMu) */
+static unsigned char       DescName[AC_HASH_MAX]; /* -1: the name of the first description dropped */
+static unsigned int        DescLiftTick;        /* -1: seat N-1's tick at the lift */
+static unsigned int        DescFoldTick;        /* -1: and at its first fold after it */
+static unsigned int        DescLeftTick;        /* -1: and when it next let a position's machines go */
 static unsigned int        Freeze;              /* -Q: seat N-1 frozen from -y until the others
-                                                 * have folded this many positions past it */
+                                                 * have let go of this many positions past it */
 static pthread_mutex_t     FoldMu = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int        Folded[AC_SEATS];      /* -Q: each seat's positions folded, FoldMu */
 static int                 Ended[AC_SEATS];      /* -Q: each seat's end reported, FoldMu */
+static unsigned int        Left[AC_SEATS];       /* -Q, -7: each seat's positions whose machines
+                                                 * it let go, to their records, FoldMu */
+/* -b 32768: what a seat holds of the Byzantine seat's recover legs at a
+ * position, by the seen hook, FoldMu */
+struct seenAt {
+  unsigned int  seat;
+  int           desc;                 /* its description held */
+  unsigned char opened[BITS(AC_SEATS)]; /* by X: the leg's INITIAL fed */
+  unsigned char unit[BITS(AC_SEATS)];   /* by X: the unit held */
+  unsigned char name[AC_HASH_MAX];
+};
+static struct seenAt      *Seen;
+static unsigned int        Seens;
+static int                 RetHold;             /* -b 32768: seat N-1 holds the description it waits on */
+/* -b 65536: the Byzantine seat's noops of a later position, by X, and
+ * the X whose leg to seat N-1 at position 1 carried one, + 1 */
+static unsigned char      *RelPart;
+static unsigned int       *RelLen;
+static unsigned int        RelX;
+/* -b 32768: the Byzantine seat's recover legs to a seat at a position */
+struct bzLeg {
+  unsigned int  dest;
+  unsigned int  first;                /* the leg whose description went first, its X + 1 */
+  unsigned char sent[BITS(AC_SEATS)]; /* by X: its INITIAL sent */
+  unsigned char name[AC_HASH_MAX];
+};
 static unsigned int        ApiLate;             /* a deal taken after the go, or acAvailable not -1
                                                  * at the chain's last link, any seat: FoldMu */
 struct hwAt {
@@ -675,9 +934,13 @@ struct hwAt {
 static struct hwAt        *HwAt;                /* [position][signer] the first seat's high water at
                                                  * its fold of the position, FoldMu */
 static unsigned long      *FoldMs;              /* the harness's clock at each seat's fold
-                                                 * of each link, seat by link: what decides
-                                                 * whether seat N-1 folded one past the
-                                                 * others' abandon, never a seat's */
+                                                 * of each link, seat by link, FoldMu */
+static unsigned long      *LeftMs;              /* and at its letting go of each position's
+                                                 * machines, as it said so: with FoldMs and
+                                                 * BackMs what decides whether seat N-1
+                                                 * folded on what the ring held, never a seat's */
+static unsigned long       BackMs;              /* -x, -Q: seat N-1's return, its cut's end
+                                                 * or its thaw, FoldMu */
 static unsigned int        FrozeAt;             /* -Q: the frozen seat's
                                                  * positions folded at its freeze */
 static unsigned long       RejoinMs;            /* -Q: from the thaw until it was within
@@ -736,20 +999,65 @@ sha3512Alloc(
 static const struct acHash Suites[] = {
   { "rmd128", rmd128Alloc, rmd128tsize, (void (*)(void *))rmd128init
   , (void (*)(void *, const unsigned char *, unsigned int))rmd128update
-  , (void (*)(void *, unsigned char *))rmd128final, rmd128hmac, rmd128hkdf, RMD128_SZ, 4 },
+  , (void (*)(void *, unsigned char *))rmd128final, rmd128ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))rmd128kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd128khmac, rmd128hkdf, RMD128_SZ, 4 },
   { "rmd160", rmd160Alloc, rmd160tsize, (void (*)(void *))rmd160init
   , (void (*)(void *, const unsigned char *, unsigned int))rmd160update
-  , (void (*)(void *, unsigned char *))rmd160final, rmd160hmac, rmd160hkdf, RMD160_SZ, 0 },
+  , (void (*)(void *, unsigned char *))rmd160final, rmd160ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))rmd160kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd160khmac, rmd160hkdf, RMD160_SZ, 0 },
   { "sha256", sha256Alloc, sha256tsize, (void (*)(void *))sha256init
   , (void (*)(void *, const unsigned char *, unsigned int))sha256update
-  , (void (*)(void *, unsigned char *))sha256final, sha256hmac, sha256hkdf, SHA256_SZ, 5 },
+  , (void (*)(void *, unsigned char *))sha256final, sha256ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))sha256kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))sha256khmac, sha256hkdf, SHA256_SZ, 5 },
   { "sha3256", sha3256Alloc, sha3256tsize, (void (*)(void *))sha3256init
   , (void (*)(void *, const unsigned char *, unsigned int))sha3256update
-  , (void (*)(void *, unsigned char *))sha3256final, sha3256hmac, sha3256hkdf, SHA3256_SZ, 5 },
+  , (void (*)(void *, unsigned char *))sha3256final, sha3256ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))sha3256kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))sha3256khmac, sha3256hkdf, SHA3256_SZ, 5 },
   { "sha3512", sha3512Alloc, sha3512tsize, (void (*)(void *))sha3512init
   , (void (*)(void *, const unsigned char *, unsigned int))sha3512update
-  , (void (*)(void *, unsigned char *))sha3512final, sha3512hmac, sha3512hkdf, SHA3512_SZ, 6 },
+  , (void (*)(void *, unsigned char *))sha3512final, sha3512ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))sha3512kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))sha3512khmac, sha3512hkdf, SHA3512_SZ, 6 },
 };
+
+/* a sign role of 8 bytes, rmd128's first eight: narrow enough that at
+ * many seats a description is longer than any part */
+static void
+rmd128final8(
+  void *c
+ ,unsigned char *h
+){
+  unsigned char f[RMD128_SZ];
+
+  rmd128final(c, f);
+  memcpy(h, f, 8);
+}
+
+static const struct acHash Sign8 = { "rmd128/8", rmd128Alloc, rmd128tsize, (void (*)(void *))rmd128init
+  , (void (*)(void *, const unsigned char *, unsigned int))rmd128update
+  , rmd128final8, rmd128ktsize
+  , (void (*)(void *, const unsigned char *, unsigned int))rmd128kinit
+  , (void (*)(const void *, const unsigned char *, unsigned int, unsigned char *))rmd128khmac, rmd128hkdf, 8, 3 };
+
+/* a kdf role's keyed state of no bytes, and one so wide that 256 of
+ * them pass what an unsigned int counts: the derivation refuses both */
+static unsigned int
+ktsize0(
+  void
+){
+  return (0);
+}
+
+static unsigned int
+ktsizeMax(
+  void
+){
+  return ((unsigned int)-1 / AC_SEATS + 1);
+}
 
 
 static struct acPar P;                  /* the harness's deal: what main
@@ -806,7 +1114,6 @@ verdictName(
   switch (v) {
   case AC_PASS:      return ("message");
   case AC_EXHAUSTED: return ("no message, exhausted");
-  case AC_UNDER:     return ("no message, under threshold");
   case AC_BUDGET:    return ("no message, budget spent");
   case AC_INCONSISTENT: return ("no message, the commitment inconsistent");
   default:                return ("none yet");
@@ -877,12 +1184,26 @@ struct instRes {
  * send.  The two framer refusals and -L's drop are defects.
  */
 struct wire {
+  unsigned long memDone[AC_MEM_PATHS];  /* -O m: the sites refused, a bit a site, by path */
+  unsigned long rcvBytes[3][4];       /* -1: recover legs' message bytes said, before the
+                                       * lift, after it under the held position's name,
+                                       * after it under another, by kind: toward seat
+                                       * N-1, or at seat N-1 its own */
+  unsigned int rcvSaid[3][4];         /* -1: and those messages */
+  unsigned int descHeld;              /* -1: descriptions dropped at seat N-1 */
+  unsigned int startsAtLift;          /* -1: recover legs started here by the lift */
+  unsigned int rcvAgain;              /* acTest.h's three, at a live position */
+  unsigned int rcvAgainLive;
+  unsigned int rcvAgainLate;
   unsigned int sent;
   unsigned int recv;
   unsigned int unread;
   unsigned int stressed;
   unsigned int refused;
   unsigned int noBufs;                /* sends the kernel pushed back, ENOBUFS: tried again */
+  unsigned int pushed;                /* sends answered 0, the socket's push back, every reason */
+  unsigned int pushSame;              /* the send after one: the datagram pushed back, again */
+  unsigned int pushOther;             /* or another: the datagram did not stay due */
   unsigned int dqDrop;                /* -L could not hold a datagram */
   unsigned int cut;                   /* -x, -X, -U, -S: messages dropped at the cut */
   unsigned int cutUnit;               /* of those, unit parts */
@@ -890,8 +1211,16 @@ struct wire {
   unsigned int held;                  /* -6: INITIALs of its own a seat held to its fold */
   unsigned int tagPred;               /* -l: arrivals the framer's question would have refused */
   unsigned int tagBad;                /* -l: of those, ones proved or replied to */
-  unsigned int faultDealt;            /* -f 7, -f 8, -f 10, -f 11, -f 12: the
-                                       * second signature was made and dealt */
+  unsigned int faultDealt;            /* -f 7, -f 8, -f 10, -f 11, -f 12, -f 13, -f 14, -f 15:
+                                       * the second signature was made and dealt */
+  unsigned int slotKind;              /* -f 15: sign parts refused as a kind their slot is not */
+  unsigned int unprovedAt;            /* the re-send sites met unproved, a bit a site (acTest.h) */
+  unsigned int legReplaced;           /* -b 65536: sign parts on a leg under its (initial, v)
+                                       * that replaced one held under another apex */
+  unsigned int valOther;              /* -f 14: verified sign parts refused as not the
+                                       * value accepted for their signer */
+  unsigned int heldOther;             /* -f 13: units held under the value accepted for
+                                       * their signer, another (initial, v) held */
   unsigned int byz;                   /* -b: tags rewritten at the egress */
   unsigned int withheld;              /* -a: exchange parts withheld at the egress */
   unsigned int agreed;                /* this seat's blobs agreed */
@@ -1057,7 +1386,12 @@ opRecv(
 struct hseat {
   struct ac  *seat;
   struct dq          *dq;             /* -L: datagrams held to their delay, by deadline */
-  unsigned char      *ibuf;           /* a datagram received: DgramMax + 1, so a longer one shows */
+  unsigned char      *ibuf;           /* a datagram received: DgramMax + 1, so a longer one shows,
+                                       * and beside it the datagram last pushed back */
+  unsigned int        pushLen;        /* the datagram pushed back, its length */
+  unsigned int        pushNum;        /* -9: the sends counted */
+  int                 pushOwed;       /* a send pushed back: the next is to be it */
+  unsigned char       pushDest;       /* and its seat */
   unsigned char      *old;            /* -I: its recording, [dest][length, 2][datagram] */
   unsigned int        oldN;
   unsigned long       oldUs;
@@ -1065,8 +1399,12 @@ struct hseat {
   unsigned long      *geEnd;          /* -B: a destination's burst ends */
   unsigned long      *geLast;         /* and when its good state was last read */
   unsigned long      *lastMem;        /* [seat] the last position folded here with it a member */
+  unsigned long      *byzFirst;       /* -b 512: [seat] the position its own INITIAL to it
+                                       * last went as a recover leg's at */
   struct hwAt        *hwPrev;         /* [seat] its high water at the last fold here */
   unsigned char      *geBad;
+  unsigned char      *byzRow;         /* -b 2048: the rows it sent, by seat: an open table */
+  struct bzLeg       *bzLeg;          /* -b 32768: its recover legs to a seat at a position */
   struct instRes     *res;            /* [position], Slots */
   struct acCb         cb;
   struct acTest       test;
@@ -1075,6 +1413,13 @@ struct hseat {
   unsigned long       bwTokens;
   unsigned long       cpuMark;        /* -w: the thread's processor time at the last look */
   unsigned long       slowDebt;       /* -w: the sleep owed, us */
+  unsigned long       byzRows;        /* -b 2048: the table's slots */
+  unsigned long       byzRowsIn;      /* and the rows in it */
+  unsigned int        bzLegs;
+  unsigned int        bzWaitLeg;      /* -b 32768: the one its last hold waits on */
+  int                 bzWait;         /* and what of it: 1 every other leg there whole, 2 the description held */
+  int                 bzEnd;          /* -b 32768: 1 its chain ended here and no recover leg started since, 2 after */
+  unsigned int        bzStarts;       /* its recover legs started at the chain's end */
   unsigned int        self;
   unsigned int        proposed;       /* blobs agreed or let go: the next one's ordinal, less one */
   unsigned int        given;          /* the ordinal last given when asked, 0 for none */
@@ -1093,7 +1438,20 @@ struct hseat {
   int                 resumed;        /* -Z: the pause ended and the
                                        * seat said again it has a blob */
   int                 thawed;         /* -Q, -5: the freeze is over */
+  int                 cutHeld;        /* -x: seat N-1's cut holds until the loop ends it */
+  int                 descLift;       /* -1: seat N-1's recover descriptions pass;
+                                       * at the others, the lift seen */
+  unsigned int        leftAtLift;     /* -1: seat N-1's positions let go at the lift */
+  unsigned char       descFrom[AC_SEATS / 8]; /* -1: the seats whose descriptions were dropped */
+  unsigned int        leftSeen;       /* the positions let go said to the others */
   unsigned int        lateFrz;        /* -5: the tick seat N-1 freezes, and one more */
+  unsigned int        byzSent;        /* -b 256: messages it sent, every fourth rewritten */
+  unsigned int        byzShape;       /* -b 256: the shapes rewritten, in turn */
+  unsigned int        byzEcho;        /* -b 1024: its echoes, every fourth rewritten */
+  unsigned int        byzSign;        /* -b 8: its sign parts, the rewrite in turn */
+  unsigned int        byzDesc;        /* -b 64: its descriptions, the rewrite in turn */
+  unsigned int        byzNoop;        /* -b 8192: its noops' and rotations' sign parts */
+  unsigned int        byzFrame;       /* -b 16384: its messages, every sixteenth rewritten */
   int                 frozeOut;       /* -Q: the others ended while it was frozen */
   unsigned long       thawUs;         /* -Q: when */
   unsigned long       goUs;           /* -T: the go */
@@ -1101,6 +1459,10 @@ struct hseat {
   unsigned char       genesis[AC_HASH_MAX]; /* position 1's name: -b names a record by it */
   unsigned char       lapseName[AC_HASH_MAX]; /* -o: the position of the part cut */
   unsigned char       lapseSet;
+  unsigned char       descCut;        /* -4: seat 1's first description alone, cut at seat 2 */
+  unsigned char       holdName[AC_HASH_MAX]; /* -8: the position of seat 2's data parts cut */
+  unsigned char       holdSet;        /* -8: names of seat 2's data parts seen, to 3 */
+  unsigned char       holdPass;       /* -8: the hold is on: they pass */
 };
 
 /* -T: the phase in force at this seat, by its own clock from its go,
@@ -1239,6 +1601,12 @@ hChain(
   S = &P;
   if (rc->position > h->top)
     h->top = rc->position;
+  if (DescHold && h->self == N - 1 && h->descLift) {
+    pthread_mutex_lock(&FoldMu);
+    if (!DescFoldTick)
+      DescFoldTick = acTicks(h->seat);
+    pthread_mutex_unlock(&FoldMu);
+  }
   /* the last link: nothing more launches here, whether or not this
    * seat's caller has called the end */
   if (rc->end && acAvailable(h->seat) != -1) {
@@ -1480,6 +1848,7 @@ hEgress(
   h = ctx;
   S = &P;
   ticks = acTicks(h->seat);
+  h->test.noMac = 0;
   /* -T: the link to dest, as the phase in force carries it; what the
    * seat put, carried or dropped, counted by the phase */
   if (NLinks && dest < N) {
@@ -1505,7 +1874,69 @@ hEgress(
     if (!inst)
       ++LinkRec[h->self][ph][dest][AC_TAG_CLASS(tag[0]) * 4 + AC_TAG_KIND(tag[0])];
   }
+  /* -1: the recover legs' talk with seat N-1, split at the lift */
+  if (DescHold && AC_TAG_CLASS(tag[0]) == AC_CLS_RCV && (h->self == N - 1 || dest == N - 1)) {
+    int lift;
+
+    pthread_mutex_lock(&FoldMu);
+    lift = !DescLift ? 0 : DescNamed && !memcmp(DescName, tag + AC_TAG_NAME, HashSz) ? 1 : 2;
+    pthread_mutex_unlock(&FoldMu);
+    if (lift && !h->descLift && h->self != N - 1) {
+      struct acCounters lc;
+
+      h->descLift = 1;
+      acCounters(h->seat, &lc);
+      h->w.startsAtLift = lc.recoverStarts;
+    }
+    ++h->w.rcvSaid[lift][AC_TAG_KIND(tag[0])];
+    h->w.rcvBytes[lift][AC_TAG_KIND(tag[0])] += len;
+  }
   if (Byz && h->self == BzSeat) {
+    /* bit 65536: a noop of X's from a later position, kept as it goes on
+     * a leg; then on its recover leg of X to seat N-1 at position 1,
+     * where seat N-1 has no high water yet and that noop is X's
+     * signature under the key it judges by, the noop first in the
+     * place of the leg's sign part, the leg's INITIAL once seat N-1
+     * holds it, the rest once the INITIAL is fed: the leg's part under
+     * its (initial, v) then replaces the one held under another apex */
+    if (Byz & 65536) {
+      const struct seenAt *sa;
+      unsigned int x;
+      int unit;
+      int open;
+
+      x = tag[AC_TAG_BA];
+      if (!RelPart && (!(RelPart = calloc(N, SigLen + 1)) || !(RelLen = calloc(N, sizeof (*RelLen))))) {
+        free(RelPart);
+        RelPart = 0;
+      }
+      if (RelPart && x < N && x != BzSeat && AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_SIGN
+       && (AC_TAG_CLASS(tag[0]) == AC_CLS_LEG || AC_TAG_CLASS(tag[0]) == AC_CLS_RCV)
+       && memcmp(tag + AC_TAG_NAME, h->genesis, HashSz) && (len == SigLen || len == SigLen + 1) && !RelLen[x]) {
+        memcpy(RelPart + x * (SigLen + 1), payload, len);
+        RelLen[x] = len;
+      }
+      if (RelPart && AC_TAG_CLASS(tag[0]) == AC_CLS_RCV && dest == N - 1 && x < N && x != BzSeat
+       && !memcmp(tag + AC_TAG_NAME, h->genesis, HashSz) && (RelX ? RelX == x + 1 : RelLen[x] != 0)) {
+        pthread_mutex_lock(&FoldMu);
+        if (!RelX && AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_SIGN) {
+          RelX = x + 1;
+          pthread_mutex_unlock(&FoldMu);
+          memcpy(payload, RelPart + x * (SigLen + 1), RelLen[x]);
+          ++h->w.byz;
+          return (RelLen[x]);
+        }
+        for (sa = Seen; sa < Seen + Seens && (sa->seat != N - 1 || memcmp(sa->name, h->genesis, HashSz)); ++sa)
+          ;
+        unit = RelX && sa < Seen + Seens && (sa->unit[x >> 3] >> (x & 7) & 1);
+        open = unit && (sa->opened[x >> 3] >> (x & 7) & 1);
+        pthread_mutex_unlock(&FoldMu);
+        if (!unit || (!open && AC_TAG_KIND(tag[0]) != BRACHA87_INITIAL)) {
+          ++h->w.byz;
+          return (-1);
+        }
+      }
+    }
     /* bit 1: no annotation on an ECHO or a READY -- bit 6 of an ECHO,
      * bits 6-7 of a READY and, outside class 0 where bit 2 is the BA
      * value, its HOLDING in bit 2: this seat holds nothing, has
@@ -1532,11 +1963,26 @@ hEgress(
     }
     /* bits 8, 16, 32: hostile bytes in the exchange parts it forwards,
      * on its legs and its recover legs, under its own key: a byte of
-     * the sign part, of the data part, or a unit's part a byte short;
-     * 64: a byte of the description beside its recover legs */
-    if ((Byz & 120) && AC_TAG_CLASS(tag[0]) >= AC_CLS_LEG && AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && len) {
-      if ((Byz & 8) && AC_TAG_VALUE(tag[0]) == AC_PART_SIGN) {
-        payload[arc4random_uniform(len)] ^= 1;
+     * the sign part -- in turn any byte and the first of its signature,
+     * the count its structure is read from -- of the data part, or a
+     * unit's part a byte short; 64: the description beside its recover
+     * legs, in turn a byte of it, the bitmap's bits past N set, a
+     * member's bit flipped and a member left out with its hash, where
+     * more than N - t are in, so the description is whole but names
+     * another subset; 8192: every other sign part of a noop or a
+     * rotation, which carries no data part, sent as a data part of a
+     * byte or two in turn, so a seat holds a shard ahead of the sign
+     * part or past it, or a second ahead of it unlike the first */
+    if ((Byz & 8312) && AC_TAG_CLASS(tag[0]) >= AC_CLS_LEG && AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && len) {
+      if ((Byz & 8192) && AC_TAG_VALUE(tag[0]) == AC_PART_SIGN && len != UnitFixed && h->byzNoop++ & 1) {
+        tag[0] = (tag[0] & ~0x0c) | AC_PART_DATA << 2;
+        len = 1 + (h->byzNoop >> 1 & 1);
+        ++h->w.byz;
+      } else if ((Byz & 8) && AC_TAG_VALUE(tag[0]) == AC_PART_SIGN) {
+        if (h->byzSign++ & 1)
+          payload[len == UnitFixed ? 3 * HashSz : len >= HashSz + SigLen ? HashSz : 0] ^= 1;
+        else
+          payload[arc4random_uniform(len)] ^= 1;
         ++h->w.byz;
       }
       if ((Byz & 16) && AC_TAG_VALUE(tag[0]) == AC_PART_DATA) {
@@ -1548,9 +1994,172 @@ hEgress(
         ++h->w.byz;
       }
       if ((Byz & 64) && AC_TAG_VALUE(tag[0]) == AC_PART_DESC) {
-        payload[arc4random_uniform(len)] ^= 1;
+        unsigned int m;
+        unsigned int c;
+
+        for (c = m = 0; m < N; ++m)
+          if (payload[m >> 3] & 1 << (m & 7))
+            ++c;
+        switch (h->byzDesc++ & 3) {
+        case 1:
+          if (N & 7) {
+            payload[BITS(N) - 1] |= 0xff << (N & 7) & 0xff;
+            break;
+          }
+          goto descByte;
+        case 2:
+          payload[0] ^= 1;
+          break;
+        case 3:
+          if (c > N - MaxByz && len == BITS(N) + c * HashSz) {
+            for (m = N; !(payload[(m - 1) >> 3] & 1 << ((m - 1) & 7)); --m);
+            payload[(m - 1) >> 3] &= ~(1 << ((m - 1) & 7));
+            len -= HashSz;
+            break;
+          }
+          /* FALLTHROUGH */
+        default:
+        descByte:
+          payload[arc4random_uniform(len)] ^= 1;
+          break;
+        }
         ++h->w.byz;
       }
+    }
+    /* bit 1024: every fourth ECHO it sends of an agreement, and every
+     * ECHO of a value broadcast, a row of a broadcast of the receiver's
+     * own it may not have begun: the agreement's at the round ceiling;
+     * and in turn the exchange leg of this seat's value with the
+     * receiver its initiator, which under 512, its value delivered
+     * nowhere, no seat opens, and the receiver's own value broadcast,
+     * which a laggard (-z) holds while every echo to it is re-sent */
+    if ((Byz & 1024) && dest < N && AC_TAG_KIND(tag[0]) == BRACHA87_ECHO
+     && (AC_TAG_CLASS(tag[0]) == AC_CLS_ACS ? !(h->byzEcho++ & 3) : AC_TAG_CLASS(tag[0]) == AC_CLS_DIST)) {
+      if (AC_TAG_CLASS(tag[0]) == AC_CLS_ACS)
+        tag[AC_TAG_ROUND] = Rounds;
+      else if (h->byzEcho++ & 1) {
+        tag[0] = (tag[0] & 0xcf) | AC_CLS_LEG << 4;
+        tag[AC_TAG_BA] = h->self;
+      } else
+        tag[AC_TAG_BA] = dest;
+      tag[AC_TAG_INIT] = dest;
+      ++h->w.byz;
+    }
+    /* bit 512: every row it sends of a value broadcast, a leg or a
+     * recover leg under a value a bit off, beside the units it holds;
+     * its own value's INITIAL to a seat, the first time at a position,
+     * a recover leg's INITIAL of that value to the seat instead, under
+     * position 1's name, so the own INITIAL the seat hears follows the
+     * parts, and the recover leg is one no row of the seat's asked for:
+     * at a live position 1 or at its record */
+    if ((Byz & 512) && AC_TAG_CLASS(tag[0]) != AC_CLS_ACS && AC_TAG_KIND(tag[0]) != BRACHA87_BESIDE
+     && len == HashSz) {
+      if (AC_TAG_CLASS(tag[0]) == AC_CLS_DIST && AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL && dest < N
+       && h->byzFirst[dest] != inst) {
+        h->byzFirst[dest] = inst;
+        tag[0] = AC_TAG_BYTE(AC_CLS_RCV, BRACHA87_INITIAL, 0);
+        tag[AC_TAG_ROUND] = dest;
+        memcpy(tag + AC_TAG_NAME, h->genesis, HashSz);
+      }
+      payload[0] ^= 1;
+      ++h->w.byz;
+    }
+    /* bit 256: every fourth message but a unit's part, which the
+     * reconciliation counts as sent, under a tag of a shape no correct
+     * seat sends, each check of the parse in turn: a member past N, an
+     * annotation on an INITIAL, an ECHO marked as a READY; per class a
+     * field out of its range, and an INITIAL from a seat that does not
+     * initiate it, the rest of the tag as that class needs */
+    if ((Byz & 256) && dest < N && AC_TAG_KIND(tag[0]) != BRACHA87_BESIDE && !(h->byzSent++ & 3)) {
+      unsigned char c;
+      unsigned int shape;
+
+      c = AC_TAG_CLASS(tag[0]);
+      shape = h->byzShape % 11;
+      if (shape == 6 || shape == 8 || shape == 10 ? len >= HashSz && c != AC_CLS_ACS : 1) {
+        switch (shape) {
+        case 0:
+          tag[AC_TAG_BA] = N;
+          break;
+        case 1:
+          tag[0] = (tag[0] & 0x3c) | BRACHA87_INITIAL | 1 << 6;
+          break;
+        case 2:
+          tag[0] = (tag[0] & 0x3c) | BRACHA87_ECHO | 2 << 6;
+          break;
+        case 3:
+          tag[0] &= 0xcf;
+          tag[AC_TAG_ROUND] = 0;
+          break;
+        case 4:
+          tag[0] = AC_TAG_BYTE(AC_CLS_ACS, BRACHA87_INITIAL, 0);
+          tag[AC_TAG_ROUND] = 1;
+          tag[AC_TAG_INIT] = (h->self + 1) % N;
+          len = 0;
+          break;
+        case 5:
+          tag[0] = (tag[0] & 0xcf) | AC_CLS_DIST << 4;
+          tag[AC_TAG_ROUND] = 1;
+          break;
+        case 6:
+          tag[0] = AC_TAG_BYTE(AC_CLS_DIST, BRACHA87_INITIAL, 0);
+          tag[AC_TAG_ROUND] = 0;
+          tag[AC_TAG_BA] = tag[AC_TAG_INIT] = (h->self + 1) % N;
+          len = HashSz;
+          break;
+        case 7:
+          tag[0] = (tag[0] & 0xcf) | AC_CLS_LEG << 4;
+          tag[AC_TAG_ROUND] = 0;
+          tag[AC_TAG_INIT] = tag[AC_TAG_BA];
+          break;
+        case 8:
+          tag[0] = AC_TAG_BYTE(AC_CLS_LEG, BRACHA87_INITIAL, 0);
+          tag[AC_TAG_ROUND] = 0;
+          tag[AC_TAG_INIT] = (h->self + 1) % N;
+          tag[AC_TAG_BA] = (h->self + 2) % N;
+          len = HashSz;
+          break;
+        case 9:
+          tag[0] = (tag[0] & 0xcf) | AC_CLS_RCV << 4;
+          tag[AC_TAG_ROUND] = N;
+          break;
+        default:
+          tag[0] = AC_TAG_BYTE(AC_CLS_RCV, BRACHA87_INITIAL, 0);
+          tag[AC_TAG_ROUND] = h->self;
+          tag[AC_TAG_INIT] = tag[AC_TAG_BA] = dest;
+          len = HashSz;
+          break;
+        }
+        ++h->byzShape;
+        ++h->w.byz;
+      }
+    }
+    /* bit 16384: every sixteenth message it sends a seat goes, in turn,
+     * under the receiver's own index as its sender, under a sender past
+     * N, and, where it has a payload, as its first byte with no HMAC:
+     * datagrams the gate refuses from the sender it names, before a key
+     * is read, and a message the gate passes that is shorter than its
+     * own proof */
+    if ((Byz & 16384) && dest < N && !(h->byzFrame++ & 15)) {
+      switch (h->byzFrame >> 4 & 3) {
+      case 1:
+        if (N < 256) {
+          tag[AC_TAG_SENDER] = N;
+          break;
+        }
+        /* FALLTHROUGH */
+      case 0:
+        tag[AC_TAG_SENDER] = dest;
+        break;
+      default:
+        if (len) {
+          h->test.noMac = 1;
+          len = 1;
+        } else
+          tag[AC_TAG_SENDER] = dest;
+        break;
+      }
+      ++h->w.byz;
     }
   }
   /* -a: the dealer's accomplice holds a leaf of the dealer's and sends
@@ -1561,7 +2170,8 @@ hEgress(
     ++h->w.withheld;
     return (-1);
   }
-  if (CutEgr && (CutAll || h->self == N - 1) && ticks >= CutFrom && ticks - CutFrom < CutEgr) {
+  if (CutEgr && (CutAll || h->self == N - 1) && ticks >= CutFrom
+   && (ticks - CutFrom < CutEgr || (h->cutHeld && CutEgr == Cut))) {
     ++h->w.cut;
     if (AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE)
       ++h->w.cutUnit;
@@ -1590,8 +2200,10 @@ hEgress(
    * place the part under one root, so where the successor is installed
    * its gate cannot refuse it unverified, and the refusal is paid a
    * signature.  No correct seat echoes a part it refused, so seat 0
-   * never accepts the value */
-  if (AC_FAULT_SPENT(Fault) && h->self == N - 1 && !dest && h->test.dealt && inst == h->test.dealtAt
+   * never accepts the value.  -f 15: none of the payload whose apex it
+   * signed at slot 0 too, so seat 0, holding no value and no part, meets
+   * that copy at the slot rule, ahead of its accept */
+  if ((AC_FAULT_SPENT(Fault) || Fault == AC_FAULT_SLOTZERO) && h->self == N - 1 && !dest && h->test.dealt && inst == h->test.dealtAt
    && AC_TAG_CLASS(tag[0]) == AC_CLS_DIST && AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL)
     return (-1);
   if (Censor && h->self == 0 && dest == N - 1 && AC_TAG_CLASS(tag[0]) == AC_CLS_DIST
@@ -1602,6 +2214,153 @@ hEgress(
     if (AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL)
       ++h->w.censored;
     return (-1);
+  }
+  /* -b 2048: of each row the Byzantine seat sends a seat, the first copy
+   * goes under its own proof and every later one under a proof that
+   * fails.  A row is what its receiver holds one of: its name, class,
+   * kind, agreement, round and initiator, whatever value, payload or
+   * annotation it carries.  So once the first has opened a leg or held
+   * a part or a row, a copy is unproved wherever the receiver's state
+   * next asks a proof of it; a copy that only says again what is held
+   * passes unproved and asks none.  Bit 4096: every data part and
+   * description of its recover legs under a proof that fails, its sign
+   * parts, its rows and all else under its own, so it keeps its pace
+   * and holds records when a returner asks: a receiver holding the rest
+   * meets the part unproved where it would complete something */
+  if ((Byz & 6144) && h->self == BzSeat) {
+    unsigned char kb[5 + AC_HASH_MAX];
+    unsigned char *o;
+    unsigned char *r;
+    unsigned long on;
+    unsigned long k;
+    unsigned int e;
+    unsigned int i;
+    unsigned int j;
+
+    e = 6 + HashSz;
+    h->test.badMac = (Byz & 4096) && AC_TAG_CLASS(tag[0]) == AC_CLS_RCV && AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE
+                  && (AC_TAG_VALUE(tag[0]) == AC_PART_DATA || AC_TAG_VALUE(tag[0]) == AC_PART_DESC);
+    if ((Byz & 2048) && 2 * h->byzRowsIn >= h->byzRows) {
+      o = h->byzRow;
+      on = h->byzRows;
+      if ((h->byzRow = calloc(on ? 2 * on : 4096, e))) {
+        h->byzRows = on ? 2 * on : 4096;
+        while (on--) {
+          if (!o[on * e])
+            continue;
+          for (k = 2166136261UL, i = 1; i < e; ++i)
+            k = ((k ^ o[on * e + i]) * 16777619UL) & 0xffffffffUL;
+          for (k &= h->byzRows - 1; h->byzRow[k * e]; k = (k + 1) & (h->byzRows - 1));
+          memcpy(h->byzRow + k * e, o + on * e, e);
+        }
+        free(o);
+      } else
+        h->byzRow = o;
+    }
+    if ((Byz & 2048) && 2 * h->byzRowsIn < h->byzRows) {
+      kb[0] = dest;
+      kb[1] = tag[0] & (AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE ? 0x3f : 0x33);
+      kb[2] = tag[AC_TAG_BA];
+      kb[3] = tag[AC_TAG_ROUND];
+      kb[4] = tag[AC_TAG_INIT];
+      memcpy(kb + 5, tag + AC_TAG_NAME, HashSz);
+      for (k = 2166136261UL, i = 0; i < e - 1; ++i)
+        k = ((k ^ kb[i]) * 16777619UL) & 0xffffffffUL;
+      for (k &= h->byzRows - 1; (r = h->byzRow + k * e)[0] && memcmp(r + 1, kb, e - 1);
+           k = (k + 1) & (h->byzRows - 1));
+      /* bit 32768: its recover legs to a seat at a position on a
+       * schedule read from what that seat holds of them (the seen hook),
+       * so that a leg there is whole, its INITIAL fed and its BESIDE
+       * waiting on S's description, while S's copies still come.  The
+       * first leg whose description it sends: that one dropped, its
+       * next held back until the seat has every other leg's INITIAL fed
+       * and unit held, then sent proved.  Every other leg: the first
+       * copy of its description, and of its parts where the seat holds
+       * the unit already, entered and dropped, so no proved one lands
+       * past the description; its later copies held back until the seat
+       * holds the description, so none spends the row's one reply a
+       * tick ahead of it, then sent unproved: its INITIAL, its unit's
+       * parts and its description, each refused where a proved one
+       * would feed BESIDE.  Each copy held back on the seat holds this
+       * seat's tick (the loop), so its legs' counts wait on the seat */
+      if ((Byz & 32768) && AC_TAG_CLASS(tag[0]) == AC_CLS_RCV && dest < N
+       && (AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL || AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE)) {
+        struct bzLeg *bl;
+        const struct seenAt *sa;
+        unsigned int x;
+        int desc;
+        int sDesc;
+        int sUnit;
+        int ready;
+
+        for (j = 0; j < h->bzLegs && (h->bzLeg[j].dest != dest || memcmp(h->bzLeg[j].name, tag + AC_TAG_NAME, HashSz)); ++j)
+          ;
+        bl = 0;
+        if (j < h->bzLegs)
+          bl = h->bzLeg + j;
+        else if ((bl = realloc(h->bzLeg, (j + 1) * sizeof (*bl)))) {
+          h->bzLeg = bl;
+          h->bzLegs = j + 1;
+          bl += j;
+          memset(bl, 0, sizeof (*bl));
+          bl->dest = dest;
+          memcpy(bl->name, tag + AC_TAG_NAME, HashSz);
+        }
+        if (bl) {
+          x = tag[AC_TAG_BA];
+          desc = AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DESC;
+          if (AC_TAG_KIND(tag[0]) == BRACHA87_INITIAL)
+            bl->sent[x >> 3] |= 1 << (x & 7);
+          pthread_mutex_lock(&FoldMu);
+          for (sa = Seen; sa < Seen + Seens && (sa->seat != dest || memcmp(sa->name, bl->name, HashSz)); ++sa)
+            ;
+          if (sa == Seen + Seens)
+            sa = 0;
+          sDesc = sa && sa->desc;
+          sUnit = sa && (sa->unit[x >> 3] >> (x & 7) & 1);
+          for (ready = !!sa, i = 0; ready && i < N; ++i)
+            if ((bl->sent[i >> 3] >> (i & 7) & 1) && i + 1 != bl->first)
+              ready = (sa->opened[i >> 3] >> (i & 7) & 1) && (sa->unit[i >> 3] >> (i & 7) & 1);
+          pthread_mutex_unlock(&FoldMu);
+          if (desc && !bl->first) {
+            bl->first = x + 1;
+            ++h->w.byz;
+            return (-1);
+          }
+          if (bl->first == x + 1) {
+            if (desc && !r[0] && !ready) {
+              h->bzWait = 1;
+              h->bzWaitLeg = j;
+              ++h->w.byz;
+              return (-1);
+            }
+          } else if (bl->first) {
+            if (r[0] && !sDesc) {
+              if (h->bzWait != 1) {
+                h->bzWait = 2;
+                h->bzWaitLeg = j;
+              }
+              ++h->w.byz;
+              return (-1);
+            }
+            if (!r[0] && (desc || (AC_TAG_KIND(tag[0]) == BRACHA87_BESIDE && sUnit))) {
+              r[0] = 1;
+              memcpy(r + 1, kb, e - 1);
+              ++h->byzRowsIn;
+              ++h->w.byz;
+              return (-1);
+            }
+          }
+        }
+      }
+      if (r[0])
+        h->test.badMac = 1;
+      else {
+        r[0] = 1;
+        memcpy(r + 1, kb, e - 1);
+        ++h->byzRowsIn;
+      }
+    }
   }
   return (len);
 }
@@ -1621,6 +2380,48 @@ olderPlay(
     if (sendto(h->fd, o + 3, (o[1] << 8) | o[2], 0, (struct sockaddr *)&h->addr[o[0]], sizeof (h->addr[o[0]])) >= 0)
       ++h->w.sent;
   }
+}
+
+/* -b 32768: what this seat holds of the Byzantine seat's recover legs,
+ * read by that seat's schedule; a seat whose table cannot grow records
+ * nothing more, the schedule then holding its copies back */
+static void
+hSeen(
+  void *ctx
+ ,const unsigned char *name
+ ,unsigned int s
+ ,unsigned int x
+ ,unsigned int what
+){
+  struct hseat *h;
+  const struct acPar *S;
+  struct seenAt *sa;
+
+  h = ctx;
+  S = &P;
+  if (!(Byz & (32768 | 65536)) || s != BzSeat || h->self == BzSeat)
+    return;
+  pthread_mutex_lock(&FoldMu);
+  for (sa = Seen; sa < Seen + Seens && (sa->seat != h->self || memcmp(sa->name, name, HashSz)); ++sa)
+    ;
+  if (sa == Seen + Seens) {
+    if (!(sa = realloc(Seen, (Seens + 1) * sizeof (*sa)))) {
+      pthread_mutex_unlock(&FoldMu);
+      return;
+    }
+    Seen = sa;
+    sa += Seens++;
+    memset(sa, 0, sizeof (*sa));
+    sa->seat = h->self;
+    memcpy(sa->name, name, HashSz);
+  }
+  if (what & 1)
+    sa->opened[x >> 3] |= 1 << (x & 7);
+  if (what & 2)
+    sa->unit[x >> 3] |= 1 << (x & 7);
+  if (what & 4)
+    sa->desc = 1;
+  pthread_mutex_unlock(&FoldMu);
 }
 
 /* the harness's adversary at the seat's ingress: the cuts (-x, -U, -Y,
@@ -1665,11 +2466,68 @@ hIngress(
     }
   }
   /* -x: the cut seat's ingress is dropped unread */
-  if (Cut && (CutAll || h->self == N - 1) && ticks >= CutFrom && ticks - CutFrom < Cut) {
+  if (Cut && (CutAll || h->self == N - 1) && ticks >= CutFrom && (ticks - CutFrom < Cut || h->cutHeld)) {
     ++h->w.cut;
     if (kind == BRACHA87_BESIDE)
       ++h->w.cutUnit;
     return (0);
+  }
+  /* -1: seat N-1's recover descriptions dropped until a leg's INITIAL
+   * has met its machine at its count; the lift is seen at the next
+   * arrival */
+  if (DescHold && h->self == N - 1) {
+    if (h->descLift && h->test.left != h->leftAtLift) {
+      h->leftAtLift = h->test.left;
+      pthread_mutex_lock(&FoldMu);
+      if (!DescLeftTick)
+        DescLeftTick = ticks;
+      pthread_mutex_unlock(&FoldMu);
+    }
+    if (h->test.rcvAgain && !h->descLift) {
+      unsigned int b;
+
+      for (b = 0; DescHold == 2 && b < sizeof (h->descFrom) && !(h->descFrom[b] & ~h->test.rcvAgainFrom[b]); ++b)
+        ;
+      if (DescHold == 1 || b == sizeof (h->descFrom)) {
+        h->descLift = 1;
+        h->leftAtLift = h->test.left;
+        pthread_mutex_lock(&FoldMu);
+        DescLift = 1;
+        DescLiftTick = ticks;
+        pthread_mutex_unlock(&FoldMu);
+      }
+    }
+    if (!h->descLift && cls == AC_CLS_RCV && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DESC) {
+      if (tag[AC_TAG_SENDER] < N)
+        h->descFrom[tag[AC_TAG_SENDER] >> 3] |= 1 << (tag[AC_TAG_SENDER] & 7);
+      pthread_mutex_lock(&FoldMu);
+      if (!DescNamed) {
+        DescNamed = 1;
+        memcpy(DescName, tag + AC_TAG_NAME, HashSz);
+      }
+      pthread_mutex_unlock(&FoldMu);
+      ++h->w.descHeld;
+      return (0);
+    }
+  }
+  /* -b 65536: seat N-1's descriptions of position 1 dropped until it
+   * holds the noop the Byzantine seat's leg carried first, so nothing
+   * gives it X's value there before */
+  if ((Byz & 65536) && h->self == N - 1 && cls == AC_CLS_RCV && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DESC
+   && !memcmp(tag + AC_TAG_NAME, h->genesis, HashSz)) {
+    const struct seenAt *sa;
+    int held;
+
+    pthread_mutex_lock(&FoldMu);
+    for (sa = Seen; sa < Seen + Seens && (sa->seat != h->self || memcmp(sa->name, h->genesis, HashSz)); ++sa)
+      ;
+    held = RelX && sa < Seen + Seens && (sa->unit[(RelX - 1) >> 3] >> ((RelX - 1) & 7) & 1);
+    pthread_mutex_unlock(&FoldMu);
+    if (!held) {
+      ++h->w.cut;
+      ++h->w.cutUnit;
+      return (0);
+    }
   }
   /* -U: the cut seat's ingress of the exchange is dropped unread; the
    * agreement's rows and the dealt units are delivered, so the seat
@@ -1715,6 +2573,14 @@ hIngress(
     h->lapseSet = 1;
     memcpy(h->lapseName, tag + AC_TAG_NAME, HashSz);
   }
+  /* and seat 1's first description alone, so seat 2 asks again and the
+   * record says it again */
+  if (NoDesc && h->self == 2 && !h->descCut && !memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz)
+   && cls == AC_CLS_RCV && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DESC && tag[AC_TAG_SENDER] == 1) {
+    h->descCut = 1;
+    ++h->w.cut;
+    return (0);
+  }
   if (NoDesc && !memcmp(h->lapseName, tag + AC_TAG_NAME, HashSz)
    && (h->self == 1 ? cls == AC_CLS_DIST && kind == BRACHA87_BESIDE
                     : (cls == AC_CLS_DIST && tag[AC_TAG_BA] == 1)
@@ -1748,6 +2614,24 @@ hIngress(
       ++h->w.cut;
       if (kind == BRACHA87_BESIDE)
         ++h->w.cutUnit;
+      return (0);
+    }
+  }
+  /* -8: at seat 0, every data part of seat 2's value under the third
+   * position to carry one, from every seat, until seat 0's framer is held */
+  if (HoldKept && !h->self && kind == BRACHA87_BESIDE && AC_TAG_VALUE(tag[0]) == AC_PART_DATA && tag[AC_TAG_BA] == 2) {
+    if (h->holdSet < 3 && (!h->holdSet || memcmp(h->holdName, tag + AC_TAG_NAME, HashSz))) {
+      ++h->holdSet;
+      memcpy(h->holdName, tag + AC_TAG_NAME, HashSz);
+    }
+    if (!h->holdPass) {
+      pthread_mutex_lock(&FoldMu);
+      h->holdPass = HoldOn;
+      pthread_mutex_unlock(&FoldMu);
+    }
+    if (h->holdSet == 3 && !h->holdPass && !memcmp(h->holdName, tag + AC_TAG_NAME, HashSz)) {
+      ++h->w.cut;
+      ++h->w.cutUnit;
       return (0);
     }
   }
@@ -1807,8 +2691,19 @@ hSend(
 
   h = ctx;
   S = &P;
+  if (h->pushOwed) {
+    h->pushOwed = 0;
+    if (dest == h->pushDest && dgl == h->pushLen && !memcmp(dg, h->ibuf + DgramMax + 1, dgl))
+      ++h->w.pushSame;
+    else
+      ++h->w.pushOther;
+  }
   if (h->sendBlocked || h->noBufs)
-    return (0);
+    goto pushed;
+  if (PushEvery && h->self == N - 1 && !(++h->pushNum % PushEvery)) {
+    h->sendBlocked = 1;                 /* as the socket's EAGAIN: POLLOUT to wait on */
+    goto pushed;
+  }
   clock_gettime(CLOCK_MONOTONIC, &now);
   us = USEC(now);
   lose = 0;
@@ -1842,7 +2737,7 @@ hSend(
 
     /* refilled by the ms, the part of one not yet earned kept */
     if ((ms = (us - h->bwLast) / 1000)) {
-      fill = BwLimit * ms / 1000;
+      fill = ms >= 1000 ? BwLimit : BwLimit / 1000 * ms + BwLimit % 1000 * ms / 1000;
       if ((h->bwTokens += fill) > BwLimit)
         h->bwTokens = BwLimit;
       h->bwLast += ms * 1000;
@@ -1879,12 +2774,12 @@ hSend(
   if (sendto(h->fd, dg, dgl, 0, (struct sockaddr *)&h->addr[dest], sizeof (h->addr[dest])) < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
       h->sendBlocked = 1;
-      return (0);
+      goto pushed;
     }
     if (errno == ENOBUFS) {
       ++h->w.noBufs;
       h->noBufs = 1;
-      return (0);
+      goto pushed;
     }
     ++h->w.refused;
   } else {
@@ -1924,6 +2819,16 @@ hSend(
     }
   }
   return (1);
+
+  /* the socket's push back: the datagram stays due (ac.h), so the next
+   * send is to be it */
+pushed:
+  ++h->w.pushed;
+  memcpy(h->ibuf + DgramMax + 1, dg, dgl);
+  h->pushLen = dgl;
+  h->pushDest = dest;
+  h->pushOwed = 1;
+  return (0);
 }
 
 /*
@@ -1955,7 +2860,8 @@ processT(
   unsigned long us;
   socklen_t fl;
   long waitUs;
-  long waitMs;
+  unsigned long waitMs;
+  unsigned long dueMs;
   long n;
   unsigned int e;
   unsigned int wl;
@@ -1978,11 +2884,14 @@ processT(
   h->test.ctx = h;
   h->test.egress = hEgress;
   h->test.ingress = hIngress;
+  h->test.seen = hSeen;
   h->test.fault = h->self == N - 1 ? Fault : 0;
   h->test.badMac = (Byz & 128) && h->self == BzSeat;
   h->test.tagAudit = TagAudit;
   h->test.lag = h->self == N - 1 ? Lag : 0;
   h->test.refuse = h->self == N - 1 ? Refuse : 0;
+  h->test.memOnce = h->self == N - 1 && MemOnce;
+  h->test.holdKept = !h->self && HoldKept;
   h->test.refuseAt = RefuseAt;
   p = P;                                /* the deal is shared; self is this thread's */
   p.self = h->self;
@@ -2058,6 +2967,7 @@ processT(
   if (acGo(h->seat, genesis, us))
     goto bootFail;
   booted = 1;
+  h->cutHeld = Cut && !CutAll && h->self == N - 1;
   {
     unsigned char z[AC_PSK + AC_HASH_MAX];
 
@@ -2118,6 +3028,37 @@ flush:
 
 loop:
   for (;;) {
+    /* the positions this seat has let go of the machines of, to the
+     * others' threads, each stamped as said */
+    if (h->test.left != h->leftSeen) {
+      clock_gettime(CLOCK_MONOTONIC, &now);
+      pthread_mutex_lock(&FoldMu);
+      for (; h->leftSeen < h->test.left; ++h->leftSeen)
+        if (h->leftSeen < Slots)
+          LeftMs[h->self * Slots + h->leftSeen] = (unsigned long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+      Left[h->self] = h->leftSeen;
+      pthread_mutex_unlock(&FoldMu);
+    }
+    /* -x: the cut ends here once its ticks are run, and under -7 once
+     * every other correct seat has let go of the machines of the position
+     * after the last this seat folded, or all have ended: what a
+     * Byzantine seat keeps is its own.  What its socket
+     * holds then the cut drops: on the loopback a datagram is queued at
+     * its send, so no row said while a position was live comes after */
+    if (h->cutHeld && acTicks(h->seat) >= CutFrom + Cut) {
+      pthread_mutex_lock(&FoldMu);
+      for (e = 0; e < N - 1 && (!CutPast || Left[e] > h->chains || Ended[e] || (Byz && e == BzSeat))
+                  && (!HoldKept || KeptOn || Ended[e]); ++e)
+        ;
+      if (e == N - 1) {
+        while (recv(h->fd, h->ibuf, DgramMax + 1, 0) >= 0)
+          ++h->w.cut;
+        h->cutHeld = 0;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        BackMs = (unsigned long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+      }
+      pthread_mutex_unlock(&FoldMu);
+    }
     /* -w: the seat's work since the last look, slowed */
     if (Slow > 1 && h->self < SlowSeats) {
       clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now);
@@ -2141,6 +3082,47 @@ flushDone:
     if (Older && us - h->oldUs >= (unsigned long)TickMs * 1000) {
       h->oldUs = us;
       olderPlay(h);
+    }
+    /* -8: seat 0 says when it keeps an assembly, under the position whose
+     * data parts of seat 2's it is cut, and when its framer is held; the
+     * hold ends once a send of it is dropped, or every other seat has
+     * ended.  Seat 2, a few ticks past folding that position, is frozen
+     * until the hold, its re-send toward seat 0 standing as it was */
+    if (HoldKept && !h->self) {
+      pthread_mutex_lock(&FoldMu);
+      if (h->holdSet == 3 && acTestKept(h->seat))
+        KeptOn = 1;
+      if (h->test.holding)
+        HoldOn = 1;
+      HeldGone = h->test.heldGone;
+      for (e = 1; e < N && Ended[e]; ++e)
+        ;
+      pthread_mutex_unlock(&FoldMu);
+      if (h->test.heldGone || e == N)
+        h->test.holdOff = 1;
+    }
+    if (HoldKept && h->self == 2 && !h->thawed && h->chains >= 4) {
+      struct timespec fz;
+      int on;
+
+      if (!h->lateFrz)
+        h->lateFrz = acTicks(h->seat) + 4;
+      if (acTicks(h->seat) >= h->lateFrz) {
+        fz.tv_sec = 0;
+        fz.tv_nsec = 100000000L;
+        for (;;) {
+          nanosleep(&fz, 0);
+          pthread_mutex_lock(&FoldMu);
+          on = HoldOn;
+          for (e = 0; e < N && (e == 2 || Ended[e]); ++e)
+            ;
+          pthread_mutex_unlock(&FoldMu);
+          if (on || e == N)
+            break;
+        }
+        h->thawed = 1;
+        continue;
+      }
     }
     /* -5: seat 0 says when it retains the position, the second, the first
      * being every seat's rotation, has answered seat 1's rows from it and has
@@ -2182,6 +3164,64 @@ flushDone:
         continue;
       }
     }
+    /* -b 32768: the seat takes no tick while what it waits on is not
+     * there, so its counts wait on its receiver's pace while what it has
+     * sent drains and its arrivals are read.  From the chain's last
+     * position let go here to its record until it starts a recover leg
+     * after it: seat N-1, cut, asks for that position after the
+     * record's carry for a seat behind would be spent.  A copy held
+     * back on what its receiver holds: until the receiver holds it.
+     * Each until the receiver has ended, or every other seat has */
+    if ((Byz & 32768) && h->self == BzSeat) {
+      struct acCounters lc;
+      const struct bzLeg *bl;
+      const struct seenAt *sa;
+      int met;
+      int gone;
+
+      pthread_mutex_lock(&FoldMu);
+      for (gone = 1, e = 0; e < N; ++e)
+        if (e != BzSeat && !Ended[e])
+          gone = 0;
+      if (Ended[h->bzWait ? h->bzLeg[h->bzWaitLeg].dest : N - 1])
+        gone = 1;
+      met = 1;
+      if (h->bzWait) {
+        bl = h->bzLeg + h->bzWaitLeg;
+        for (sa = Seen; sa < Seen + Seens && (sa->seat != bl->dest || memcmp(sa->name, bl->name, HashSz)); ++sa)
+          ;
+        met = sa < Seen + Seens;
+        if (met && h->bzWait == 2)
+          met = sa->desc;
+        else
+          for (e = 0; met && e < N; ++e)
+            if ((bl->sent[e >> 3] >> (e & 7) & 1) && e + 1 != bl->first)
+              met = (sa->opened[e >> 3] >> (e & 7) & 1) && (sa->unit[e >> 3] >> (e & 7) & 1);
+      }
+      if (!gone && met && h->bzWait == 2)
+        RetHold = 1;
+      pthread_mutex_unlock(&FoldMu);
+      if (gone || met)
+        h->bzWait = 0;
+      if (h->bzEnd < 2 && h->endPos && h->test.left >= h->endPos) {
+        acCounters(h->seat, &lc);
+        if (!h->bzEnd) {
+          h->bzEnd = 1;
+          h->bzStarts = lc.recoverStarts;
+        } else if (lc.recoverStarts > h->bzStarts || gone)
+          h->bzEnd = 2;
+      }
+      h->test.tickHeld = h->bzWait || h->bzEnd == 1;
+    }
+    /* -b 32768: the receiver, once it holds the description, takes no
+     * tick until the copies held back for it have met it unproved at
+     * each of the three sites, or the Byzantine seat has ended: its legs'
+     * counts wait on the sender's next sweep */
+    if ((Byz & 32768) && h->self == N - 1) {
+      pthread_mutex_lock(&FoldMu);
+      h->test.tickHeld = RetHold && !Ended[BzSeat] && (h->test.unprovedAt & 7) != 7;
+      pthread_mutex_unlock(&FoldMu);
+    }
     /* -Q: frozen, as a stopped process, from its -y tick on: nothing of
      * the seat runs and the socket's queue fills, the others going on
      * without it */
@@ -2196,15 +3236,15 @@ flushDone:
       want = h->chains + Freeze < Count ? h->chains + Freeze : Count;
       fz.tv_sec = 0;
       fz.tv_nsec = 100000000L;
-      /* until the others have folded past it, or have all ended short
-       * of that: then it ends frozen, as capped, nothing of the seat
-       * run and nothing of its socket read */
+      /* until the others have let go of the machines of the positions
+       * past it, or have all ended short of that: then it ends frozen,
+       * as capped, nothing of the seat run and nothing of its socket read */
       for (;;) {
         nanosleep(&fz, 0);
         pthread_mutex_lock(&FoldMu);
         for (least = ~0u, e = 0; e < N - 1; ++e)
-          if (Folded[e] < least)
-            least = Folded[e];
+          if (Left[e] < least)
+            least = Left[e];
         for (e = 0; e < N - 1 && Ended[e]; ++e)
           ;
         pthread_mutex_unlock(&FoldMu);
@@ -2216,11 +3256,12 @@ flushDone:
           goto capCheck;
         }
       }
+      clock_gettime(CLOCK_MONOTONIC, &now);
       pthread_mutex_lock(&FoldMu);
       Thawed = 1;
+      BackMs = (unsigned long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
       pthread_mutex_unlock(&FoldMu);
       h->thawed = 1;
-      clock_gettime(CLOCK_MONOTONIC, &now);
       h->thawUs = USEC(now);
       continue;
     }
@@ -2243,7 +3284,7 @@ flushDone:
     }
     waitUs = acWork(h->seat, us);
     /* the seat stopped on its own: its chain's end run */
-    if (waitUs < 0 && !h->ended && !acFailed(h->seat)) {
+    if (waitUs < 0 && !h->ended) {
       hEnd(h, 1);
       h->stuck = !h->ended;             /* a quiet seat ticks no more: its cap would never come */
     }
@@ -2294,9 +3335,9 @@ capCheck:
     if (waitMs > WAIT_MAX)
       waitMs = WAIT_MAX;
     if (h->dq && !h->sendBlocked && !h->noBufs) {
-      n = h->dq->due - us > ~0UL / 2 ? 0 : (h->dq->due - us + 999) / 1000;
-      if (n < waitMs)
-        waitMs = n;
+      dueMs = h->dq->due - us > ~0UL / 2 ? 0 : (h->dq->due - us + 999) / 1000;
+      if (dueMs < waitMs)
+        waitMs = dueMs;
     }
     if (h->noBufs && waitMs > 1)
       waitMs = 1;
@@ -2336,9 +3377,9 @@ flushDone2:
     if (waitMs > WAIT_MAX)
       waitMs = WAIT_MAX;
     if (h->dq && !h->sendBlocked && !h->noBufs) {
-      n = h->dq->due - us > ~0UL / 2 ? 0 : (h->dq->due - us + 999) / 1000;
-      if (n < waitMs)
-        waitMs = n;
+      dueMs = h->dq->due - us > ~0UL / 2 ? 0 : (h->dq->due - us + 999) / 1000;
+      if (dueMs < waitMs)
+        waitMs = dueMs;
     }
     pf[0].fd = h->fd;
     pf[0].events = POLLOUT;
@@ -2358,7 +3399,16 @@ flushDone2:
       acSeatCounters(h->seat, e, &rp->sc[e]);
     acTestCounters(h->seat, &rp->ec, &rp->ic);
     rp->w = h->w;
+    memcpy(rp->w.memDone, h->test.memDone, sizeof (rp->w.memDone));
     rp->w.faultDealt = h->test.dealt;
+    rp->w.valOther = h->test.valOther;
+    rp->w.legReplaced = h->test.legReplaced;
+    rp->w.slotKind = h->test.slotKind;
+    rp->w.unprovedAt = h->test.unprovedAt;
+    rp->w.rcvAgain = h->test.rcvAgain;
+    rp->w.rcvAgainLive = h->test.rcvAgainLive;
+    rp->w.rcvAgainLate = h->test.rcvAgainLate;
+    rp->w.heldOther = h->test.heldOther;
     rp->w.tagPred = h->test.tagPred;
     rp->w.tagBad = h->test.tagBad;
     if (!opSend(h->op, &rp, sizeof (rp)))
@@ -2380,6 +3430,8 @@ exit:
   free(h->res);
   free(h->hwPrev);
   free(h->addr);
+  free(h->byzRow);
+  free(h->bzLeg);
   if (h->fd >= 0)
     close(h->fd);
   close(h->op);
@@ -2400,10 +3452,10 @@ launchProcess(
   S = &P;
   if (!(h = calloc(1, sizeof (*h))))
     return (1);
-  if (!(h->ibuf = malloc(DgramMax + 1))
+  if (!(h->ibuf = malloc(2 * (DgramMax + 1)))
    || !(h->res = calloc(Slots, sizeof (*h->res)))
    || !(h->hwPrev = calloc(N, sizeof (*h->hwPrev)))
-   || !(h->addr = calloc(N, sizeof (*h->addr) + 3 * sizeof (unsigned long) + 1))) {
+   || !(h->addr = calloc(N, sizeof (*h->addr) + 4 * sizeof (unsigned long) + 1))) {
     free(h->ibuf);
     free(h->res);
     free(h->hwPrev);
@@ -2414,7 +3466,8 @@ launchProcess(
   h->geEnd = (unsigned long *)(h->addr + N);
   h->geLast = h->geEnd + N;
   h->lastMem = h->geLast + N;
-  h->geBad = (unsigned char *)(h->lastMem + N);
+  h->byzFirst = h->lastMem + N;
+  h->geBad = (unsigned char *)(h->byzFirst + N);
   h->op = op;
   h->fd = -1;
   h->self = self;
@@ -2472,7 +3525,7 @@ main(
   Knobs.shardDelayUs = -1;
   reboot = rebooted = wasDead = 0;
   memset(next, 0, sizeof (next));
-  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:J:I:q:o:N:3:4:56:2aCRYitVljh")) != -1) {
+  while ((opt = getopt(argc, argv, "D:L:B:K:W:m:d:p:r:g:c:u:f:F:H:k:n:s:z:w:v:x:X:U:S:y:T:Z:A:M:P:b:Q:G:O:e:E:J:I:q:o:N:3:4:56:2789:1:aCRYitVljh")) != -1) {
     switch (opt) {
     case 'D':
       DropPct = atoi(optarg);
@@ -2517,8 +3570,9 @@ main(
       break;
     case 'f':
       Fault = atoi(optarg);
-      if (Fault < AC_FAULT_SHARD || Fault > AC_FAULT_BELOW) {
-        fprintf(stderr, "-f needs 1 (shard), 2 (share), 3 (geometry), 4 (ciphertext), 5 (salted shares), 6 (padding), 7 (two-faced), 8 (split), 9 (a shard and a share), 10 (one apex at two slots), 11 (the second payload at the first's slot) or 12 (the third payload at the first's slot)\n");
+      if (Fault < AC_FAULT_SHARD || Fault > AC_FAULT_SLOTZERO) {
+        fprintf(stderr, "-f needs 1 (shard), 2 (share), 3 (geometry), 4 (ciphertext), 5 (salted shares), 6 (padding), 7 (two-faced), 8 (split), 9 (a shard and a share), 10 (one apex at two slots), 11 (the second payload at the first's slot), ");
+        fprintf(stderr, "12 (the third payload at the first's slot), 13 (two values for one position), 14 (one header under both keys) or 15 (the payload at slot 0)\n");
         return (1);
       }
       break;
@@ -2566,6 +3620,12 @@ main(
     case 'X':
       CutEgr = atoi(optarg);
       break;
+    case '7':
+      CutPast = 1;
+      break;
+    case '8':
+      HoldKept = 1;
+      break;
     case 'U':
       CutUnit = atoi(optarg);
       break;
@@ -2591,6 +3651,10 @@ main(
       Callers = atoi(optarg);
       break;
     case 'O':
+      if (optarg[0] == 'm' && !optarg[1]) {
+        MemOnce = 1;
+        break;
+      }
       if ((optarg[0] != 's' && optarg[0] != 'p') || optarg[1] != ':')
         goto usage;
       RefuseAt = optarg[0] == 'p';
@@ -2630,6 +3694,12 @@ main(
     case 'G':
       RcvBuf = atoi(optarg);
       break;
+    case '9':
+      PushEvery = atoi(optarg);
+      break;
+    case '1':
+      DescHold = atoi(optarg);
+      break;
     case 'Y':
       CutAll = 1;
       break;
@@ -2660,8 +3730,10 @@ main(
       break;
     case 'b':
       Byz = atoi(optarg);
-      if (!Byz || Byz > 255) {
-        fprintf(stderr, "-b needs a mask 1..255: 1 no annotations, 2 random names on the agreement rows, 4 the own INITIAL under the genesis, 8 a sign part byte, 16 a data part byte, 32 a unit's part a byte short, 64 a description byte, 128 a proof that fails\n");
+      if (!Byz || Byz > 131071 || ((Byz & 128) && (Byz & 6144)) || ((Byz & 32768) && !(Byz & 2048))) {
+        fprintf(stderr, "-b needs a mask 1..131071: 1 no annotations, 2 random names on the agreement rows, 4 the own INITIAL under the genesis, 8 a sign part byte, 16 a data part byte, 32 a unit's part a byte short, 64 a description rewritten,\n");
+        fprintf(stderr, "  128 a proof that fails, 256 tags of shapes no correct seat sends, 512 its rows of classes 1-3 under a value a bit off, 1024 echoes of broadcasts their receivers have not begun, 2048 a proof that fails on a row's later copies, 4096 one that fails on its recover legs' data parts and descriptions, neither with 128, 8192 a noop's or rotation's sign part as a data part, 16384 frames under no sender or shorter than their proof,\n");
+        fprintf(stderr, "  32768 with 2048 its recover legs to a seat on a schedule from what that seat holds of them, 65536 another position's noop first on a recover leg\n");
         return (1);
       }
       break;
@@ -2741,6 +3813,7 @@ main(
   if (Callers < N)
     StopAt = Slots;
   if (!(FoldMs = calloc(AC_SEATS * Slots, sizeof (*FoldMs)))
+   || !(LeftMs = calloc(AC_SEATS * Slots, sizeof (*LeftMs)))
    || !(HwAt = calloc(N * Slots, sizeof (*HwAt)))) {
     fprintf(stderr, "no memory\n");
     return (1);
@@ -2750,14 +3823,14 @@ main(
     return (1);
   }
   if (AC_FAULT_SIGNING(Fault) && Count >= 1u << MlsS) {
-    /* -f 7: the dealer spends slot 0 on its apex and never rotates, so
-     * it must not reach its switch; -f 8: it spends a slot of the
+    /* -f 7, -f 15: the dealer spends slot 0 on its apex and never
+     * rotates, so it must not reach its switch; -f 8: it spends a slot of the
      * successor, which the switch would sign at again */
     fprintf(stderr, "-f %d needs -n below %u, the dealer's switch\n", Fault, 1u << MlsS);
     return (1);
   }
-  if (Fault == AC_FAULT_SPLIT && (MlsS < 2 || Count < 3)) {
-    fprintf(stderr, "-f 8 needs -s 2 or more and -n 3 or more: the dealer's second payload, its rotation folded everywhere\n");
+  if ((Fault == AC_FAULT_SPLIT || Fault == AC_FAULT_TWOKEY) && (MlsS < 2 || Count < 3)) {
+    fprintf(stderr, "-f %d needs -s 2 or more and -n 3 or more: the dealer's second payload, its rotation folded everywhere\n", Fault);
     return (1);
   }
   Threshold = MaxByz > 1 ? MaxByz + 1 : 2;      /* T > t and T > 1 */
@@ -2765,6 +3838,13 @@ main(
     /* seat 0's own leaf is refused and the legs carry R - 1: at T = R
      * it is under threshold by arithmetic, which is not the arm */
     fprintf(stderr, "-f %d needs R > T (N - 1 > %u): seat 0 assembles from the legs alone\n", Fault, Threshold);
+    return (1);
+  }
+  if (Fault == AC_FAULT_POOLS && (MlsS < 2 || !MaxByz || N - 1 == Threshold)) {
+    /* the second value at the slot after the first payload's; seats
+     * 0..t-1 dealt its (initial, v) and seat t its sign part, so t >= 1;
+     * seats 0..t-1 refuse their own leaf and assemble from the legs */
+    fprintf(stderr, "-f 13 needs -s 2 or more, t >= 1 and R > T (N - 1 > %u): its second value's slot, seats 0..t, the legs\n", Threshold);
     return (1);
   }
   if (Censor && Fault) {
@@ -2789,12 +3869,16 @@ main(
     fprintf(stderr, "-f 12 needs -s 2 or more, -n 4 or more and -6 3 or more: the dealer in the subsets of its first three slots\n");
     return (1);
   }
-  if (BzSeat && (!Byz || MaxByz < 2)) {
-    fprintf(stderr, "-2 needs -b and t >= 2: two faulty seats\n");
+  if (BzSeat && (!Byz || (MaxByz < 2 && !LapseAt))) {
+    fprintf(stderr, "-2 needs -b, and t >= 2 for two faulty seats or -o, whose seat N-1 is a correct seat\n");
     return (1);
   }
   BzSeat = BzSeat ? N - 2 : N - 1;
-  if (Accomplice && (!Fault || AC_FAULT_SIGNING(Fault) || AC_FAULT_SPENT(Fault) || MaxByz < 2 || Byz || Censor)) {
+  if ((Byz & 65536) && (BzSeat != N - 2 || !Cut || !CutPast || Count != 1 || (Byz & (2048 | 32768)))) {
+    fprintf(stderr, "-b 65536 needs -2, -x with -7 and -n 1, and neither 2048 nor 32768: seat N-1 at position 1 with no high water, position 2 every seat's noop\n");
+    return (1);
+  }
+  if (Accomplice && (!Fault || AC_FAULT_SIGNING(Fault) || AC_FAULT_SPENT(Fault) || Fault == AC_FAULT_POOLS || MaxByz < 2 || Byz || Censor)) {
     fprintf(stderr, "-a needs a dealer's fault of -f 1..6 or 9 and t >= 2, and neither -b nor -C: the dealer and its accomplice are the two faulty seats\n");
     return (1);
   }
@@ -2802,16 +3886,21 @@ main(
     fprintf(stderr, "-O names a member other than seat N-1, 0..N-2, and seat N-1 is a correct seat: neither -f nor -b at it\n");
     return (1);
   }
+  if (MemOnce && (Fault || (Byz && BzSeat == N - 1))) {
+    fprintf(stderr, "-O m refuses seat N-1's memory, and seat N-1 is a correct seat: neither -f nor -b at it\n");
+    return (1);
+  }
   if (Byz && (Censor || Fault)) {
     fprintf(stderr, "-b with -C makes seats 0 and N-1 both faulty; with -f the dealer's expectations are another arm's\n");
     return (1);
   }
-  if (Byz && BzSeat == N - 1 && (Idle || Lag || Cut || CutEgr != ~0u || CutUnit || SplitM)) {
-    fprintf(stderr, "-b with -i, -z, -x, -X, -U or -S acts on seat N-1 twice: one arm at a time, or -2\n");
+  if (Byz && BzSeat == N - 1 && (Idle || Lag || Cut || CutEgr != ~0u || CutUnit || CutAgr || SplitM || LapseAt || LatePast)) {
+    fprintf(stderr, "-b with -i, -z, -x, -X, -U, -q, -S, -o or -5 acts on seat N-1 twice: one arm at a time, or -2\n");
     return (1);
   }
-  if (LapseAt && 2 * (N - 2) <= N + MaxByz) {
-    fprintf(stderr, "-o: the member needs its echoes without seats 0 and 1: 6 1\n");
+  if ((LapseAt || LatePast) && (2 * (N - 2 - !!Byz) <= N + MaxByz || Threshold != 2)) {
+    fprintf(stderr, "-%c: the member needs its echoes without seats 0 and 1, and the Byzantine seat's, and each of the two is given its unit's data parts from two seats, so T = 2: 6 1, with -b 8 1\n",
+            LapseAt ? 'o' : '5');
     return (1);
   }
   if (CutData && !CutUnit) {
@@ -2824,6 +3913,18 @@ main(
   }
   if (CutEgr == ~0u)
     CutEgr = Cut;
+  if (HoldKept && (!Cut || CutAll || CutEgr != Cut || CutPast || N <= 4 + MaxByz || !MaxByz || Count < 3 || reboot)) {
+    fprintf(stderr, "-8 needs -x, t >= 1, N > 4 + t and -n 3 or more, and not -Y, -X, -7 or -R: seat 2's value echoed without seats 0 and N-1\n");
+    return (1);
+  }
+  if (CutPast && (!Cut || CutAll || CutEgr != Cut || DelayMs || (Older && !OlderRcv))) {
+    fprintf(stderr, "-7 needs -x, and not -Y, -X, -L or -I without -h: a row said while its position was live never comes after the cut\n");
+    return (1);
+  }
+  if (DescHold && (!CutPast || DescHold > 2)) {
+    fprintf(stderr, "-1 is 1 or 2, and needs -x and -7: seat N-1 carried by recover legs alone\n");
+    return (1);
+  }
 
   for (i = 0; i < AC_SEATS; ++i) {
     pub[i] = 0;
@@ -2856,12 +3957,21 @@ main(
    * three rounds each waiting its patience, step 2's patience and the
    * first phase of those that decide 0 -- the patience already holding
    * the retries the declared loss makes */
-  if (abandonOwn)
+  if (abandonOwn) {
+    if (Patience > ((unsigned int)-1 / 2 - 1) / 7) {
+      fprintf(stderr, "-g %u: twice 1 + 7 patiences is past the counts; declare -A\n", Patience);
+      return (1);
+    }
     Abandon = 2 * (1 + 7 * Patience);
+  }
   /* a guard only: the longest arm ends under a quarter of it, its end
-   * run an abandon past its last link */
-  if (!TickCap)
-    TickCap = 128 * (StopAt ? StopAt : QUOTA(N - 1) + 1) + 4 * Abandon;
+   * run an abandon past its last link, the longest the count holds */
+  if (!TickCap) {
+    unsigned long c;
+
+    c = 128UL * (StopAt ? StopAt : QUOTA(N - 1) + 1) + 4UL * Abandon;
+    TickCap = c > (unsigned int)-1 ? (unsigned int)-1 : c;
+  }
   Dead = Cut && !CutAll && Cut >= TickCap && CutEgr >= TickCap;
   /* again at the tick and the abandon the seats will derive */
   if (acTestDerive(S, &Knobs)) {
@@ -2871,10 +3981,15 @@ main(
   /* the derivation's refusals as ac.h states them, a sample of each
    * kind, one breach on a copy that otherwise derives */
   {
+    struct acTest k;
     struct acPar q;
     struct acHash hs;
     struct acHash hk;
     unsigned int bad;
+    unsigned int p0;
+    unsigned int n0;
+    int d0;
+    static const unsigned char nf[][2] = { { 13, 58 }, { 14, 53 }, { 14, 64 } };
 
     q = P;
     bad = !!acTestDerive(&q, &Knobs);
@@ -2903,10 +4018,310 @@ main(
     hk.hkdf = 0;
     q.kdf = &hk;
     bad |= !acTestDerive(&q, &Knobs) << 6;
-    printf("parameters refused: a self past n - 1, a sign width not 1 << h, an h past the width's, a sign role without final, a kdf of no width, a kdf role without hkdf: %s\n",
+    /* a kdf role without its keyed HMAC's size, keying or run, a keyed
+     * state of no bytes, and one whose n copies pass the count */
+    hk = *P.kdf;
+    hk.ktsize = 0;
+    q.kdf = &hk;
+    bad |= !acTestDerive(&q, &Knobs) << 25;
+    hk = *P.kdf;
+    hk.kinit = 0;
+    q.kdf = &hk;
+    bad |= !acTestDerive(&q, &Knobs) << 26;
+    hk = *P.kdf;
+    hk.khmac = 0;
+    q.kdf = &hk;
+    bad |= !acTestDerive(&q, &Knobs) << 27;
+    hk = *P.kdf;
+    hk.ktsize = ktsize0;
+    q.kdf = &hk;
+    bad |= !acTestDerive(&q, &Knobs) << 28;
+    hk = *P.kdf;
+    hk.ktsize = ktsizeMax;
+    q.kdf = &hk;
+    bad |= !acTestDerive(&q, &Knobs) << 29;
+    /* the counts past an unsigned int: a patience no abandon passes; at
+     * t > 0 an abandon under 1 + 7 patiences whose product wraps; a
+     * burst's patience at a tick of 1 ms; a burst's patience at the
+     * derived tick, or the run's where the run sets one the derived
+     * refuses, in full, its ceiling over the patience with no burst; a
+     * delay whose round trip wraps, the tick the longest it holds where
+     * the seat's clock holds that, refused where it does not; a pacing
+     * of LONG_MAX, past the framer's four bytes where a long is 64
+     * bits, its train past the framer's quarter where it is 32 */
+    k = Knobs;
+    k.patience = (unsigned int)-1;
+    q = P;
+    q.abandon = (unsigned int)-1;
+    bad |= !acTestDerive(&q, &k) << 7;
+    if (P.t) {
+      k.patience = 0x30000000;
+      q = P;
+      q.abandon = 0x50000001;
+      bad |= !acTestDerive(&q, &k) << 8;
+    }
+    k = Knobs;
+    k.patience = 0;
+    k.tickMs = 1;
+    q = P;
+    q.burstMs = (unsigned int)-1;
+    q.abandon = (unsigned int)-1;
+    bad |= !acTestDerive(&q, &k) << 9;
+    k.tickMs = 0;
+    q = P;
+    q.burstMs = 0;
+    q.abandon = (unsigned int)-1;
+    if ((d0 = acTestDerive(&q, &k)) && Knobs.tickMs) {
+      k.tickMs = Knobs.tickMs;
+      q = P;
+      q.burstMs = 0;
+      q.abandon = (unsigned int)-1;
+      d0 = acTestDerive(&q, &k);
+    }
+    p0 = q.patience;
+    q = P;
+    q.burstMs = (unsigned int)-1;
+    q.abandon = (unsigned int)-1;
+    bad |= (d0 || acTestDerive(&q, &k) || q.patience != p0 + (q.burstMs - 1) / q.tickMs + 1) << 10;
+    k = Knobs;
+    k.tickMs = 0;
+    q = P;
+    q.delayMs = 0x80000000;
+    if ((unsigned long)-1 / 2 / 1000 >= (unsigned int)-1)
+      bad |= (acTestDerive(&q, &k) || q.tickMs != (unsigned int)-1) << 11;
+    else
+      bad |= !acTestDerive(&q, &k) << 11;
+    k = Knobs;
+    k.tickMs = 0;
+    k.shardDelayUs = LONG_MAX;
+    q = P;
+    bad |= !acTestDerive(&q, &k) << 12;
+    /* where a long holds a full datagram's bits, the framer's four
+     * bytes of pace: 1260 wire bytes at 2 bits/s is 5.04e9 us, at 3
+     * bits/s 3.36e9; where it does not, pace's bits: 537 wire bytes x
+     * 8e6 is past 2^32 - 1, 536 not; the longest message's train at
+     * the last pacing the framer's quarter of a long holds, and one
+     * past; at 58/64 and 53/64 of that pacing, and at it, a tick past
+     * half the seat's clock from twelve and thirteen other seats'
+     * datagrams alone, its products summed in full; sha256 at 1013 bits/s and every parity, a full-shard
+     * message's train past the quarter where the longest message's is
+     * not; sha256 at 300 bits/s, the tick with the longest train past
+     * half the clock where each alone is not */
+    k = Knobs;
+    k.shardDelayUs = -1;
+    q = P;
+    if ((unsigned long)-1 / 1260 >= 8000000) {
+      q.dgramMax = 0;
+      q.bwLimit = 2;
+      bad |= !acTestDerive(&q, &k) << 13;
+      q = P;
+      q.dgramMax = 0;
+      q.bwLimit = 3;
+      bad |= !!acTestDerive(&q, &k) << 14;
+    } else {
+      q.dgramMax = 509;
+      bad |= !acTestDerive(&q, &k) << 17;
+      q = P;
+      q.dgramMax = 508;
+      bad |= !!acTestDerive(&q, &k) << 18;
+      k = Knobs;
+      k.tickMs = 1000;
+      k.parity = 0;
+      k.shardDelayUs = -1;
+      q = P;
+      q.dgramMax = 508;
+      d0 = acTestDerive(&q, &k);
+      k.shardDelayUs = (unsigned long)-1 / 4 / ((q.partMax + q.hmacSz + q.shard - 1) / q.shard);
+      q = P;
+      q.dgramMax = 508;
+      bad |= (d0 || acTestDerive(&q, &k)) << 20;
+      ++k.shardDelayUs;
+      q = P;
+      q.dgramMax = 508;
+      bad |= !acTestDerive(&q, &k) << 21;
+      for (n0 = 0; n0 < sizeof (nf) / sizeof (nf[0]); ++n0) {
+        k.tickMs = 0;
+        k.shardDelayUs = -1;
+        q = P;
+        q.n = nf[n0][0];
+        q.t = 4;
+        q.self = 0;
+        q.retention = 0;
+        q.dgramMax = 508;
+        d0 = acTestDerive(&q, &k);
+        k.shardDelayUs = (unsigned long)-1 / 4 / ((q.partMax + q.hmacSz + q.shard - 1) / q.shard) / 64 * nf[n0][1];
+        q = P;
+        q.n = nf[n0][0];
+        q.t = 4;
+        q.self = 0;
+        q.retention = 0;
+        q.dgramMax = 508;
+        q.delayMs = 0;
+        bad |= (d0 || !acTestDerive(&q, &k)) << 19;
+      }
+      k = Knobs;
+      k.tickMs = 1000;
+      k.parity = 255;
+      k.shardDelayUs = -1;
+      q = P;
+      q.sign = q.kdf = &Suites[2];
+      q.n = 4;
+      q.t = 1;
+      q.self = 0;
+      q.dgramMax = 508;
+      q.bwLimit = 1013;
+      q.retention = 0;
+      q.abandon = (unsigned int)-1;
+      bad |= !acTestDerive(&q, &k) << 23;
+      k.tickMs = 0;
+      k.parity = -1;
+      q = P;
+      q.sign = q.kdf = &Suites[2];
+      q.n = 4;
+      q.t = 1;
+      q.self = 0;
+      q.dgramMax = 508;
+      q.bwLimit = 300;
+      q.lossPct = 0;
+      q.delayMs = 0;
+      q.burstMs = 0;
+      q.retention = 0;
+      q.abandon = (unsigned int)-1;
+      bad |= !acTestDerive(&q, &k) << 24;
+    }
+    /* a description longer than any part: the 8-byte sign role at 256
+     * seats */
+    k = Knobs;
+    q = P;
+    q.sign = &Sign8;
+    q.n = 256;
+    q.t = 85;
+    q.self = 0;
+    q.retention = 0;
+    q.abandon = (unsigned int)-1;
+    bad |= (acTestDerive(&q, &k) || q.partMax < BITS(256) + 256 * Sign8.size) << 22;
+    if (LONG_MAX / 65536 > 65535) {
+      k = Knobs;
+      k.tickMs = 0;
+      k.shardDelayUs = 65535;
+      k.shardDelayUs = k.shardDelayUs * 65536 + 65535;
+      q = P;
+      bad |= !!acTestDerive(&q, &k) << 15;
+      ++k.shardDelayUs;
+      q = P;
+      bad |= !acTestDerive(&q, &k) << 16;
+    }
+    /* a pacing set at 0, which gives a send no wire time, and at 1 */
+    k = Knobs;
+    k.tickMs = 0;
+    k.shardDelayUs = 0;
+    q = P;
+    bad |= !acTestDerive(&q, &k) << 30;
+    k.shardDelayUs = 1;
+    q = P;
+    bad |= !!acTestDerive(&q, &k) << 30;
+    printf("parameters refused: a self past n - 1, a sign width not 1 << h, an h past the width's, a sign role without final, a kdf of no width, a kdf role without hkdf, ktsize, kinit or khmac, a keyed state of no bytes or past the count, ");
+    printf("a patience past the counts, a pacing set at 0, a pacing past the framer's four bytes, derived or set, and where a long is 32 bits a datagram past 508 bytes, a tick past half the clock, a train past the framer's quarter, a train with the talk past half the clock; a description in the parts; a burst's patience and a delay's tick in full: %s\n",
            bad ? "FAIL" : "ok");
     if (bad) {
       fprintf(stderr, "the derivation's refusals: 0x%x\n", bad);
+      return (1);
+    }
+  }
+  /* the deployment's entry, as ac.h states it: acDerive the knobs'
+   * derivation with none set, and refusing no parameters; acInit
+   * refusing no parameters, parameters derive refuses, no callbacks, or
+   * one required missing, and
+   * a seat it makes running by the parameters derived, which acPar
+   * gives, and nothing for no seat; and every call's refusals on a seat
+   * not gone, or none; no callback but random is called before the go */
+  {
+    struct acTest zk;
+    struct acPar q;
+    struct acPar qk;
+    struct acCb cb;
+    struct ac *a;
+    const struct acPar *ap;
+    unsigned int bad;
+    int dr;
+
+    memset(&zk, 0, sizeof (zk));
+    zk.parity = -1;
+    zk.shardDelayUs = -1;
+    q = qk = P;
+    dr = acDerive(&q);
+    bad = (dr != acTestDerive(&qk, &zk)) | (!dr && (q.T != qk.T || q.msgMax != qk.msgMax || q.tickMs != qk.tickMs
+                                                   || q.patience != qk.patience || q.rounds != qk.rounds)) << 1;
+    bad |= (acDerive(0) != -1) << 2;
+    memset(&cb, 0, sizeof (cb));
+    cb.chain = hChain;
+    cb.message = hMessage;
+    cb.released = hReleased;
+    cb.send = hSend;
+    cb.random = hRandom;
+    bad |= !!(a = acInit(&P, &cb)) << 3;
+    acFree(a);
+    cb.propose = hPropose;
+    cb.chain = 0;
+    bad |= !!(a = acInit(&P, &cb)) << 9;
+    acFree(a);
+    cb.chain = hChain;
+    cb.message = 0;
+    bad |= !!(a = acInit(&P, &cb)) << 10;
+    acFree(a);
+    cb.message = hMessage;
+    cb.released = 0;
+    bad |= !!(a = acInit(&P, &cb)) << 11;
+    acFree(a);
+    cb.released = hReleased;
+    cb.send = 0;
+    bad |= !!(a = acInit(&P, &cb)) << 12;
+    acFree(a);
+    cb.send = hSend;
+    cb.random = 0;
+    bad |= !!(a = acInit(&P, &cb)) << 13;
+    acFree(a);
+    cb.random = hRandom;
+    bad |= !!(a = acInit(0, &cb)) << 4;
+    acFree(a);
+    bad |= !!(a = acInit(&P, 0)) << 5;
+    acFree(a);
+    if (!dr) {
+      if (!(a = acInit(&P, &cb)) || !(ap = acPar(a)) || ap->n != N || ap->T != q.T || ap->msgMax != q.msgMax
+       || ap->tickMs != q.tickMs || ap->patience != q.patience)
+        bad |= 1 << 6;
+      else {
+        unsigned char z[AC_PSK + AC_HASH_MAX];
+        struct acCounters zc;
+        struct acSeatCounters zs;
+
+        /* a seat made and not gone: each call refusing what ac.h says
+         * it refuses, and none of them a go */
+        memset(z, 0, sizeof (z));
+        bad |= (acDeal(0, (P.self + 1) % N, z, z + AC_PSK) != -1 || acDeal(a, (P.self + 1) % N, 0, z) != -1
+             || acDeal(a, P.self, z, z + AC_PSK) != -1 || (N < 256 && acDeal(a, N, z, z + AC_PSK) != -1)) << 14;
+        bad |= (acGo(0, z, 0) != -1 || acGo(a, 0, 0) != -1 || acGo(a, z, 0) != -1) << 15;
+        bad |= (acInput(0, z, 1, 0) != -1 || acInput(a, 0, 1, 0) != -1 || acInput(a, z, 1, 0) != -1) << 16;
+        bad |= (acWork(0, 0) != -1 || acWork(a, 0) != -1) << 17;
+        bad |= (acSeatCounters(0, 0, &zs) != -1 || acSeatCounters(a, P.self, &zs) != -1
+             || (N < 256 && acSeatCounters(a, N, &zs) != -1)) << 18;
+        acCounters(0, &zc);
+        acCounters(a, 0);
+        acTestCounters(0, 0, 0);
+        acEnd(0);
+        acQuiet(0);
+      }
+      acFree(a);
+    }
+    acFree(0);
+    bad |= !!acPar(0) << 7;
+    q = P;
+    q.self = N;
+    bad |= !!(a = acInit(&q, &cb)) << 8;
+    acFree(a);
+    printf("the deployment's entry: acDerive with no knobs, acInit's refusals and its seat, acPar, every call's refusals: %s\n", bad ? "FAIL" : "ok");
+    if (bad) {
+      fprintf(stderr, "the deployment's entry: 0x%x\n", bad);
       return (1);
     }
   }
@@ -3068,6 +4483,10 @@ deal:
     unsigned int egrMsg;
     unsigned int igrMsg;
     unsigned int igrRefused;
+    unsigned int igrUnmarked;
+    unsigned int igrMarkAgain;
+    unsigned int igrHash;
+    unsigned int malNamed;              /* -b 16384: the malformed arrivals counted to a sender */
     unsigned int egrFrg;
     unsigned int igrFrg;
     unsigned int wSent;
@@ -3076,6 +4495,8 @@ deal:
     unsigned int wStressed;
     unsigned int wRefused;
     unsigned int wNoBufs;
+    unsigned int wPushed;
+    unsigned int wPushSame;
     unsigned int dropped;
     unsigned int unitMax;
     unsigned int dealerIn;
@@ -3107,6 +4528,7 @@ deal:
     roundMost = 0;
     idleRows = otherRows = 0;
     byzIn = byzDup = 0;
+    malNamed = 0;
     recoveredLast = 0;
     sub = 0;
     msg = 0;
@@ -3224,10 +4646,11 @@ deal:
              : Fault == AC_FAULT_SALT ? "salted-shares" : Fault == AC_FAULT_PAD ? "padding-fault"
              : Fault == AC_FAULT_TWOFACE ? "two-faced" : Fault == AC_FAULT_SPLIT ? "split"
              : Fault == AC_FAULT_TWOSLOT ? "two-slot" : Fault == AC_FAULT_REUSE ? "reused-slot"
-             : Fault == AC_FAULT_BELOW ? "slot-below" : "shard-and-share-fault");
+             : Fault == AC_FAULT_BELOW ? "slot-below" : Fault == AC_FAULT_POOLS ? "two-valued"
+             : Fault == AC_FAULT_TWOKEY ? "two-key" : Fault == AC_FAULT_SLOTZERO ? "slot-zero" : "shard-and-share-fault");
     printf(") ---\n");
     totSaid = 0;
-    lossless = !Copies && !Older && !DropPct && !BurstLen && !Freeze
+    lossless = !Copies && !Older && !DropPct && !BurstLen && !Freeze && !(Byz & 16384)
             && ParityShards <= 0 && !Cut && !CutEgr && !CutUnit && !CutAgr && !SplitM && !NLinks && !LapseAt && !StrandAt && !OwnOnly && !NoDesc && !LatePast;
     printf("instances %u, %u signings a context\n", Count, 1u << MlsS);
     allAgree = allLinked = allFolded = allMessages = allUniform = 1;
@@ -3506,9 +4929,10 @@ deal:
           if (Fault && j == N - 1 && !RP_MKIND(sp)[j]) {
             ++dealerIn;
             if (Fault == AC_FAULT_CT
-             || (Fault != AC_FAULT_PAD && !AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault) && N - 1 == Threshold))
+             || (Fault != AC_FAULT_PAD && !AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault) && Fault != AC_FAULT_POOLS
+              && N - 1 == Threshold))
               want = AC_EXHAUSTED;
-            else if (!AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault))
+            else if (!AC_FAULT_SPENT(Fault) && !AC_FAULT_SIGNING(Fault) && Fault != AC_FAULT_POOLS)
               want = AC_INCONSISTENT;
           }
           if (!mp) {
@@ -3721,8 +5145,11 @@ deal:
            : Fault == AC_FAULT_TWOFACE ? " (the dealer's: its apex in a rotation's shape refused at seat 0, the message from the legs)"
            : Fault == AC_FAULT_SPLIT ? " (the dealer's: its apex signed by its successor refused at seat 0, the message from the legs)"
            : Fault == AC_FAULT_TWOSLOT ? " (the dealer's: its apex signed at a second slot refused at seat 0, the message from the legs)"
+           : Fault == AC_FAULT_TWOKEY ? " (the dealer's: its header signed under its successor refused at seat 0, the message from the legs)"
+           : Fault == AC_FAULT_SLOTZERO ? " (the dealer's: its apex signed at slot 0 refused at seat 0 by the slot, the message from the legs)"
            : Fault == AC_FAULT_REUSE ? " (the dealer's: the payload at its first payload's slot in no subset)"
            : Fault == AC_FAULT_BELOW ? " (the dealer's: the payload below its second payload's slot in no subset)"
+           : Fault == AC_FAULT_POOLS ? " (the dealer's: its first value, seats 0..t-1 dealt the second's (initial, v), the message from the legs)"
            : N - 1 == Threshold && Fault != AC_FAULT_PAD ? " (the dealer's: no message, one bad part is in every subset at T = R)"
            : " (the dealer's: no message, its commitment inconsistent)", allMessages ? "ok" : "FAIL");
     if (budgetHit)
@@ -3734,7 +5161,8 @@ deal:
        * run */
       printf("the dealer %u's payload is in no seat's subset%s\n", N - 1,
              Fault == AC_FAULT_GEOM ? ": its fault was refused at receive"
-             : AC_FAULT_SIGNING(Fault) ? ": FAIL, one seat's refusal cannot keep it out" : ": FAIL, its units verify everywhere");
+             : AC_FAULT_SIGNING(Fault) || Fault == AC_FAULT_POOLS ? ": FAIL, t seats' refusal cannot keep it out"
+             : ": FAIL, its units verify everywhere");
       if (Fault != AC_FAULT_GEOM)
         exitCode = 1;
     }
@@ -3912,7 +5340,6 @@ deal:
       tot.kept += c->kept;
       tot.keptMembers += c->keptMembers;
       tot.keptPassed += c->keptPassed;
-      tot.keptUnder += c->keptUnder;
       tot.keptNow += c->keptNow;
       if (c->placedAfter > tot.placedAfter)
         tot.placedAfter = c->placedAfter;
@@ -3977,7 +5404,6 @@ deal:
         if (a->rttMost > attr[j].rttMost)
           attr[j].rttMost = a->rttMost;
         attr[j].rtts += a->rtts;
-        attr[j].sweptHeld += a->sweptHeld;
         attr[j].live += a->live;
         attr[j].authBad += a->authBad;
         attr[j].recorded += a->recorded;
@@ -4008,6 +5434,11 @@ deal:
         wtot.censored += ctr[i]->w.censored;
         wtot.held += ctr[i]->w.held;
         wtot.faultDealt += ctr[i]->w.faultDealt;
+        wtot.valOther += ctr[i]->w.valOther;
+        wtot.legReplaced += ctr[i]->w.legReplaced;
+        wtot.slotKind += ctr[i]->w.slotKind;
+        wtot.unprovedAt |= ctr[i]->w.unprovedAt;
+        wtot.heldOther += ctr[i]->w.heldOther;
         wtot.tagPred += ctr[i]->w.tagPred;
         wtot.tagBad += ctr[i]->w.tagBad;
         wtot.byz += ctr[i]->w.byz;
@@ -4041,10 +5472,12 @@ deal:
     printf("messages said %lu  refused unproved, held already %u  HMACs run %u, failed %u\n",
            totSaid, tot.copy, tot.authRun, tot.igrAuth);
     /* -J: what a copy cost is the point: an HMAC for what was said and
-     * none for what the network said again */
-    if ((Copies || Older) && (!tot.copy || tot.authRun > totSaid)) {
-      printf("copies of datagrams: %u refused unproved and %u HMACs for %lu messages said: FAIL\n",
-             tot.copy, tot.authRun, totSaid);
+     * none for what the network said again.  A proof that fails records
+     * nothing, so the network's copy of it is paid again: what is held
+     * to the messages said is the HMACs that proved */
+    if ((Copies || Older) && (!tot.copy || tot.authRun - tot.igrAuth > totSaid)) {
+      printf("copies of datagrams: %u refused unproved and %u HMACs proved for %lu messages said: FAIL\n",
+             tot.copy, tot.authRun - tot.igrAuth, totSaid);
       exitCode = 1;
     }
     /* -I: an old copy starts no recover legs where its sender's later word
@@ -4068,6 +5501,31 @@ deal:
              BzSeat, attr[BzSeat].authBad, byzIn);
       exitCode = 1;
     }
+    if ((Byz & 6144) && !attr[BzSeat].authBad) {
+      printf("seat %u's proofs fail on a row's later copies or on its data parts and descriptions: none refused, FAIL\n", BzSeat);
+      exitCode = 1;
+    }
+    if ((Byz & 65536) && !wtot.legReplaced) {
+      printf("-b 65536: no sign part on a recover leg under its (initial, v) replaced one held under another apex (X %d): the arm did not run\n", (int)RelX - 1);
+      exitCode = 1;
+    }
+    if ((Byz & 2048) && LapseAt && !(wtot.unprovedAt & 8)) {
+      /* its recover legs toward seats 0 and 1, its parts of the member
+       * withheld there, run to their count with the member kept short:
+       * its INITIAL again is a later copy, refused where a proved one
+       * would start the leg again */
+      printf("-b 2048 with -o: no recover leg's INITIAL again at its count toward a member kept met unproved: the arm did not run\n");
+      exitCode = 1;
+    }
+    if ((Byz & 32768) && (wtot.unprovedAt & 7) != 7) {
+      /* a returner holds the first leg's description off its proved
+       * copy, and each other leg of seat BzSeat's to it is whole with
+       * its BESIDE unfed: its INITIAL, unit and description come again
+       * unproved, each refused where a proved one would feed BESIDE */
+      printf("-b 32768: a recover leg whole past its sender's description held met unproved at sites %u of 7"
+             " (1 its INITIAL, 2 its unit, 4 its description): the arm did not run\n", wtot.unprovedAt & 7);
+      exitCode = 1;
+    }
     printf("leg rows with no instance here %u  rows to a stopped ACS seat %u"
            "  rows held under a name not yet minted %u (re-sent %u, not held, the window full of the sender's %u, read at the launch %u, at most %u in one call)  positions launched on another seat's rows %u\n",
            tot.noInstance, tot.stopped, tot.future, tot.aheadDup, tot.aheadFull, tot.replayed, tot.replayMost, tot.launchOnRows);
@@ -4084,16 +5542,16 @@ deal:
     printf("retention: rows naming a retained position %u  recover legs started %u  records held at the stop %u (%lu bytes; the most at once at one seat %lu)  let go %u\n",
            tot.recorded, tot.recoverStarts, tot.retained, tot.retainedBytes, tot.retainedMost, tot.released);
     printf("recovery: recover descriptions refused %u  positions folded on T of them alike %u, %u of them at seat %u\n"
-           "kept past the live window: positions %u, members %u, of them reported with the message %u, under threshold %u, unreported %u;"
+           "kept past the live window: positions %u, members %u, of them reported with the message %u, unreported %u;"
            " parts placed %u, at most %u ticks after their position left the window\n",
            tot.rcvRefused, tot.recovered, recoveredLast, N - 1,
-           tot.kept, tot.keptMembers, tot.keptPassed, tot.keptUnder, tot.keptNow, tot.placed, tot.placedAfter);
+           tot.kept, tot.keptMembers, tot.keptPassed, tot.keptNow, tot.placed, tot.placedAfter);
     printf("attribution, by the sender a message's HMAC verified or the signer, summed over the seats, the window ticks the newest:\n");
     for (i = 0; i < N; ++i)
-      printf("  seat %u: rows live %u recorded %u held %u (full %u) re-sent %u  swept to it %u (held %u)  in held already %u  replied to it %u  round trips %u (least at most %lu ms, most %lu ms)  no instance %u stopped %u lost %u"
+      printf("  seat %u: rows live %u recorded %u held %u (full %u) re-sent %u  swept to it %u  in held already %u  replied to it %u  round trips %u (least at most %lu ms, most %lu ms)  no instance %u stopped %u lost %u"
              "  malformed %u notInitiator %u initOther %u parts refused %u (unchecked %u)  signer faults %u"
              "  last live t=%u record t=%u held t=%u\n",
-             i, attr[i].live, attr[i].recorded, attr[i].held, attr[i].heldFull, attr[i].resent, attr[i].swept, attr[i].sweptHeld, dupIn[i],
+             i, attr[i].live, attr[i].recorded, attr[i].held, attr[i].heldFull, attr[i].resent, attr[i].swept, dupIn[i],
              attr[i].replied, attr[i].rtts, attr[i].rttLeast / 1000, attr[i].rttMost / 1000, attr[i].noInstance, attr[i].stopped, attr[i].loss, attr[i].malformed, attr[i].notInitiator, attr[i].initOther,
              attr[i].unitBad[AC_UNIT_LEN] + attr[i].unitBad[AC_UNIT_SIG] + attr[i].unitBad[AC_UNIT_SSS] + attr[i].unitBad[AC_UNIT_RSEC],
              attr[i].partOther,
@@ -4192,17 +5650,21 @@ deal:
         exitCode = 1;
       }
       /* the harness's ground truth, never a seat's: seat N-1 folded a
-       * link more than the abandon, and two ticks, after the first
-       * other seat folded it, so it folded on what the ring held */
+       * position every other correct seat had let go of the machines of
+       * before its return, so no row of it was live to carry seat N-1 and
+       * it folded on what the ring held */
       behind = 0;
-      for (k = 0; k < Count; ++k) {
-        unsigned long first;
-
-        for (first = 0, i = 0; i < N - 1; ++i)
-          if (FoldMs[i * Slots + k] && (!first || FoldMs[i * Slots + k] < first))
-            first = FoldMs[i * Slots + k];
-        if (first && FoldMs[(N - 1) * Slots + k] > first + (unsigned long)(Abandon + 2) * TickMs)
+      for (k = 0; BackMs && k < Count && k < Slots; ++k) {
+        if (!FoldMs[(N - 1) * Slots + k])
+          continue;
+        for (i = 0; i < N - 1 && ((Byz && i == BzSeat) || (LeftMs[i * Slots + k] && LeftMs[i * Slots + k] <= BackMs)); ++i)
+          ;
+        if (i == N - 1)
           behind = 1;
+      }
+      if (CutPast && !behind) {
+        printf("seat %u's cut ended with the others ended short of letting go of a position it had not folded: the arm did not run, FAIL\n", N - 1);
+        exitCode = 1;
       }
       /* a freeze thaws when the others have folded its positions past
        * the ones it had, or the whole chain: a chain that ended before
@@ -4269,7 +5731,7 @@ deal:
        * honest seats' timing, and its INITIAL is its own and may be
        * late like any seat's.  Every count is in its row of the table,
        * summed over the seats that counted it */
-      if ((Byz & 127) && !wtot.byz) {
+      if ((Byz & 26239) && !wtot.byz) {
         printf("seat %u rewrote no tag or part: the arm did not fire, FAIL\n", BzSeat);
         exitCode = 1;
       }
@@ -4302,9 +5764,24 @@ deal:
       }
       /* hostile bytes under its own key: every part so sent refused at
        * a gate and counted to it, and no honest seat's part refused */
-      if ((Byz & 56) && !(attr[BzSeat].unitBad[AC_UNIT_LEN] + attr[BzSeat].unitBad[AC_UNIT_SIG]
+      if ((Byz & 8248) && !(attr[BzSeat].unitBad[AC_UNIT_LEN] + attr[BzSeat].unitBad[AC_UNIT_SIG]
                           + attr[BzSeat].unitBad[AC_UNIT_SSS] + attr[BzSeat].unitBad[AC_UNIT_RSEC])) {
         printf("seat %u sent hostile parts and none was refused: the gates are blind, FAIL\n", BzSeat);
+        exitCode = 1;
+      }
+      if ((Byz & 256) && (!attr[BzSeat].malformed || !attr[BzSeat].notInitiator)) {
+        printf("seat %u sent tags of shapes no correct seat sends and the counters attribute it %u malformed, %u not their initiator's: FAIL\n",
+               BzSeat, attr[BzSeat].malformed, attr[BzSeat].notInitiator);
+        exitCode = 1;
+      }
+      if ((Byz & 1024) && !attr[BzSeat].noInstance) {
+        printf("seat %u sent rows of broadcasts their receivers had not begun and the counters attribute it no row without an instance: FAIL\n",
+               BzSeat);
+        exitCode = 1;
+      }
+      if ((Byz & 512) && (!attr[BzSeat].initOther || byzIn)) {
+        printf("seat %u sent its rows under a value a bit off and the counters attribute it %u under another value, in %u subsets after the first: FAIL\n",
+               BzSeat, attr[BzSeat].initOther, byzIn);
         exitCode = 1;
       }
       if ((Byz & 64) && !attr[BzSeat].rcvRefused) {
@@ -4337,9 +5814,9 @@ deal:
     }
     /* what a correct run leaves at zero: the faults, by the row of the
      * seat they are counted to, every honest seat's row at zero, and
-     * the Byzantine seat's too but for the one its bits predict, an
-     * INITIAL under another value from bit 4; a frame refused from its
-     * length names no seat and stays in the seat-wide count */
+     * the Byzantine seat's too but for the counts its bits predict; a
+     * frame refused from its length names no seat and stays in the
+     * seat-wide count */
     {
       unsigned int faults;
       unsigned int named;
@@ -4348,8 +5825,13 @@ deal:
       named = 0;
       for (i = 0; i < N; ++i) {
         named += attr[i].malformed;
-        faults += attr[i].malformed + attr[i].notInitiator + attr[i].secondApex
-                + attr[i].signReplaced;
+        /* -f 13: the dealer's two values, each refused or replaced
+         * under the other, are its own; -f 14: its header under its
+         * successor's key, refused past the signature */
+        if (!AC_FAULT_OWNAPEX(Fault) || i != N - 1)
+          faults += attr[i].secondApex + ((Byz & 65536) && i + 1 == RelX ? 0 : attr[i].signReplaced);
+        if (!(Byz & 256) || i != BzSeat)
+          faults += attr[i].malformed + attr[i].notInitiator;
         /* -f 11, -f 12: the dealer's spent slot, refused, is its own */
         if (Fault != AC_FAULT_REUSE || i != N - 1)
           faults += attr[i].slotReused;
@@ -4358,27 +5840,41 @@ deal:
         /* a signing fault's copy refused at seat 0 on its value is the
          * dealer's, as one refused at its signature gate is; so is a
          * sign part -b 8 flipped in its offset or hashes, refused on
-         * its value before its signature is read */
-        if ((!AC_FAULT_SIGNING(Fault) || i != N - 1) && (!(Byz & 8) || i != BzSeat))
+         * its value before its signature is read, and a part -b 512's
+         * seat carries beside its INITIAL under another value */
+        if (((!AC_FAULT_SIGNING(Fault) && Fault != AC_FAULT_POOLS) || i != N - 1) && (!(Byz & 520) || i != BzSeat))
           faults += attr[i].partOther;
         if (!(Byz & 64) || i != BzSeat)
           faults += attr[i].rcvRefused;
-        if (!(Byz & 4) || i != BzSeat)
+        /* and -f 13's: the first value's INITIAL at seat t holding the
+         * second's sign part */
+        if ((!(Byz & (516 | 65536)) || i != BzSeat) && (Fault != AC_FAULT_POOLS || i != N - 1))
           faults += attr[i].initOther;
       }
-      if (faults || tot.malformed - named || tot.qDrop || tot.aheadMem || (tot.asmAlloc && !Refuse) || tot.proposeLong
-       || (!Byz && (tot.notInitiator || (Fault != AC_FAULT_REUSE && tot.slotReused) || (Fault != AC_FAULT_BELOW && tot.offsetReplay) || tot.secondApex || tot.signReplaced || tot.initOther))) {
+      /* -O m: seat N-1's memory counters are its refusals; every other
+       * seat's stay at zero */
+      malNamed = named;
+      if (faults || (tot.malformed - named && !(Byz & 16384)) || tot.qDrop - (MemOnce && ctr[N - 1] ? ctr[N - 1]->c.qDrop : 0)
+       || tot.aheadMem - (MemOnce && ctr[N - 1] ? ctr[N - 1]->c.aheadMem : 0)
+       || (tot.asmAlloc - (MemOnce && ctr[N - 1] ? ctr[N - 1]->c.asmAlloc : 0) && !Refuse) || tot.proposeLong
+       || (!Byz && (tot.notInitiator || (Fault != AC_FAULT_REUSE && tot.slotReused) || (Fault != AC_FAULT_BELOW && tot.offsetReplay)
+                   || tot.secondApex - (AC_FAULT_OWNAPEX(Fault) ? attr[N - 1].secondApex : 0)
+                   || tot.signReplaced - (AC_FAULT_OWNAPEX(Fault) ? attr[N - 1].signReplaced : 0)
+                   || tot.initOther - (Fault == AC_FAULT_POOLS ? attr[N - 1].initOther : 0)))) {
         printf("a counter a correct run leaves at zero is not (the faults by seat, malformed, qDrop, held rows refused by memory,"
                " assembly unallocated, proposals past the bound): FAIL\n");
         exitCode = 1;
       }
     }
     /* -f 7: seat 0's signature refusals are the dealt fraud; any other
-     * seat's are a defect */
+     * seat's are a defect.  -f 13: the first value's shard at seat t,
+     * judged under the second's sign part held there, is the dealer's */
     for (i = 1; i < sizeof (tot.unitBad) / sizeof (tot.unitBad[0]); ++i)
       if (tot.unitBad[i] && !(Fault == AC_FAULT_GEOM && i == AC_UNIT_SSS)
        && !(AC_FAULT_SIGNING(Fault) && i == AC_UNIT_SIG && tot.unitBad[i] == sigAt0)
-       && !((Byz & 56) && i != AC_UNIT_MEM && tot.unitBad[i] == attr[BzSeat].unitBad[i])) {
+       && !(Fault == AC_FAULT_POOLS && i == AC_UNIT_RSEC && tot.unitBad[i] == attr[N - 1].unitBad[i])
+       && !((Byz & 8248) && i != AC_UNIT_MEM && tot.unitBad[i] == attr[BzSeat].unitBad[i])
+       && !(MemOnce && i == AC_UNIT_MEM && ctr[N - 1] && tot.unitBad[i] == ctr[N - 1]->c.unitBad[i])) {
         printf("unit refused at gate %u, %u times, not the arm's fault: FAIL\n", i, tot.unitBad[i]);
         exitCode = 1;
       }
@@ -4395,6 +5891,36 @@ deal:
              : !tot.keptMembers ? "kept no member past its position's end"
              : "left a member it kept without its message");
       exitCode = 1;
+    }
+    /* -O m: the sites seat N-1's memory refused, each once, by path; what
+     * else the run is judged by is unchanged: every refusal recovered */
+    if (MemOnce) {
+      const char *const memName[AC_MEM_PATHS] = {"reply budget", "hand-back queue", "unit", "launch", "rotation",
+                                                 "noop", "distribution", "row", "row ahead", "own", "search"};
+      unsigned int pth;
+      unsigned int bit;
+      unsigned int sites;
+
+      printf("memory refused at seat %u, each site once:", N - 1);
+      for (sites = 0, pth = 0; pth < AC_MEM_PATHS; ++pth) {
+        for (k = 0, bit = 0; ctr[N - 1] && bit < 32; ++bit)
+          k += (ctr[N - 1]->w.memDone[pth] >> bit) & 1;
+        sites += k;
+        printf(" %s %u", memName[pth], k);
+      }
+      printf("\n");
+      if (!sites) {
+        printf("seat %u's memory refused no site: the arm did not run, FAIL\n", N - 1);
+        exitCode = 1;
+      }
+    }
+    /* -8: a send in hand at seat 0 dropped, its record let go under it */
+    if (HoldKept) {
+      printf("seat 0's sends in hand dropped, their record let go: %u\n", HeldGone);
+      if (!HeldGone) {
+        printf("no send of seat 0's dropped under its record's letting go: the arm did not run, FAIL\n");
+        exitCode = 1;
+      }
     }
     /* where a seat holds the value, no signature is paid to be refused by the
      * high water: only a part ahead of its (initial, v) can turn on one */
@@ -4420,8 +5946,9 @@ deal:
     }
     if (NoDesc) {
       printf("descriptions said alone, by records holding nothing to carry the seat that asked: %u\n", tot.descAlone);
-      if (!tot.descAlone) {
-        printf("no record with nothing to carry was asked: the arm did not run, FAIL\n");
+      if (tot.descAlone < 2) {
+        printf("%s: the arm did not run, FAIL\n", tot.descAlone ? "the first cut, the record said it once: not again when asked again"
+               : "no record with nothing to carry was asked");
         exitCode = 1;
       }
     }
@@ -4459,13 +5986,36 @@ deal:
              : "was refused past a signature nowhere, seat 0 sent no value among them");
       exitCode = 1;
     }
+    /* -f 13: seat t holds the second value's sign part ahead of the
+     * (initial, v) and the first's replaces it; seats 0..t-1, the second
+     * value's (initial, v) held, are dealt the first's unit at every
+     * sweep, and once the first is accepted there, that value alone
+     * judges it: held, and exchanged */
+    if (Fault == AC_FAULT_POOLS && (!wtot.faultDealt || !attr[N - 1].signReplaced || wtot.heldOther < MaxByz)) {
+      printf("the second value %s: the arm did not run\n",
+             !wtot.faultDealt ? "was never dealt" : !attr[N - 1].signReplaced ? "replaced no sign part held ahead of its (initial, v)"
+             : "left a seat holding its (initial, v) without the first's unit once the first was accepted");
+      exitCode = 1;
+    }
     if (AC_FAULT_SIGNING(Fault) && !wtot.faultDealt) {
       /* the dealer was left out before the payload that carries the
        * fault: the arm did not run, which is not a verdict on the gate */
       printf("the fault was never dealt: the dealer's payload at slot %u came too late for -n %u; the arm did not run\n",
-             Fault == AC_FAULT_SPLIT ? SLOT_PAY + 1 : SLOT_PAY, Count);
+             Fault == AC_FAULT_SPLIT || Fault == AC_FAULT_TWOKEY ? SLOT_PAY + 1 : SLOT_PAY, Count);
       exitCode = 1;
-    } else if (AC_FAULT_SIGNING(Fault) && !sigAt0 && !otherAt0) {
+    } else if (Fault == AC_FAULT_TWOKEY && !wtot.valOther) {
+      /* seat 0 holds the value and never the unit, so the dealer deals
+       * it again at every sweep, and past the accept each copy is
+       * verified under the successor and is not the value accepted */
+      printf("the header signed under the dealer's successor reached no seat past its accept: the arm did not run\n");
+      exitCode = 1;
+    } else if (Fault == AC_FAULT_SLOTZERO && !wtot.slotKind) {
+      /* seat 0 holds no (initial, v) and no part of the payload, so the
+       * slot 0 copy passes its gate to the signature, and the slot rule
+       * refuses it ahead of every root's work */
+      printf("the payload's apex signed at slot 0 reached no seat's slot rule: the arm did not run\n");
+      exitCode = 1;
+    } else if (AC_FAULT_SIGNING(Fault) && Fault != AC_FAULT_TWOKEY && !sigAt0 && !otherAt0) {
       printf("%s and seat 0 refused it at neither its signature gate nor its value: the detector is blind\n",
              Fault == AC_FAULT_TWOFACE ? "a payload's apex dealt in a rotation's shape"
              : Fault == AC_FAULT_TWOSLOT ? "a payload's apex signed at a second slot"
@@ -4536,10 +6086,11 @@ deal:
            "igrLate igrMsg  igrDcd  igrEvict\n");
     egrMsg = 0;
     igrMsg = 0;
-    igrRefused = 0;
+    igrRefused = igrUnmarked = igrMarkAgain = 0;
+    igrHash = 0;
     egrFrg = 0;
     igrFrg = 0;
-    wSent = wRecv = wUnread = wStressed = wRefused = wNoBufs = 0;
+    wSent = wRecv = wUnread = wStressed = wRefused = wNoBufs = wPushed = wPushSame = 0;
     for (i = 0; i < N; ++i) {
       struct rsecFrmEgrCtrs ec;
       struct rsecFrmIgrCtrs ic;
@@ -4554,6 +6105,9 @@ deal:
       egrMsg += ec.msg;
       igrMsg += ic.msg;
       igrRefused += ic.refusedMsg;
+      igrUnmarked += ic.unmarked;
+      igrMarkAgain += ic.markAgain;
+      igrHash += ic.hash;
       egrFrg += ec.frg;
       igrFrg += ic.frg;
       wSent += ctr[i]->w.sent;
@@ -4562,9 +6116,16 @@ deal:
       wStressed += ctr[i]->w.stressed;
       wRefused += ctr[i]->w.refused;
       wNoBufs += ctr[i]->w.noBufs;
-      if (ctr[i]->c.frmRefused || ctr[i]->c.igrBusy || ctr[i]->w.dqDrop) {
-        printf("seat %u: the loop lost what it held (egress framer %u, ingress framer %u, -L %u)\n",
-               i, ctr[i]->c.frmRefused, ctr[i]->c.igrBusy, ctr[i]->w.dqDrop);
+      if (ctr[i]->c.frmRefused || ctr[i]->w.dqDrop) {
+        printf("seat %u: the loop lost what it held (egress framer %u, -L %u)\n",
+               i, ctr[i]->c.frmRefused, ctr[i]->w.dqDrop);
+        exitCode = 1;
+      }
+      wPushed += ctr[i]->w.pushed;
+      wPushSame += ctr[i]->w.pushSame;
+      if (ctr[i]->c.sendRefused != ctr[i]->w.pushed || ctr[i]->w.pushOther) {
+        printf("seat %u: sends refused %u, its socket pushed back %u; the send after one another datagram %u: FAIL\n",
+               i, ctr[i]->c.sendRefused, ctr[i]->w.pushed, ctr[i]->w.pushOther);
         exitCode = 1;
       }
       printf("%-5u %-7u %-7u %-7u %-7u %-9lu %-7u %-7u %-7u %-6u %-7u %-7u %-7u %-u\n"
@@ -4572,11 +6133,20 @@ deal:
             ,ec.msg, ec.frg, ec.full, ec.again, ec.wait / 1000
             ,ic.frg, ic.hash, ctr[i]->c.igrAuth, ic.dup + ic.refused, ic.late
             ,ic.msg, ic.dcd, ic.evict);
-      if (ic.hash || ic.shape || (ctr[i]->c.igrAuth && !(Byz & 128))) {
+      if ((ic.hash && !(Byz & 16384)) || ic.shape || (ctr[i]->c.igrAuth && !(Byz & 6272))) {
         printf("seat %u: refused a correct seat's word (gate %u, geometry %u, HMAC %u)\n",
                i, ic.hash, ic.shape, ctr[i]->c.igrAuth);
         exitCode = 1;
       }
+    }
+    /* -b 16384: its datagrams under a sender they do not name refused
+     * at the gate, and its messages shorter than their proof refused
+     * there, before any sender is read: neither is anyone's, so each is
+     * expected in the seat-wide counts alone */
+    if ((Byz & 16384) && (!igrHash || tot.malformed == malNamed)) {
+      printf("seat %u's frames: %u refused at the gate, %u malformed under no name: the arm did not fire, FAIL\n",
+             BzSeat, igrHash, tot.malformed - malNamed);
+      exitCode = 1;
     }
     /* The wire, from the seats' own counts at the stop: every datagram
      * a seat's sendto took was received, is still unread in a socket --
@@ -4596,6 +6166,62 @@ deal:
       printf("more datagrams received than sent: MISMATCH\n");
       exitCode = 1;
     }
+    if (wPushed)
+      printf("sends the sockets pushed back %u, each offered again next: the same datagram %u\n", wPushed, wPushSame);
+    if (PushEvery && (!ctr[N - 1] || !ctr[N - 1]->w.pushSame)) {
+      printf("-9: no send of seat %u's pushed back and offered again: the arm did not run\n", N - 1);
+      exitCode = 1;
+    }
+    if (DescHold) {
+      unsigned long hb[3];
+      unsigned int hm[3];
+      unsigned int k;
+      unsigned int liftTick;
+      unsigned int foldTick;
+      unsigned int leftTick;
+
+      pthread_mutex_lock(&FoldMu);
+      liftTick = DescLiftTick;
+      foldTick = DescFoldTick;
+      leftTick = DescLeftTick;
+      pthread_mutex_unlock(&FoldMu);
+      for (i = 0; i < N; ++i) {
+        if (!ctr[i])
+          continue;
+        for (hm[0] = hm[1] = hm[2] = 0, hb[0] = hb[1] = hb[2] = 0, k = 0; k < 4; ++k) {
+          hm[0] += ctr[i]->w.rcvSaid[0][k];
+          hm[1] += ctr[i]->w.rcvSaid[1][k];
+          hm[2] += ctr[i]->w.rcvSaid[2][k];
+          hb[0] += ctr[i]->w.rcvBytes[0][k];
+          hb[1] += ctr[i]->w.rcvBytes[1][k];
+          hb[2] += ctr[i]->w.rcvBytes[2][k];
+        }
+        printf("-1: seat %u's recover legs' talk%s: before the lift %u messages %lu bytes (INITIAL %u); after it at the held position"
+               " %u messages %lu bytes (INITIAL %u, BESIDE %u), elsewhere %u messages %lu bytes; recover legs started %u, %u by the lift\n",
+               i, i == N - 1 ? ", its own" : " to the last seat", hm[0], hb[0], ctr[i]->w.rcvSaid[0][BRACHA87_INITIAL], hm[1], hb[1],
+               ctr[i]->w.rcvSaid[1][BRACHA87_INITIAL], ctr[i]->w.rcvSaid[1][BRACHA87_BESIDE], hm[2], hb[2],
+               ctr[i]->c.recoverStarts, ctr[i]->w.startsAtLift);
+      }
+      if (ctr[N - 1]) {
+        for (hm[0] = 0, k = 0; k < N - 1; ++k)
+          hm[0] += ctr[N - 1]->sc[k].resent;
+        printf("-1: seat %u: descriptions dropped %u; an INITIAL at its machine at its count %u, the machine started again %u,"
+               " past the let-go %u; lifted at tick %u, folded at %u, a position let go at %u; rows refused unproved %u, of them re-sends %u;"
+               " liveMost %u, passLong %u, ticks %u\n",
+               N - 1, ctr[N - 1]->w.descHeld, ctr[N - 1]->w.rcvAgain, ctr[N - 1]->w.rcvAgainLive, ctr[N - 1]->w.rcvAgainLate,
+               liftTick, foldTick, leftTick, ctr[N - 1]->c.copy, hm[0], ctr[N - 1]->c.liveMost, ctr[N - 1]->c.passLong, ctr[N - 1]->c.ticks);
+      }
+      if (!ctr[N - 1] || ctr[N - 1]->w.rcvAgain == ctr[N - 1]->w.rcvAgainLate) {
+        printf("-1: no recover leg's INITIAL met seat %u's machine of it at its count at a live position: the arm did not run\n", N - 1);
+        exitCode = 1;
+      } else if (ctr[N - 1]->w.rcvAgain - ctr[N - 1]->w.rcvAgainLate != ctr[N - 1]->w.rcvAgainLive) {
+        /* each met at a position unfolded here, or its agreement not let
+         * go: the machine started again, so its HOLDING retires S's leg */
+        printf("-1: seat %u's machines at their count met %u times at a live position and started again %u: FAIL\n",
+               N - 1, ctr[N - 1]->w.rcvAgain - ctr[N - 1]->w.rcvAgainLate, ctr[N - 1]->w.rcvAgainLive);
+        exitCode = 1;
+      }
+    }
     printf("fragments sent %u, received %u\n", egrFrg, igrFrg);
     if (lossless && !wUnread && !dropped && !wRefused && !wStressed && egrFrg != igrFrg) {
       printf("nothing in flight, nothing lost, and the fragment counts differ: MISMATCH\n");
@@ -4605,6 +6231,8 @@ deal:
       printf("the declared cut, censor or hold dropped nothing: the arm did not fire, FAIL\n");
       exitCode = 1;
     }
+    printf("refused trains' marks: fragments refused at an index a mark held %u, refusals left without a mark %u\n",
+           igrMarkAgain, igrUnmarked);
     printf("egress messages %u, ingress messages %u, refused from the tag %u", egrMsg, igrMsg, igrRefused);
     if (wUnread)
       printf(" (a cut: %u datagrams in flight)", wUnread);
@@ -4622,9 +6250,10 @@ deal:
        * and BPR re-serves it), and every unit sent received or so
        * notified -- the framer's counts and the classes' agree.  An
        * evicted train's late shards open a second partial entry the LRU
-       * can evict again, so one message can be notified twice: the
-       * identity is exact without evictions and, with them,
-       * over-notified by at most their count. */
+       * can evict again, so one message can be notified twice, and a
+       * train refused and left without its mark can be asked again: the
+       * identity is exact without either and, with them, over by at
+       * most their count. */
       {
         unsigned int unitGot;
 
@@ -4632,18 +6261,18 @@ deal:
         igrMsg += igrRefused;
         over = igrMsg + tot.loss - egrMsg;
         overUnit = unitGot - tot.unitSent;
-        printf(" (lossless, m=0: %s with %u notified lost; unit parts %u sent, %u received"
+        printf(" (lossless, m=0: %s with %u notified lost, %u refused unmarked; unit parts %u sent, %u received"
                " + %u notified or of an instance not live there: %s)",
                egrMsg == igrMsg + tot.loss ? "reconciled"
-               : igrMsg + tot.loss > egrMsg && over <= tot.loss
-                 ? "reconciled net of a twice-notified train"
+               : igrMsg + tot.loss > egrMsg && over <= tot.loss + igrUnmarked
+                 ? "reconciled net of a train notified twice or asked again"
                : "MISMATCH",
-               tot.loss, tot.unitSent, tot.inDunit + tot.inXunit, tot.lossUnit + tot.routedUnit,
+               tot.loss, igrUnmarked, tot.unitSent, tot.inDunit + tot.inXunit, tot.lossUnit + tot.routedUnit,
                tot.unitSent == unitGot ? "ok"
-               : unitGot > tot.unitSent && overUnit <= tot.lossUnit + tot.routedUnit ? "ok net of it"
+               : unitGot > tot.unitSent && overUnit <= tot.lossUnit + tot.routedUnit + igrUnmarked ? "ok net of it"
                : "MISMATCH");
-        if ((igrMsg + tot.loss < egrMsg || over > tot.loss)
-         || (unitGot < tot.unitSent || overUnit > tot.lossUnit + tot.routedUnit))
+        if ((igrMsg + tot.loss < egrMsg || over > tot.loss + igrUnmarked)
+         || (unitGot < tot.unitSent || overUnit > tot.lossUnit + tot.routedUnit + igrUnmarked))
           exitCode = 1;
       }
     }
@@ -4694,8 +6323,11 @@ deal:
       quiet[i] = 0;
     }
     Cut = CutEgr = CutUnit = CutAgr = LapseAt = StrandAt = OwnOnly = NoDesc = LatePast = CutFrom = 0;
-    CutData = CutAll = Dead = Partitioned = 0;
+    CutData = CutAll = Dead = Partitioned = CutPast = 0;
+    BackMs = 0;
     memset(Folded, 0, sizeof (Folded));
+    memset(Left, 0, sizeof (Left));
+    memset(LeftMs, 0, AC_SEATS * Slots * sizeof (*LeftMs));
     memset(Ended, 0, sizeof (Ended));
     ApiLate = 0;
     memset(HwAt, 0, N * Slots * sizeof (*HwAt));
@@ -4708,6 +6340,9 @@ shutdown:
   if (mesh)
     memset(mesh, 0, (unsigned long)N * N * AC_PSK);
   free(mesh);
+  free(Seen);
+  free(RelPart);
+  free(RelLen);
   for (i = 0; i < N; ++i) {
     free(blob[i]);
     free(pub[i]);
@@ -4722,7 +6357,7 @@ usage:
     "            [-m parity] [-d shardus] [-p baseport]\n"
     "          [-r tickms] [-g patience] [-c ticks]\n"
     "            [-u blobbytes] [-F dgram] [-H sign] [-k kdf]\n"
-    "            [-n instances] [-e step] [-E k] [-s signings] [-z lagticks] [-w slowness] [-v seats] [-x cutticks] [-X egressticks] [-U legticks] [-V] [-O at:m] [-C] [-S k:m] [-y cutstart] [-Y] [-Z from:len]\n"
+    "            [-n instances] [-e step] [-E k] [-s signings] [-z lagticks] [-w slowness] [-v seats] [-x cutticks] [-7] [-X egressticks] [-U legticks] [-V] [-O at:m] [-C] [-S k:m] [-y cutstart] [-Y] [-Z from:len]\n"
     "            [-T ms=pairs/...] [-Q positions] [-G bytes]\n");
   fprintf(stderr,
     "            [-A sweeps] [-M bytes] [-P phases] [-i] [-b mask] [-2] [-f fault] [-a] [-6 positions] [-R] [-t] N t\n");
@@ -4754,6 +6389,12 @@ usage:
   fprintf(stderr,
     "  -T  the directed links over time: ms=pairs phases split by '/', ab the link a to b, '*' all\n"
     "  -x  seat N-1's ingress, and its egress unless -X, is cut for this many ticks from the go\n"
+    "  -7  and the cut holds until every other correct seat has let go of the position after seat N-1's last fold\n"
+    "  -1  with -7, seat N-1's recover descriptions dropped until a leg's INITIAL meets its machine at its count:\n"
+    "      1 the first, 2 one from every seat whose description was dropped\n");
+  fprintf(stderr,
+    "  -8  seat 0's framer full under a kept record's send, the -x cut holding until seat 0 keeps one\n");
+  fprintf(stderr,
     "  -X  seat N-1's egress alone is cut for this many ticks from the go\n"
     "  -U  seat N-1's ingress of the exchange alone is cut for this many ticks from the go\n"
     "  -q  seat N-1's ingress of the agreement alone is cut for this many ticks from the go\n"
@@ -4764,7 +6405,8 @@ usage:
     "  -V  with -U, the dealt units' data parts are cut too: the sign parts arrive\n"
     "  -o  ticks, a late unit the one a returner needs: seat N-1's own data part comes to seat 0 past them\n");
   fprintf(stderr,
-    "  -O  at:m, seat N-1's memory refuses member m's search, s the search's buffers or p the pool's, until kept\n"
+    "  -O  at:m, seat N-1's memory refuses member m's search, s the search's buffers or p the pool's, until kept;\n"
+    "      m, every allocation of its own and every library call failing so, once, at its first reach\n"
     "  -C  seat 0 sends seat N-1 no (initial, v) of its own and no unit, ever\n"
     "  -6  seats 0..t-1 send no INITIAL of their own under positions 1..this until each folds it:\n"
     "      no correct seat echoes them, so the N - t members are the others, seat N-1 among them\n");
@@ -4774,7 +6416,7 @@ usage:
   fprintf(stderr,
     "  -S  k:m, seats 0..k-1 receive no READY of seat N-1's value for m ticks: one BA's inputs split\n"
     "  -y  the cut begins at this tick, not the go; -Y the cut is every seat's: the network dark\n"
-    "  -Q  seat N-1 frozen from the tick -y names until the others fold this many positions past it: a stopped process\n"
+    "  -Q  seat N-1 frozen from the tick -y names until the others let go of this many positions past it: a stopped process\n"
     "  -G  seat N-1's socket receive buffer in bytes, below the system's default: a smaller host's\n");
   fprintf(stderr,
     "  -Z  from:len, every seat but N-1 proposes nothing from this tick for this many ticks: the chain idles\n"
@@ -4782,17 +6424,32 @@ usage:
   fprintf(stderr,
     "  -M  a seat's retention in bytes: the records behind the live window, the newest over the oldest (default 16 MiB)\n");
   fprintf(stderr,
-    "  -i  seat N-1 proposes nothing: its positions launch on the others' rows, its noop its input\n"
+    "  -i  seat N-1 proposes nothing: its positions launch on the others' rows, its noop its input\n");
+  fprintf(stderr,
     "  -b  seat N-1 rewrites its tags: 1 no annotations, 2 random names on its agreement rows, 4 its INITIAL under the genesis;\n"
     "      and its exchange parts: 8 a sign part byte, 16 a data part byte, 32 a unit's part a byte short,\n"
-    "      64 a description byte; -2 the seat is N-2 (t >= 2)\n");
+    "      64 a description rewritten, 8192 every other noop or rotation sign part as a data part of a byte;\n");
+  fprintf(stderr,
+    "      256 every fourth tag of a shape no correct seat sends; 512 its rows of classes 1-3 under a value\n"
+    "      a bit off; 1024 its echoes of broadcasts of its receiver's not begun; and its proofs: 128 every one\n"
+    "      failing, 2048 those of a row's later copies, 4096 those of its recover legs' data parts and\n"
+    "      descriptions, neither with 128; 16384 every sixteenth message under the receiver's or no seat's\n");
+  fprintf(stderr,
+    "      name, or one byte of its payload with no HMAC; 32768 with 2048 its recover legs to a\n"
+    "      seat on a schedule from what that seat holds of them, its copies but one past the\n"
+    "      description unproved; 65536 another position's noop first on its recover leg to seat N-1\n"
+    "      at position 1 (-2 -x -7 -n 1); -2 the seat is N-2 (t >= 2, or -o)\n");
   fprintf(stderr,
     "  -f  seat N-1's fault: 1 a shard, 2 a share, 3 the geometry, 4 the ciphertext,\n"
     "      5 every share but the last T, 6 a padding byte, 7 two-faced, 8 split (-n below 2^s),\n"
     "      9 a shard of one leaf and a share of another, 10 one apex at two slots,\n"
-    "      11 the second payload at the first's slot (-6 2),\n"
+    "      11 the second payload at the first's slot (-6 2),\n");
+  fprintf(stderr,
     "      12 the third payload at the first's slot, below the second's (-6 3),\n"
-    "      each one's INITIAL kept from seat 0\n");
+    "      each one's INITIAL kept from seat 0; 13 two values for one position: the second's\n"
+    "      INITIAL to seats 0..t-1 beside the first's unit, its sign part to seat t first;\n"
+    "      14 the second payload's header signed by the successor too, at its slot, to seat 0;\n"
+    "      15 the payload's apex signed at slot 0 too, to seat 0, its INITIAL kept from seat 0\n");
   fprintf(stderr,
     "  -a  with -f 1..6 or 9 and t >= 2, not -b or -C: seat N-2, the dealer's accomplice,\n"
     "      sends its exchange parts to seat 0 alone\n"
