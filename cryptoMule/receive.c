@@ -78,8 +78,8 @@
  *     not the derivation of the dealt seed fails HERE (dealer consistency,
  *     per-unit half; assemble's re-encode is the threshold half);
  *   - verify the clear shard's rsecMk proof against rsecmk_root, the shard
- *     first refused when it implies a ciphertext past CM_CT_MAX (k x its
- *     length; the same cap assemble applies on its wire).  The record keeps
+ *     first refused when it is past the deal's shard_max (one transport
+ *     message; the same cap assemble applies on its wire).  The record keeps
  *     the bytes it read either way; exchange forwards on the verdict.
  *
  * Persists priv/<p>_recv.txt (seat p = index i + 1): the five verdicts plus the
@@ -218,7 +218,7 @@ main(
    * roots, the signature): a malformed field refuses the unit.  A part's own
    * fields are read with the part, below, and cost that part alone. */
   if (!(sig = malloc(sgsz)) || !(sproof = malloc(pfsS))
-   || !(rproof = malloc(pfsR)) || !(shard = malloc(CM_SHARD_MAX)))
+   || !(rproof = malloc(pfsR)) || !(shard = malloc(cfg->ctMax)))
     goto done;
   if (cmGetField(apexPath, "apex", carried, CM_SIGN_HSZ) != CM_SIGN_HSZ) goto badfile;
   if (cmGetStr(signPath, "tag", tag, sizeof (tag)) < 0) goto badfile;
@@ -312,11 +312,11 @@ main(
   if ((shardOk = shardOk && shardWire
               && cmGetStr(shardPath, "tag", tag, sizeof (tag)) >= 0
               && !strcmp(tag, apexName)                      /* this apex message's shard, by its tag */
-              && (sl = cmGetField(shardPath, "shard", shard, CM_SHARD_MAX)) > 0)) {
+              && (sl = cmGetField(shardPath, "shard", shard, cfg->ctMax)) > 0)) {
     shardLen = (unsigned int)sl;
-    if ((unsigned long)cfg->t * shardLen > CM_CT_MAX)
-      fprintf(stderr, "%s: seat %u  shard %u x T=%u is past CM_CT_MAX %lu: refused\n"
-             ,argv[0], idx + 1, shardLen, cfg->t, (unsigned long)CM_CT_MAX);
+    if (shardLen > cfg->shardMax)
+      fprintf(stderr, "%s: seat %u  shard %u bytes is past shard_max %u: refused\n"
+             ,argv[0], idx + 1, shardLen, cfg->shardMax);
     else if ((p = rsecMkExtract(&rPlug, shard, shardLen, idx, r, rproof, rsecvf)) != 0)
       rsecOk = !memcmp(p, rsecRoot, CM_RSEC_HSZ);
   }

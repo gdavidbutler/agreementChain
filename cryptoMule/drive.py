@@ -43,7 +43,7 @@ analyzed without wire captures.
   drive.py byz N T         # byzantine dealer: a bad committed part searched past, most leaves salted, a ground seed, another encoder's stream, a wrong codeword FRAUD
   drive.py budget N T      # the try budget: an unfinished search is FAIL, never FRAUD (46 2: shard subsets; 23 5: share subsets)
   drive.py parts N T       # the share and the shard are two parts: a rotted shard costs its holder's share nothing
-  drive.py limit N T       # the caps: a blob past CM_BLOB_MAX unread; the 64k ciphertext refused at distribute and on the wire; the signed header alone
+  drive.py limit N T       # the caps: a blob past CM_BLOB_MAX unread; a shard at shard_max delivered, one past it refused at distribute and on the wire; the signed header alone
   drive.py retry N T       # byte-identical re-presentation accepted, re-authoring not (payload and rotation); a rotation ahead of the book
   drive.py resend R N T    # a banked distribute re-sent, mask rebuilt off the floor chain
   drive.py chain R N T     # the dispersal chain from the dealt genesis, and its two ways to fall off
@@ -147,8 +147,8 @@ hidden-but-verifiable:
                                                previous link and the message hash recomputes it,
                                                so anchorlog.txt is a CACHE of public
                                                values, never an authority
-  - drive/config.txt is the OOB deal         -> R/T/k/m are derived; the one non-secret
-                                               dealt field is the genesis
+  - drive/config.txt is the OOB deal         -> R/T/k/m are derived; N, T, shard_max and
+                                               the genesis are dealt alike and no secret
 
 What is left per fragment is irreducible -- process, the signed apex inputs (orig_hash
 + the two Merkle roots), the signature, the recipient's own masked share /
@@ -197,6 +197,7 @@ where the sender validated it and never without the apex and the signature.
 
 import glob
 import os
+import re
 import sys
 import secrets
 import shutil
@@ -204,6 +205,7 @@ import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OPERCFG = os.path.join(HERE, "drive", "config.txt")
+SHARD_MAX = 150000   # the longest shard, the transport's longest message: the operator's number to deal, none of the mule's
 
 
 def _mkdirs():
@@ -229,11 +231,13 @@ def _pair(a, b):
 
 def _write_operator(f, n, t, mesh, macmesh, genesis):
     """the dealer's full ledger: every unordered pair PSK(a,b) -- the ratcheting
-    mask mesh AND the static wire-hmac mac mesh -- plus the genesis, the dispersal
-    chain's base.  No scp/ocp: the SSS code points derive from a hidden
+    mask mesh AND the static wire-hmac mac mesh -- plus N, T, shard_max (the
+    transport's longest message) and the genesis, the dispersal chain's base.
+    No scp/ocp: the SSS code points derive from a hidden
     per-distribution seed, never dealt."""
     f.write("N %d\n" % n)
     f.write("T %d\n" % t)
+    f.write("shard_max %d\n" % SHARD_MAX)
     f.write("genesis %s\n" % genesis.hex())
     for a, b in sorted(mesh):
         f.write("psk %d_%d %s\n" % (a, b, mesh[(a, b)].hex()))
@@ -245,11 +249,12 @@ def _write_projection(f, n, t, p, mesh, macmesh, genesis):
     """seat p's ROW: one line per recipient q, key pre-resolved to PSK(p,q) and
     indexed by the recipient id (self-relative).  This is all seat p is dealt.
     The mac row is the static wire-hmac key: it never enters the keystate and
-    never ratchets.  The genesis is the ONE dealt field that is not a secret and
-    not a row: every seat gets the SAME value, because a chain whose base
-    differs between two seats never joins."""
+    never ratchets.  The genesis, like N, T and shard_max, is no secret and no
+    row: every seat gets the SAME value, because a chain whose base differs
+    between two seats never joins."""
     f.write("N %d\n" % n)
     f.write("T %d\n" % t)
+    f.write("shard_max %d\n" % SHARD_MAX)
     f.write("genesis %s\n" % genesis.hex())
     for q in range(n):
         if q == p:
@@ -314,6 +319,17 @@ def _cfg_n():
         if line.startswith("N "):
             return int(line.split()[1])
     sys.exit("drive/config.txt: no N")
+
+
+def _cfg_ctmax():
+    """T x shard_max of the deal: the ciphertext's bound, every shard reader's
+    buffer."""
+    v = {}
+    for line in open(OPERCFG):
+        w = line.split()
+        if len(w) == 2 and w[0] in ("T", "shard_max"):
+            v[w[0]] = int(w[1])
+    return v["T"] * v["shard_max"]
 
 
 def _mac(a, b):
@@ -1752,12 +1768,14 @@ def cmd_parts(n, t):
 
 def cmd_limit(n, t):
     """THE CAPS.  A blob past CM_BLOB_MAX is refused at distribute before a
-    byte of it is read.  A message that compresses past CM_CT_MAX is not
-    dispersed; dispersed anyway (distribute's `big` fault), every receiver
-    refuses the shard part on its own wire (rsecmk_ok no, the share kept),
-    exchange forwards shares alone, and no assembler reaches T on shards --
-    the same check on both wires.  A seat whose share is refused too holds
-    neither part, and exchange still forwards it the signed header."""
+    byte of it is read.  The deal's shard_max is the longest shard (a shard
+    is one transport message): a message whose shard is shard_max exactly is
+    delivered at every seat, and one a byte longer is not dispersed;
+    dispersed anyway (distribute's `big` fault), every receiver refuses the
+    shard part on its own wire (rsecmk_ok no, the share kept), exchange
+    forwards shares alone, and no assembler reaches T on shards -- the same
+    check on both wires.  A seat whose share is refused too holds neither
+    part, and exchange still forwards it the signed header."""
     cmd_keychain(1)
     cmd_setup(n, t)
     _reset_floor()
@@ -1774,13 +1792,45 @@ def cmd_limit(n, t):
     ok0 = (r.returncode != 0 and b"past CM_BLOB_MAX" in r.stderr
            and not os.path.exists(os.path.join(HERE, "wire", "dist", "00_to_01_shard.txt")))
     print("distribute of a blob past CM_BLOB_MAX: %s" % ("REFUSED unread, nothing on the wire" if ok0 else "DISPERSED (BUG)"))
-    write_blob(os.urandom(70000))               # incompressible: past 64k however it is packed
-    for f in glob.glob(os.path.join(HERE, "wire", "dist", "00_to_01_*.txt")):
-        os.remove(f)                             # an earlier arm's leg must not stand in for this one
-    r = subprocess.run(["./distribute", "priv/00_config.txt", "priv/00_blob.bin",
-                        "priv/00_ctx_00.bin", ".", "0"], cwd=HERE).returncode
-    ok1 = r != 0 and not os.path.exists(os.path.join(HERE, "wire", "dist", "00_to_01_shard.txt"))
-    print("distribute past the cap: %s" % ("REFUSED, nothing on the wire" if ok1 else "DISPERSED (BUG)"))
+    # the boundary.  A blob of every byte value alike is huffman's raw form
+    # (no code shorter than eight bits), so the stream is the blob and a
+    # constant overhead (the length field and a byte); distribute's refusal
+    # names the stream's length, so a first blob past the cap measures it
+    def even(b):
+        return bytes(i % 256 for i in range(b))
+
+    def refused(b):
+        write_blob(even(b))
+        for f in glob.glob(os.path.join(HERE, "wire", "dist", "00_to_01_*.txt")):
+            os.remove(f)                         # an earlier arm's leg must not stand in for this one
+        r = subprocess.run(["./distribute", "priv/00_config.txt", "priv/00_blob.bin",
+                            "priv/00_ctx_00.bin", ".", "0"], cwd=HERE, capture_output=True)
+        m = re.search(rb"compressed message (\d+) bytes makes a shard of (\d+), past shard_max", r.stderr)
+        if r.returncode == 0 or not m or os.path.exists(os.path.join(HERE, "wire", "dist", "00_to_01_shard.txt")):
+            return None
+        return int(m.group(1)), int(m.group(2))
+    ct = t * SHARD_MAX
+    m = refused(ct + 1)
+    at = ct - (m[0] - (ct + 1)) if m else 0      # the blob whose stream is T x shard_max
+    m = refused(at + 1) if m else None
+    ok1 = m is not None and m[1] == SHARD_MAX + 1
+    print("distribute of a shard one byte past shard_max (%d): %s"
+          % (SHARD_MAX, "REFUSED, nothing on the wire" if ok1 else "DISPERSED (BUG)"))
+    # the longest message the cap admits, through the whole flow
+    cmd_keychain(1)
+    cmd_setup(n, t)
+    _reset_floor()
+    write_blob(even(at))
+    npass, total, _, _ = _payload_steps("priv/00_ctx_00.bin", 0, 0, range(n))
+    sh = _field("wire/dist/00_to_01_shard.txt", "shard")
+    okc = ok1 and npass == total and sh is not None and len(sh) == 2 * SHARD_MAX
+    print("a shard of shard_max exactly: %s" % ("%d/%d PASS" % (npass, total) if okc else "NOT DELIVERED (BUG)"))
+    # one byte past it, dispersed anyway: the shard between the cap and the
+    # readers' buffer (T x shard_max), refused by name on every wire
+    cmd_keychain(1)
+    cmd_setup(n, t)
+    _reset_floor()
+    write_blob(even(at + 1))
     cmd_dist("priv/00_ctx_00.bin", 0, "big")
     recv = cmd_phase("receive")
     recs = [open(os.path.join(HERE, "priv", "%02d_recv.txt" % p)).read() for p in range(1, n)]
@@ -1823,8 +1873,8 @@ def cmd_limit(n, t):
     _sys("assemble", q - 1)                      # its own unit, holding neither part, joins no pool
     ok5 = ok5 and _asm_result(q) == "FAIL" and not [x for x in _asm(q, "share_senders") + _asm(q, "shard_senders") if "held" in x]
     print("a seat holding neither part: %s" % ("forwards the signed header alone, and gathers nothing of its own" if ok5 else "NOT forwarded alone (BUG)"))
-    ok = ok0 and ok1 and ok2 and ok3 and ok4 and ok5
-    print("THE CAPS (the blob unread; the ciphertext, the same check on both wires): %s" % ("demonstrated" if ok else "NOT shown"))
+    ok = ok0 and ok1 and okc and ok2 and ok3 and ok4 and ok5
+    print("THE CAPS (the blob unread; the shard, the same check on both wires): %s" % ("demonstrated" if ok else "NOT shown"))
     sys.exit(0 if ok else 1)
 
 
@@ -1997,7 +2047,7 @@ HOSTILE = {                     # one field, rewritten by a sender who holds the
     "odd": lambda v: v[:-1],
     "half": lambda v: v[:len(v) // 2],
     "double": lambda v: v + v,
-    "huge": lambda v: "ab" * 70000,
+    "huge": lambda v: "ab" * (_cfg_ctmax() + 1),   # past every reader's bound, the shard's included
     "flip": lambda v: v[:len(v) // 2] + ("0" if v[len(v) // 2] != "0" else "1") + v[len(v) // 2 + 1:],
     "tail": lambda v: v + "x",
     "lead": lambda v: ("1" if v[:1] != "1" else "2") + v[1:],

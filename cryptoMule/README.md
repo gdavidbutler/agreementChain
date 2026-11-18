@@ -145,7 +145,7 @@ Nothing that can be derived is carried:
 - the signer's pub, which the reader's book holds
 - the signing offset, which the signature yields
 
-The ciphertext is capped at 64k (`CM_CT_MAX`). The cap is checked from the shard in hand, at `receive` and at `assemble`, so no length is carried for it.
+A shard is capped at the deal's `shard_max`. A shard is one transport message, so the cap is the transport's longest message, dealt like N and T and never derived here, and the ciphertext is at most T of them. `distribute` refuses a message whose shard would pass it, and `receive` and `assemble` check it from the shard in hand, so no length is carried for it.
 
 The ciphertext shard travels in the clear. It is already ciphertext, because the message is encrypted before it is split, and masking a shard after the Reed-Solomon encode would leak the keystream through the parity rows. See the field list in `drive.py`'s docstring and the arm `limit`.
 

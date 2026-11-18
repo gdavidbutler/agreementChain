@@ -83,7 +83,7 @@
  *            subset mixing it with the dealt seed is interpolated
  *   ct    -- commit a CONSISTENT codeword of the wrong bytes: corrupt the
  *            ciphertext BEFORE the RS encode, so every subset decodes to it
- *   big   -- disperse past CM_CT_MAX (the cap is skipped here): every
+ *   big   -- disperse past shard_max (the cap is skipped here): every
  *            receiver refuses the shard part on its own wire
  * Every per-unit gate still passes where the fraud is not local; detection is
  * receive's code points check or assemble's search: shard, share, geom and
@@ -389,9 +389,9 @@ main(
   shardLen = (unsigned int)((clen + k - 1) / k);
   if (fltPad)                         /* one byte of padding at least, to flip */
     shardLen = (unsigned int)((clen + 1 + k - 1) / k);
-  if ((unsigned long)k * shardLen > CM_CT_MAX && !fltBig) {
-    fprintf(stderr, "%s: compressed message %lu bytes pads to %lu, past CM_CT_MAX %lu: not dispersed\n"
-           ,argv[0], clen, (unsigned long)k * shardLen, (unsigned long)CM_CT_MAX);
+  if (shardLen > cfg->shardMax && !fltBig) {
+    fprintf(stderr, "%s: compressed message %lu bytes makes a shard of %u, past shard_max %u: not dispersed\n"
+           ,argv[0], clen, shardLen, cfg->shardMax);
     goto done;
   }
   if (!(ctPad = malloc((unsigned long)k * shardLen))

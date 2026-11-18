@@ -234,7 +234,7 @@ main(
   sgsz = mlsSgSz(&v);
 
   if (!(sig = malloc(sgsz)) || !(sproof = malloc(pfsS))
-   || !(rproof = malloc(pfsR)) || !(shard = malloc(CM_SHARD_MAX)))
+   || !(rproof = malloc(pfsR)) || !(shard = malloc(cfg->ctMax)))
     goto done;
   if (cmGetU(spath, "process", &proc)) goto badfile;
   if (cmGetField(spath, "orig_hash", orig_hash, CM_SIGN_HSZ) != CM_SIGN_HSZ) goto badfile;
@@ -246,7 +246,7 @@ main(
   if (sOk && cmGetField(spath, "sssmk_proof", sproof, pfsS) != (int)pfsS) goto badfile;
   shardLen = 0;
   if (rOk) {
-    if ((sl = cmGetField(spath, "shard", shard, CM_SHARD_MAX)) <= 0) goto badfile;
+    if ((sl = cmGetField(spath, "shard", shard, cfg->ctMax)) <= 0) goto badfile;
     shardLen = (unsigned int)sl;
   }
   if (rOk && cmGetField(spath, "rsecmk_proof", rproof, pfsR) != (int)pfsR) goto badfile;

@@ -366,6 +366,7 @@ main(
   unsigned int q;
   unsigned int off;
   int sl;
+  unsigned int sLen;                  /* sl, measured: the shard in hand's length */
   int held;                           /* gathering the own unit, not a wire message */
   int haveFloor;
   int sigOk;                          /* an initiator-signed fragment was seen */
@@ -496,7 +497,7 @@ main(
    * made when its apex is first seen */
   if (!(sig = malloc(sgsz)) || !(sproof = malloc(pfsS)) || !(rproof = malloc(pfsR))
    || !(sssvf = malloc(sssMkVfSz(CM_SSS_H))) || !(rsecvf = malloc(rsecMkVfSz(CM_RSEC_H)))
-   || !(shardprobe = malloc(CM_SHARD_MAX))
+   || !(shardprobe = malloc(cfg->ctMax))
    || !(pools = calloc(r, sizeof (*pools)))
    || !(shareptr = malloc((unsigned long)t * sizeof (*shareptr)))
    || !(ptSel = malloc(t))
@@ -662,8 +663,8 @@ main(
 
     /* the shard part: expected when the validated sign message carries
      * rsecmk_proof, then required of the shard message, hmac-whole, tagged
-     * with this apex message, within the cap (k x its length is the
-     * ciphertext, the same check receive makes), then the clear shard under
+     * with this apex message, within the deal's shard_max (one transport
+     * message, the same check receive makes), then the clear shard under
      * the signed root.
      * shard_len is the shard's own length, taken from the pool's first shard
      * that verifies; the root binds the length, so every shard that verifies
@@ -672,16 +673,16 @@ main(
      && rOk
      && (held || (cmGetStr(shardPath, "tag", tag, sizeof (tag)) >= 0
                && !strcmp(tag, apexName)))             /* this apex message's shard, by its tag */
-     && (sl = cmGetField(shardPath, "shard", shardprobe, CM_SHARD_MAX)) > 0
-     && (unsigned long)k * sl <= CM_CT_MAX
-     && (p = rsecMkExtract(&rPlug, shardprobe, (unsigned int)sl, i, r, rproof, rsecvf))
+     && (sl = cmGetField(shardPath, "shard", shardprobe, cfg->ctMax)) > 0
+     && (sLen = sl) <= cfg->shardMax
+     && (p = rsecMkExtract(&rPlug, shardprobe, sLen, i, r, rproof, rsecvf))
      && !memcmp(p, P->rr, CM_RSEC_HSZ)) {
       if (!P->cd) {
-        P->shardLen = (unsigned int)sl;
+        P->shardLen = sLen;
         if (!(P->shardBuf = malloc((unsigned long)r * P->shardLen)))
           goto done;
       }
-      if ((unsigned int)sl == P->shardLen) {
+      if (sLen == P->shardLen) {
         memcpy(P->shardBuf + (unsigned long)P->cd * P->shardLen, shardprobe, P->shardLen);
         P->shardLeaf[P->cd] = (unsigned char)i;
         sprintf(P->shardSenders + strlen(P->shardSenders), held ? "%u(held) " : "%u ", i + 1);

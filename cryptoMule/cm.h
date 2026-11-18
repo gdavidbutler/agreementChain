@@ -174,8 +174,6 @@
 #define CM_KEY_LEN    32             /* bulk keystream key K, == SSS share len */
 #define CM_SEED_LEN   16             /* hidden per-distribution seed of the code points (128-bit) */
 #define CM_MVAL_LEN   (CM_SEED_LEN + CM_KEY_LEN)  /* masked SSS value on the wire AND the sssMk leaf data: [seed][key-share], masked as one unit so the code points stay hidden from anyone who cannot unmask; scp/ocp are DERIVED from the seed, never carried */
-#define CM_CT_MAX     65536          /* the padded ciphertext (k x shard_len), the thing dispersed, is at most 64k (the number is the expected transport's, not derived here); distribute refuses a message that compresses past it, and receive and assemble refuse a shard that implies more -- the same check on both wires */
-#define CM_SHARD_MAX  CM_CT_MAX      /* a ciphertext shard is one transport message and shard_len is the delivered message's own length, never carried; a shard is at most half the ciphertext (T = 2, the least T), so this only bounds the read buffer */
 #define CM_PSK_LEN    64             /* pairwise mask IKM: serves BOTH phases (separated by the mask DOMAIN: CM_DOM_DIST vs CM_DOM_EXCH) */
 #define CM_MAXPROC    256            /* GF(2^8) bound on shares/shards; also bounds the seat ids that index the pairwise store */
 #define CM_SEARCH_TRIES 65536        /* assemble's one try budget, shares and shards together: a committed bad part is found by search (above), and a dealer that salts most of its leaves would otherwise make every assembler enumerate C(R,T); the default covers every pair of 255 shares twice (the agreed pass and the relaxed pass, 2 x 32385), the shard subsets under each K candidate coming out of the same budget */
@@ -196,8 +194,8 @@
 
 /* dealt secrets + membership.  The OPERATOR'S drive/config.txt holds every field
  * (the full pairwise mesh PSK(a,b)); each seat's priv/<p>_config.txt holds only
- * that seat's ROW -- membership (n, T) and the pairwise PSK(p,q) it is a party
- * to, pre-resolved to the recipient id q.  A recipient holding only its own pairs can
+ * that seat's ROW -- membership (n, T), the transport's shard_max, and the
+ * pairwise PSK(p,q) it is a party to, pre-resolved to the recipient id q.  A recipient holding only its own pairs can
  * unmask only its own distribution share (1 < T), so it stays blind to the
  * payload until exchange: this least-knowledge split is what enforces censorship
  * resistance.  The SSS code points (scp/ocp) are NOT here -- they DERIVE from a
@@ -210,6 +208,8 @@
 typedef struct {
   unsigned int n;                            /* total seats incl. initiator */
   unsigned int t;                            /* reconstruction threshold */
+  unsigned int shardMax;                     /* the longest shard: a shard is one transport message, so this is the transport's number, dealt, never derived here; distribute refuses a message whose shard is past it, and receive and assemble refuse a shard past it -- the same check on both wires */
+  unsigned int ctMax;                        /* T x shardMax, the padded ciphertext's bound (k x shard_len, the thing dispersed): every shard reader's buffer, so a shard past shardMax is read and refused by name */
   unsigned char psk[CM_MAXPROC][CM_PSK_LEN]; /* psk[q] = pairwise mask PSK(self,q) */
   unsigned char mac[CM_MAXPROC][CM_PSK_LEN]; /* mac[q] = pairwise wire-hmac PSK(self,q), static */
   unsigned char genesis[CM_SIGN_HSZ];        /* the chain's base; PUBLIC, dealt to all (see cmChain) */
@@ -227,7 +227,10 @@ int cmHexDec(const char *h, unsigned char *o, unsigned int max);
 
 /* load the dealt config from a "key value" text file, 0 on success; refuses
  * a deal outside N >= 3, 2 <= T <= N - 1, N <= CM_MAXPROC (T > 1 is the
- * censorship-resistance floor: at T = 1 every share is the key) */
+ * censorship-resistance floor: at T = 1 every share is the key), and one
+ * without a shard_max, or whose ctMax passes cmGetField's int count, or whose
+ * R x shard_max passes an unsigned long; a number not the canonical digit run
+ * cmGetU takes, or a hex token not exactly its length, is malformed */
 int cmCfgLoad(const char *path, cmCfg *c);
 
 /* override the PSK(s) this seat holds with the dispersal's ratcheted mask IKMs
@@ -389,7 +392,8 @@ int cmHmacCheck(const char *path, const unsigned char *key, unsigned int kl
 /* text field I/O: "name: <hex>\n", "name: <decimal>\n" and "name: <text>\n" */
 void cmPutField(FILE *f, const char *name, const unsigned char *b, unsigned int l);
 void cmPutU(FILE *f, const char *name, unsigned long v);
-/* read named field from path; hex -> out (return bytes or -1); U -> *v (0, or -1
+/* read named field from path; hex -> out (return bytes, or -1 when absent or
+ * not cmHexEnc's form to the line's newline within max bytes); U -> *v (0, or -1
  * when absent or not the canonical digit run cmPutU writes); Str -> out,
  * NUL-terminated, the newline stripped (return its length, or -1 when absent
  * or the line does not end within the reader's bound: overlong is malformed,

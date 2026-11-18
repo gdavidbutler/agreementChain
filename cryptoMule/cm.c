@@ -93,27 +93,45 @@ cmCfgLoad(
   rc = -1;
   memset(c, 0, sizeof (*c));
   while (fscanf(f, "%15s", key) == 1) {
-    if (!strcmp(key, "N")) {
-      if (fscanf(f, "%u", &c->n) != 1) goto done;
-    } else if (!strcmp(key, "T")) {
-      if (fscanf(f, "%u", &c->t) != 1) goto done;
-    } else if (!strcmp(key, "psk")) {
-      unsigned int q;                        /* recipient seat id (this seat's row) */
-      char hx[2 * CM_PSK_LEN + 1];
-      if (fscanf(f, "%u", &q) != 1 || q >= CM_MAXPROC) goto done;
-      if (fscanf(f, "%128s", hx) != 1
-       || cmHexDec(hx, c->psk[q], CM_PSK_LEN) != CM_PSK_LEN) goto done;
-      c->pskHave[q] = 1;
+    unsigned long x;
+    unsigned int u;
+    char tok[16];
+    char *e;
+
+    /* every key but genesis opens with a number, the canonical digit run
+     * cmGetU takes (a digit first, no leading zero, within an unsigned
+     * int): a sign, a wrap or a tail is malformed, never what %u makes of
+     * it.  A hex token is read a digit past its length, so one running on
+     * is malformed too, never cut into the next key */
+    u = 0;
+    if (strcmp(key, "genesis")) {
+      if (fscanf(f, "%15s", tok) != 1
+       || tok[0] < '0' || tok[0] > '9' || (tok[0] == '0' && tok[1]))
+        goto done;
+      errno = 0;
+      x = strtoul(tok, &e, 10);
+      if (*e || errno || (u = x) != x)
+        goto done;
+    }
+    if (!strcmp(key, "N"))
+      c->n = u;
+    else if (!strcmp(key, "T"))
+      c->t = u;
+    else if (!strcmp(key, "shard_max"))      /* the transport's longest message */
+      c->shardMax = u;
+    else if (!strcmp(key, "psk")) {          /* u: the recipient seat id (this seat's row) */
+      char hx[2 * CM_PSK_LEN + 2];
+      if (u >= CM_MAXPROC || fscanf(f, "%129s", hx) != 1
+       || cmHexDec(hx, c->psk[u], CM_PSK_LEN) != CM_PSK_LEN) goto done;
+      c->pskHave[u] = 1;
     } else if (!strcmp(key, "mac")) {        /* static pairwise wire-hmac PSK */
-      unsigned int q;
-      char hx[2 * CM_PSK_LEN + 1];
-      if (fscanf(f, "%u", &q) != 1 || q >= CM_MAXPROC) goto done;
-      if (fscanf(f, "%128s", hx) != 1
-       || cmHexDec(hx, c->mac[q], CM_PSK_LEN) != CM_PSK_LEN) goto done;
-      c->macHave[q] = 1;
+      char hx[2 * CM_PSK_LEN + 2];
+      if (u >= CM_MAXPROC || fscanf(f, "%129s", hx) != 1
+       || cmHexDec(hx, c->mac[u], CM_PSK_LEN) != CM_PSK_LEN) goto done;
+      c->macHave[u] = 1;
     } else if (!strcmp(key, "genesis")) {    /* public chain base, dealt to all */
-      char hx[2 * CM_SIGN_HSZ + 1];
-      if (fscanf(f, "%32s", hx) != 1
+      char hx[2 * CM_SIGN_HSZ + 2];
+      if (fscanf(f, "%33s", hx) != 1
        || cmHexDec(hx, c->genesis, CM_SIGN_HSZ) != CM_SIGN_HSZ) goto done;
       c->genesisHave = 1;
     } else
@@ -121,9 +139,15 @@ cmCfgLoad(
   }
   /* the deal's bounds, one home for every program: N >= 3 (the initiator
    * and two others), T > 1 (SSS drives censorship
-   * resistance, and at T = 1 there is none), T <= R, N within GF(2^8) */
-  if (c->n < 3 || c->t < 2 || c->t > c->n - 1 || c->n > CM_MAXPROC)
+   * resistance, and at T = 1 there is none), T <= R, N within GF(2^8); a
+   * shard_max dealt, T of it (the read buffer) within cmGetField's int
+   * count, and R of it (the shards a dispersal holds) within an unsigned
+   * long, the products every program allocates by */
+  if (c->n < 3 || c->t < 2 || c->t > c->n - 1 || c->n > CM_MAXPROC
+   || !c->shardMax || c->shardMax > INT_MAX / c->t
+   || c->shardMax > ULONG_MAX / (c->n - 1))
     goto done;
+  c->ctMax = c->t * c->shardMax;
   rc = 0;
  done:
   fclose(f);
@@ -692,27 +716,54 @@ cmGetField(
  ,unsigned int max
 ){
   FILE *f;
-  char *line;
   unsigned int nl;
-  unsigned int cap;
+  unsigned int i;
+  unsigned int n;
+  int c;
+  int d;
   int rc;
 
-  cap = 1U << 18; /* 256 KB: holds large shard/signature hex lines */
-  if (!(line = malloc(cap)))
+  /* read straight from the file, no line buffer: a field of any max costs
+   * no allocation, so a refusal is always the bytes', and a line is one line
+   * however long, its rest never read as the start of another.  The field
+   * is cmHexEnc's form, two lower-case hex digits a byte, at most max bytes,
+   * running to the line's newline: an overlong run, a non-hex tail (a NUL
+   * or a carriage return among them), a dangling nibble, upper case, or the
+   * file's end or a read error before the newline (cmPutField writes it,
+   * as cmGetU and cmGetStr require it) is malformed, never "the first n
+   * bytes of it".  The count is an int */
+  if (max > INT_MAX || !(f = fopen(path, "r")))
     return (-1);
-  if (!(f = fopen(path, "r"))) {
-    free(line);
-    return (-1);
-  }
-  rc = -1;
   nl = strlen(name);
-  while (fgets(line, (int)cap, f))
-    if (!strncmp(line, name, nl) && line[nl] == ':' && line[nl + 1] == ' ') {
-      rc = cmHexDec(line + nl + 2, out, max);
-      break;
-    }
+  rc = -1;
+line:
+  for (i = 0; i < nl; ++i)
+    if ((c = getc(f)) != (unsigned char)name[i])    /* getc's bytes are unsigned */
+      goto skip;
+  if ((c = getc(f)) != ':' || (c = getc(f)) != ' ')
+    goto skip;
+  for (n = 0; (c = getc(f)) != '\n'; ++n) {
+    if (n == max)
+      goto done;
+    if (c >= '0' && c <= '9') d = c - '0';
+    else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
+    else goto done;
+    out[n] = d << 4;
+    c = getc(f);
+    if (c >= '0' && c <= '9') d = c - '0';
+    else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
+    else goto done;
+    out[n] |= d;
+  }
+  rc = n;
+  goto done;
+skip:
+  while (c != '\n' && c != EOF)
+    c = getc(f);
+  if (c != EOF)
+    goto line;
+done:
   fclose(f);
-  free(line);
   return (rc);
 }
 
